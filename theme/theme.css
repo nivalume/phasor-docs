@@ -1,0 +1,29 @@
+/*
+ * Theme overrides. This file loads after Clio's own styles, so any design
+ * variable set here wins.
+ */
+
+/*
+ * Code citations (`crates/…:line`) link to the vbt repository at a fixed
+ * commit. A page can have dozens of them, so they look like code links
+ * (tinted code, no underline) instead of carrying an external-link arrow each.
+ */
+.prose a[href^="https://github.com/nivalume/vbt/"]:has(> code:only-child) {
+  background: none;
+  border-bottom: none;
+}
+
+.prose a[href^="https://github.com/nivalume/vbt/"]:has(> code:only-child)::after {
+  content: none;
+}
+
+.prose a[href^="https://github.com/nivalume/vbt/"] > code {
+  background: var(--cobalt-tint);
+  border-color: var(--lilac);
+}
+
+.prose a[href^="https://github.com/nivalume/vbt/"]:hover > code {
+  background: var(--tomato);
+  color: var(--on-candy);
+  border-color: #15151c;
+}

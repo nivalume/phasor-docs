@@ -1,0 +1,35 @@
+# phasor 源码知识库。所有配置项：https://clio-one.vercel.app/zh/n/config
+title = "phasor 知识库"
+description = "phasor 回测引擎的源码知识库：按什么顺序读、每段代码的核心算法、看不懂时去哪里补课。"
+base = "/"
+locales = ["zh"]
+stale_days = 365
+
+[site]
+repo = "https://github.com/nivalume/phasor-docs"   # 「编辑此页」链接
+edit_path = ""
+url = "https://phasor-docs.vercel.app"
+
+[types.guide]
+label = { zh = "指南", en = "Guide" }
+
+[types.crate]
+label = { zh = "Crate", en = "Crate" }
+
+[types.algorithm]
+label = { zh = "算法", en = "Algorithm" }
+
+[types.reference]
+label = { zh = "参考", en = "Reference" }
+
+[types.tooling]
+label = { zh = "工具链", en = "Tooling" }
+
+# 每页的 frontmatter 都写了 type；这里的目录映射用于新建的页面。
+[folders]
+"guides/" = "guide"
+"crates/" = "crate"
+"concepts/" = "concept"
+"algorithms/" = "algorithm"
+"reference/" = "reference"
+"tooling/" = "tooling"
