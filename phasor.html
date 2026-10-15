@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>phasor 门面设计</title>
+<style>
+  :root {
+    --bg: #1e1e1e;
+    --chrome: #181818;
+    --elev: #262626;
+    --text: #f0f0f0;
+    --secondary: #b8b8b8;
+    --muted: #909090;
+    --stroke: #303030;
+    --stroke2: #3d3d3d;
+    --fill: #2b2b2b;
+    --accent: #3a7afe;
+    --math: #d35d5d;
+    --flex: #2fbfa8;
+    --matrix: #3a7afe;
+    --columns: #c9a227;
+    --error: #b07cd8;
+    --good: #4caf7a;
+    --bad: #d35d5d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    line-height: 1.55;
+    font-size: 14px;
+  }
+  a { color: #8eb6ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  header.top {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; gap: 16px; align-items: center;
+    padding: 10px 22px; background: var(--chrome); border-bottom: 1px solid var(--stroke); font-size: 13px;
+  }
+  header.top strong { font-size: 14px; }
+  header.top nav { display: flex; gap: 14px; margin-left: auto; flex-wrap: wrap; }
+  header.top nav a { color: var(--secondary); }
+  header.top nav a.sep { color: var(--muted); }
+  main { max-width: 1080px; margin: 0 auto; padding: 28px 22px 72px; }
+  h1 { font-size: 24px; line-height: 30px; font-weight: 600; margin: 0 0 8px; }
+  h2 { font-size: 18px; line-height: 24px; font-weight: 600; margin: 32px 0 10px; }
+  h3 { font-size: 15px; font-weight: 600; margin: 18px 0 4px; }
+  p { margin: 0 0 10px; }
+  .muted { color: var(--secondary); }
+  .small { color: var(--muted); font-size: 12px; line-height: 16px; }
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0 8px; }
+  .stat { border: 1px solid var(--stroke); border-radius: 8px; padding: 12px 14px; background: var(--elev); }
+  .stat b { display: block; font-size: 20px; font-weight: 650; margin-bottom: 2px; }
+  .stat span { color: var(--muted); font-size: 12px; }
+  .panel { border: 1px solid var(--stroke); border-radius: 8px; overflow: hidden; margin: 12px 0; }
+  .panel .cap { padding: 8px 12px; background: #242424; border-bottom: 1px solid var(--stroke); font-size: 12px; font-weight: 600; }
+  .panel .body { padding: 12px; background: var(--bg); overflow-x: auto; }
+  .panel .foot { padding: 8px 12px; border-top: 1px solid var(--stroke); }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 0 0 8px; }
+  .legend button, .chip, .seg button {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--stroke2); background: transparent; color: var(--secondary);
+    border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; font-family: inherit;
+  }
+  .legend button.on, .seg button.on { color: var(--text); background: var(--fill); border-color: #5a5a5a; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; align-items: center; }
+  .seg .lbl { color: var(--muted); font-size: 12px; margin-right: 2px; }
+  .dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+  .detail { min-height: 72px; border: 1px solid var(--stroke); border-radius: 8px; padding: 12px 14px; background: var(--elev); }
+  .detail h3 { margin: 0 0 4px; }
+  .uses { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; vertical-align: top; border-top: 1px solid var(--stroke); }
+  th { color: var(--text); font-weight: 600; background: var(--elev); border-top: none; }
+  td { color: var(--secondary); }
+  .wrap { border: 1px solid var(--stroke); border-radius: 6px; overflow: hidden; overflow-x: auto; }
+  .types td:first-child { white-space: nowrap; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .card { border: 1px solid var(--stroke); border-radius: 8px; padding: 12px 14px; background: #202020; }
+  .card h3 { margin-top: 0; }
+  .card p { color: var(--secondary); font-size: 13px; margin: 0; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  pre {
+    margin: 0; padding: 10px 12px; background: var(--fill); border: 1px solid var(--stroke);
+    border-radius: 6px; overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 18px;
+  }
+  .note { border-left: 3px solid var(--accent); background: #242424; border-radius: 6px; padding: 10px 12px; color: var(--secondary); font-size: 13px; margin: 10px 0; }
+  .note.warn { border-left-color: var(--bad); }
+  ol.steps { margin: 6px 0 10px; padding-left: 22px; }
+  ol.steps li { color: var(--secondary); margin: 0 0 6px; }
+  ol.steps li b { color: var(--text); }
+  svg text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; }
+  input[type="text"], input[type="number"] {
+    background: var(--fill); color: var(--text); border: 1px solid var(--stroke2); border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 5px 8px;
+  }
+  input[type="text"] { width: 100%; }
+  input[type="number"] { width: 96px; }
+  label.field { display: block; color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+  label.field span { display: block; margin-bottom: 3px; }
+  label.inline { display: inline-flex; align-items: center; gap: 6px; color: var(--secondary); font-size: 12px; margin-right: 14px; }
+  .err { color: var(--bad); font-size: 12px; min-height: 16px; margin-top: 4px; }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+  .kpis { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; }
+  .kpi { border: 1px solid var(--stroke2); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: var(--secondary); background: #232323; }
+  .kpi b { color: var(--text); font-family: ui-monospace, Menlo, monospace; }
+  .yes { color: var(--good); font-weight: 600; }
+  .no { color: var(--bad); font-weight: 600; }
+  /* cell grids */
+  table.cells { width: auto; border-collapse: separate; border-spacing: 3px; font-size: 11px; }
+  table.cells th, table.cells td { border: none; padding: 0; background: none; }
+  table.cells th.rl { text-align: right; padding-right: 8px; font-weight: 500; color: var(--secondary); white-space: nowrap; font-size: 12px; }
+  table.cells th.ix { color: var(--muted); font-weight: 400; text-align: center; font-family: ui-monospace, Menlo, monospace; padding: 0 2px; }
+  table.cells td.c {
+    min-width: 46px; height: 28px; padding: 0 4px; text-align: center; vertical-align: middle; border-radius: 4px;
+    border: 1px solid var(--stroke2); background: #232323; color: var(--secondary);
+    font-family: ui-monospace, Menlo, monospace; cursor: default;
+  }
+  table.cells td.hot { outline: 2px solid #f0f0f0; outline-offset: -1px; color: var(--text); }
+  table.cells td.dim { opacity: 0.35; }
+  table.cells td.none { border-style: dashed; color: #666; }
+  .flexrow { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+  .flexrow > div { min-width: 0; }
+  @media (max-width: 860px) {
+    .stats, .grid2, .grid3, .controls { grid-template-columns: 1fr; }
+    main { padding: 20px 16px 60px; }
+    header.top { padding: 10px 16px; flex-wrap: wrap; }
+  }
+</style>
+
+<style>
+  header.top strong { white-space: nowrap; }
+  .panel .body > svg { max-width: 100%; height: auto; display: block; }
+  table.cells td.e { background: #1d3b2a; border-color: #4caf7a; color: #9be0b6; }
+  table.cells td.x { background: #331a1a; border-color: #d35d5d; color: #ffb0b0; }
+  table.cells td.ex { background: linear-gradient(135deg, #1d3b2a 50%, #331a1a 50%); border-color: #c9a227; color: #f0f0f0; }
+  table.cells td.nf { border-style: dashed; color: #666; }
+  table.cells td.dl { opacity: 0.45; }
+  table.cells th.ch { font-size: 10px; color: var(--secondary); font-weight: 500; text-align: center; padding: 0 2px 4px; line-height: 13px; vertical-align: bottom; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chips code { background: var(--fill); border: 1px solid var(--stroke2); border-radius: 4px; padding: 1px 6px; }
+  .verdict { margin-top: 10px; padding: 8px 12px; border-radius: 6px; font-size: 13px; }
+  .verdict.bad { background: #331a1a; color: #ffb0b0; border: 1px solid #6b2f2f; }
+  .case-row { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
+  .case-row input[type="text"] { width: 90px; }
+  .case-row input[type="number"] { width: 80px; }
+</style>
+<style id="toc-style">
+  :root { --toc-w: 248px; --hh: 45px; }
+  header.top { gap: 12px; }
+  header.top .toc-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid var(--stroke2, #3d3d3d); color: var(--secondary, #b8b8b8); border-radius: 6px; padding: 3px 9px; font: inherit; font-size: 12px; cursor: pointer; }
+  header.top .toc-btn:hover { color: var(--text, #f0f0f0); }
+  header.top .crumb { color: var(--muted, #909090); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header.top .crumb b { color: var(--secondary, #b8b8b8); font-weight: 500; }
+  aside.toc { position: fixed; z-index: 4; top: var(--hh); left: 0; bottom: 0; width: var(--toc-w); overflow-y: auto; background: var(--chrome, #181818); border-right: 1px solid var(--stroke, #303030); padding: 14px 10px 48px; font-size: 13px; line-height: 1.45; }
+  aside.toc .grp { margin: 0 0 12px; }
+  aside.toc .gh { color: var(--muted, #909090); font-size: 11px; letter-spacing: .02em; padding: 0 8px 3px; }
+  aside.toc ul { list-style: none; margin: 0; padding: 0; }
+  aside.toc a.pg, aside.toc span.pg { display: block; padding: 3px 8px; border-radius: 5px; color: var(--secondary, #b8b8b8); }
+  aside.toc a.pg:hover { background: #242424; text-decoration: none; color: var(--text, #f0f0f0); }
+  aside.toc span.pg { color: #6a6a6a; }
+  aside.toc span.pg small { font-size: 10px; margin-left: 4px; }
+  aside.toc li.cur > a.pg { color: var(--text, #f0f0f0); background: #262c3a; font-weight: 600; }
+  aside.toc ol.sec { list-style: none; margin: 3px 0 6px 10px; padding: 0 0 0 8px; border-left: 1px solid var(--stroke2, #3d3d3d); }
+  aside.toc ol.sec a { display: block; padding: 2px 8px; border-radius: 4px; color: var(--muted, #909090); font-size: 12px; }
+  aside.toc ol.sec a:hover { color: var(--text, #f0f0f0); text-decoration: none; }
+  aside.toc ol.sec a.on { color: #8eb6ff; background: #1f2633; }
+  [id] { scroll-margin-top: calc(var(--hh) + 12px); }
+  @media (min-width: 1240px) {
+    body:not(.toc-closed) { padding-left: var(--toc-w); }
+    body.toc-closed aside.toc { display: none; }
+  }
+  @media (max-width: 1239px) {
+    aside.toc { transform: translateX(-100%); transition: transform .18s ease; box-shadow: none; }
+    body.toc-open aside.toc { transform: none; box-shadow: 8px 0 24px rgba(0,0,0,.45); }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <button type="button" class="toc-btn" id="toc-btn" aria-controls="toc">☰ 目录</button>
+  <strong>phasor</strong>
+  <span class="crumb">L6 · 门面 · <b>phasor（门面）</b></span>
+</header>
+<aside class="toc" id="toc" aria-label="目录">
+  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li><li><a class="pg" href="architecture.html">设计与架构</a></li></ul></div>
+  <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
+  <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
+  <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
+  <div class="grp"><div class="gh">L3 · 记录</div><ul><li><a class="pg" href="phasor-records.html">phasor-records</a></li></ul></div>
+  <div class="grp"><div class="gh">L4 · 模拟</div><ul><li><a class="pg" href="phasor-sim.html">phasor-sim</a></li></ul></div>
+  <div class="grp"><div class="gh">L5 · 分析</div><ul><li><a class="pg" href="phasor-analysis.html">phasor-analysis</a></li></ul></div>
+  <div class="grp"><div class="gh">L6 · 门面</div><ul><li><a class="pg" href="phasor-py.html">phasor-py</a></li><li class="cur"><a class="pg" href="phasor.html" aria-current="page">phasor（门面）</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|prelude:prelude|sweep:SignalSweep|expand:expand 的代价|e2e:端到端|tests:测试|docs:文档出入|reading:读码顺序"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#prelude">prelude</a></li><li><a href="#sweep">SignalSweep</a></li><li><a href="#expand">expand 的代价</a></li><li><a href="#e2e">端到端</a></li><li><a href="#tests">测试</a></li><li><a href="#docs">文档出入</a></li><li><a href="#reading">读码顺序</a></li></ol></li></ul></div>
+</aside>
+<main>
+  <h1>phasor（门面 crate）</h1>
+  <p class="muted">
+    整个工作区对外的那一个名字。<code>lib.rs</code> 71 行：把十一个 crate 以短名重新导出（<code>phasor::sim</code>、<code>phasor::analysis</code>……），再给一个
+    <code>prelude</code>。唯一有逻辑的是 <code>sweep.rs</code> 里的 <code>SignalSweep</code>：把一张 <code>(时间 × 标的)</code> 的因子表，按一组参数“情形”展开成
+    <code>情形 × 标的</code> 列的进出场信号，并给每一列贴上能追溯回参数的标签。执行设置一个都不碰，全部留给 <code>FromSignals</code>。
+  </p>
+  <div class="stats">
+    <div class="stat"><b>400 例逐位一致</b><span>页面里 SignalSweep 的 JS 移植，对照一个只依赖 <code>phasor</code> 的临时 crate 生成的 400 个随机情形（含 NaN / ±inf、各种 delay）：信号、标签、展开后的收盘价全部相同，四条报错原文也相同</span></div>
+    <div class="stat"><b>prelude 67 个名字</b><span>来自 10 个 crate（打开 <code>polars</code> feature 再加 <code>PolarsBackend</code>）；phasor-generic 和 phasor-data 一个都没有进 prelude</span></div>
+    <div class="stat"><b>没有 crate 依赖它</b><span>工作区里它是叶子：phasor-py 直接依赖各个 crate。用到它的只有自己的 3 个测试文件、1 个例子——<code>cargo test -p phasor</code> 9 个测试全过</span></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="concept">从第一性原理看：门面要回答什么</h2>
+  <h3>1. 一个依赖，而不是十一个</h3>
+  <p>
+    用户写 <code>phasor = "0.1"</code>，就拿到版本一致的整套引擎。各 crate 以短名挂在门面下面：<code>phasor::core::flex::FlexArray</code> 与
+    <code>phasor_core::flex::FlexArray</code> 是同一个类型。代价是：门面之外的东西（工作区内部的 <code>use phasor_model::…</code>）对下游不可见，下游必须走
+    <code>phasor::model::…</code>——这一点门面自己的例子没有照顾到，见<a href="#docs">文档出入</a>。
+  </p>
+  <h3>2. 重的东西放在 feature 后面</h3>
+  <p>
+    <code>data</code> feature 才引入 phasor-data（Arrow、Parquet 一整套依赖）；<code>polars</code> feature 打开 phasor-expr 的 Polars 后端。默认什么都不加：
+    只想跑模拟和指标的人不该为一个 Parquet 读取器付编译时间。
+  </p>
+  <h3>3. prelude 是“一个端到端脚本要的名字”</h3>
+  <p>
+    因子（<code>FactorSet</code>、<code>alpha158</code>）→ 指标（<code>ma</code>）→ 信号（<code>clean_enex</code>）→ 模拟（<code>FromSignals</code>、
+    <code>simulate_from_signals_parallel</code>）→ 分析（<code>Portfolio</code>、<code>best_column</code>）。它不是“全部公开类型”，是一条路径上要的那些；
+    所以它也有缺口——<code>from_orders</code> 那条路径的名字一个都不在里面。
+  </p>
+  <h3>4. SignalSweep 只拥有信号和标签</h3>
+  <p>
+    手续费、仓位、止损、资金……这些设置在 <code>FromSignals</code> 里已经有唯一的来源。<code>SignalSweep::args</code> 只填 <code>n_rows</code>、<code>n_cols</code>、
+    <code>close</code>、<code>entries</code>、<code>exits</code> 五个字段，其余用 <code>..FromSignals::default()</code>；调用者再用结构体更新语法叠上自己的设置。
+    如果 SignalSweep 也收一个 <code>fees</code>，就会有两个地方能设手续费。
+  </p>
+  <h3>5. 不清洗信号，延迟放在策略里</h3>
+  <p>
+    规则对每根 K 线都可能说“进场”。SignalSweep 不做 <code>clean_enex</code>：持仓真实是什么，要等成交、拒单、止损之后才知道，只有模拟器能据此判断一个进场信号算不算数。
+    测试 <code>continuous_entry_condition_can_reenter_after_a_stop</code> 钉住了这一点：一个一直为真的进场条件，在止损之后的下一根重新进场。延迟同理：
+    收盘价算出来的因子要到下一根才能交易，这个时序决定属于策略，不属于表达式引擎（<code>tests/factor_path.rs</code> 的注释原话是 keeps that timing decision in the strategy）。
+  </p>
+
+  <!-- ============================================================ -->
+  <h2 id="graph">依赖图</h2>
+  <p>左边是十一个依赖，中间是门面的两个文件，右边是用到它的地方。点任一节点看细节。</p>
+  <div class="legend" id="legend"></div>
+  <div class="panel">
+    <div class="cap">线的颜色 = 门面里的哪个文件用到它。虚线框：可选依赖（feature）</div>
+    <div class="body"><svg id="dep-graph" width="1040" height="600" viewBox="0 0 1040 600" role="img" aria-label="phasor 门面依赖图"></svg></div>
+    <div class="foot"><p class="small" style="margin:0">来源：<code>crates/phasor/Cargo.toml</code>、<code>src/lib.rs</code> 的 <code>pub use</code>、<code>src/sweep.rs</code> 的 <code>use</code>。工作区里没有别的 crate 在 Cargo.toml 里写 <code>phasor</code>。</p></div>
+  </div>
+  <div class="detail" id="detail"><h3>点一个节点</h3><p class="muted" style="margin:0">依赖：门面从它重新导出了什么。文件：它做什么。下游：它怎么用门面。</p></div>
+
+  <!-- ============================================================ -->
+  <h2 id="prelude">prelude 里有什么</h2>
+  <p>按来源 crate 分组。输入一个名字过滤；右边一栏是“这条路径上常用、但 prelude 里没有”的名字，要写全路径。</p>
+  <div class="panel">
+    <div class="cap"><code>use phasor::prelude::*;</code></div>
+    <div class="body">
+      <label class="field"><span>过滤</span><input type="text" id="pl-filter" placeholder="例如 Signal、sharpe、Groups" /></label>
+      <div class="wrap"><table><thead><tr><th style="width:150px">来源</th><th style="width:60px;text-align:right">个数</th><th>名字</th><th style="width:30%">不在 prelude 里</th></tr></thead><tbody id="pl-rows"></tbody></table></div>
+    </div>
+    <div class="foot"><p class="small" style="margin:0" id="pl-foot"></p></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="sweep">SignalSweep 实验台</h2>
+  <p>
+    规则和例子 <code>factor_sweep.rs</code> 一样：<code>(score &gt; entry, score &lt; exit)</code>。第 <code>row</code> 根的信号读的是 <code>factor[row − delay, symbol]</code>；
+    前 <code>delay</code> 根、以及因子不是有限数的格子，不调用规则、不发信号。改因子、改情形、改 delay，看列怎么排、标签怎么贴。
+  </p>
+  <div class="panel">
+    <div class="cap">SignalSweep::from_factor + columns + expand，JS 移植（400 个 Rust 生成的用例逐位一致）</div>
+    <div class="body">
+      <div class="flexrow">
+        <div style="flex:1 1 380px">
+          <div class="small" style="margin-bottom:4px">因子（每个标的一行，逗号分隔；可以写 nan、inf）</div>
+          <div id="ss-factor"></div>
+        </div>
+        <div style="flex:1 1 320px">
+          <div class="small" style="margin-bottom:4px">情形：标签 · entry 阈值 · exit 阈值</div>
+          <div id="ss-cases"></div>
+          <div class="seg" style="margin-top:6px"><button type="button" id="ss-add">+ 情形</button><button type="button" id="ss-dup">复制第一个标签（看报错）</button></div>
+          <div class="seg" id="ss-delay"><span class="lbl">delay</span></div>
+        </div>
+      </div>
+      <div id="ss-out" style="margin-top:8px"></div>
+    </div>
+    <div class="foot"><p class="small" style="margin:0">格子里的数是这一格<b>读到的</b>因子值（已经按 delay 错开）。绿 = 进场，红 = 出场，双色 = 同时为真（交给模拟器的冲突规则），虚线 = 非有限值或 delay 区，不调用规则。</p></div>
+  </div>
+  <div class="grid3">
+    <article class="card"><h3>列号 = case · S + symbol</h3><p>与指标扫描、Python 的 <code>strategy.sweep</code> 同一个约定：一个情形的所有标的连续排在一起。标签用 <code>Level::repeat</code> 建参数层（[a, b] → a a b b），<code>Level::tile</code> 建标的层（[x, y] → x y x y）。</p></article>
+    <article class="card"><h3>标签让结果能追溯</h3><p><code>columns().describe(col)</code> 给出 <code>factor=momentum, case=strict, symbol=ETH</code>。排名、<code>best_column</code>、<code>group_by</code> 都靠它把一个数字送回产生它的参数。情形标签重复会报错，因为那样两列就无法区分。</p></article>
+    <article class="card"><h3>报错（实测原文）</h3><p id="ss-errs"></p></article>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="expand">expand 的代价</h2>
+  <p>
+    <code>args(&amp;close)</code> 要的是<b>已经展开</b>的收盘价 <code>(T, C · S)</code>，所以要先 <code>expand</code>：把每个标的的收盘价按情形数复制一遍。
+    这和 ARCHITECTURE 里“扫描不复制价格”（<code>FlexArray::MappedColumns</code>，Python 的 <code>column_map</code>）走的是不同的路。<code>expand</code> 的文档说
+    “对很大的扫描，一个重复列视图……可以替换这个方法”——这个视图其实已经存在，phasor-py 就在用。
+  </p>
+  <div class="panel">
+    <div class="cap">保留的收盘价内存（f64，8 字节）</div>
+    <div class="body">
+      <div class="seg">
+        <span class="lbl">K 线 T</span><input type="number" id="ex-t" value="2520" min="1" />
+        <span class="lbl" style="margin-left:10px">标的 S</span><input type="number" id="ex-s" value="50" min="1" />
+        <span class="lbl" style="margin-left:10px">情形 C</span><input type="number" id="ex-c" value="40" min="1" />
+      </div>
+      <div id="ex-out"></div>
+    </div>
+    <div class="foot"><p class="small" style="margin:0">信号矩阵两边都是 <code>T × C × S</code> 个 bool（进、出各一份），本来就每列不同，不存在映射的问题；能省的只有价格。phasor-py 对同样 2,520 × 50 × 40 的扫描实测 <code>price_nbytes = 1,008,000</code>。</p></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="e2e">端到端：<code>examples/factor_sweep.rs</code></h2>
+  <div class="grid2">
+    <div>
+      <pre><code><span style="color:#909090">// 1. 因子只算一次（240 根 × 3 个标的）</span>
+let factors = FactorSet::compile([("momentum",
+    "Mean($close / Ref($close, 20) - 1, 5)")])?;
+let values = factors.evaluate(&amp;FactorInputs::from_ohlcv(&amp;panel)?)?;
+let momentum = values.get("momentum").expect("…");
+
+<span style="color:#909090">// 2. 展开成 2 个情形 × 3 个标的 = 6 列信号</span>
+let cases = [(Label::from("loose"),  (0.02, 0.00)),
+             (Label::from("strict"), (0.05, 0.01))];
+let sweep = SignalSweep::from_factor(("momentum", momentum),
+    &amp;symbols, &amp;cases, 1,
+    |score, &amp;(entry, exit)| (score &gt; entry, score &lt; exit))?;
+
+<span style="color:#909090">// 3. 价格复制成 6 列；执行设置用结构体更新语法叠上去</span>
+let swept_close = sweep.expand(&amp;close)?;
+let args = FromSignals {
+    init_cash: FlexArray::scalar(10_000.0),
+    fees: FlexArray::scalar(0.001),
+    ..sweep.args(&amp;swept_close)?
+};
+
+<span style="color:#909090">// 4. 一次并行运行，结果按标签读回</span>
+let portfolio = Portfolio::from_signals(&amp;args, threads)?;</code></pre>
+    </div>
+    <div>
+      <p class="small" style="margin-bottom:6px">实测输出（<code>cargo run -p phasor --example factor_sweep</code>）：</p>
+      <pre id="e2e-out"></pre>
+      <div class="note">每个标的里 loose 都比 strict 高。这只说明这条合成价格（正弦扰动加 0.1% 漂移）上门槛越低、在场越久越好，不说明任何关于真实市场的事——例子的价格是生成器造的。</div>
+      <p class="small">结构体更新语法里写在 <code>..</code> 前面的字段覆盖 <code>args()</code> 的值。<code>args()</code> 已经设了 <code>n_rows</code>、<code>n_cols</code>、<code>close</code>、<code>entries</code>、<code>exits</code>，再覆盖它们就绕开了 <code>args()</code> 做的形状检查。</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="tests">测试钉住了什么</h2>
+  <div class="wrap">
+    <table>
+      <thead><tr><th style="width:34%">测试</th><th>钉住的性质</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">sweep::tests::expands_cases_symbols_and_delay_in_column_order</td><td>列顺序 case · S + symbol；delay 1 时第 0 根无信号；NaN 不发信号；<code>label(2, "case") = high</code>、<code>label(3, "symbol") = ETH</code></td></tr>
+        <tr><td class="mono">sweep::tests::rejects_invalid_setup_and_shapes</td><td>空因子名、标签数不对、没有情形、重复情形标签、<code>expand</code> / <code>args</code> 形状不符都报错</td></tr>
+        <tr><td class="mono">sweep::tests::non_finite_scores_do_not_call_the_rule</td><td>NaN、+inf、−inf 三格规则一次都没被调用（用 <code>Cell</code> 计数，4 格只调了 1 次）</td></tr>
+        <tr><td class="mono">factor_sweep::swept_columns_match_individual_runs_and_parallel_execution</td><td>扫描里的每一列 = 单独跑那个 (情形, 标的) 的成交，逐项相同；4 线程与串行完全相同</td></tr>
+        <tr><td class="mono">factor_sweep::continuous_entry_condition_can_reenter_after_a_stop</td><td>只有收盘价也能止损（引擎重建 high / low）；止损后一直为真的进场条件在下一根重新进场：成交在 [0, 1, 2]</td></tr>
+        <tr><td class="mono">factor_path::a_factor_drives_the_existing_signal_simulator</td><td>表达式 → 手工延迟一根 → <code>clean_enex</code> → <code>Portfolio::from_signals</code>，至少完成一笔交易</td></tr>
+        <tr><td class="mono">sweep::a_sweep_is_one_run_of_every_combination</td><td>3 组均线 × 4 个标的是一次 12 列的运行，标签能追溯到 <code>fast=5</code>、<code>slow=20</code></td></tr>
+        <tr><td class="mono">sweep::threading_does_not_change_the_answer</td><td>多线程逐位相同</td></tr>
+        <tr><td class="mono">sweep::a_column_that_never_traded_tops_a_naive_ranking</td><td>没交易过的列 Sharpe 为 +inf，朴素排名会把它排第一——陷阱本身被钉住</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="docs">文档与代码的出入</h2>
+  <div class="wrap">
+    <table>
+      <thead><tr><th style="width:32%">文档说</th><th style="width:38%">代码 / 实测</th><th>影响</th></tr></thead>
+      <tbody>
+        <tr><td><code>lib.rs</code>“Both the vectorized tier and the phase-2 event-driven tier emit the same records”</td><td>ARCHITECTURE §0：phase 2 是 “planned, nothing implemented”</td><td>现在时写的是一个计划；读者会去找不存在的第二层</td></tr>
+        <tr><td><code>tests/sweep.rs</code> 文件头“<code>examples/sweep.rs</code> is the readable version”</td><td>没有这个文件。crate 里只有 <code>examples/factor_sweep.rs</code>；<code>lib.rs</code> 指的 <code>examples/sweep.py</code> 在仓库根目录，由 phasor-py 的 <code>test_examples.py</code> 运行</td><td>两份文档各指一个“可读版本”，其中一个不存在</td></tr>
+        <tr><td>ARCHITECTURE §2“Sweeps do not copy prices … <code>FlexArray::MappedColumns</code>”；<code>expand</code> 文档“a repeated-column view … can replace this method”</td><td>Rust 门面的路径是复制：<code>args()</code> 只收展开后的收盘价并用 <code>FlexArray::full</code>；<code>MappedColumns</code> 已经在 phasor-core 里，phasor-py 的 <code>column_map</code> 用的就是它</td><td>同一个扫描，走 Python 不复制价格，走 Rust 门面复制 C 倍</td></tr>
+        <tr><td><code>examples/factor_sweep.rs</code>、<code>tests/factor_path.rs</code> 写 <code>use phasor_model::OhlcvPanel;</code></td><td>只在工作区里能编译。一个只依赖 <code>phasor</code> 的 crate 写这一行得到 <code>E0432 unresolved import</code>（实测）；要写 <code>phasor::model::OhlcvPanel</code>，它也不在 prelude 里</td><td>照着例子写的第一个下游程序编译不过</td></tr>
+        <tr><td>重复情形标签的报错</td><td>原文是 <code>duplicate signal sweep case label Str("same")</code>——用的是 <code>Label</code> 的 Debug 形式</td><td>小事；其他报错都用人读的形式</td></tr>
+        <tr><td>phasor-py：“sl_stop or tp_stop was given without high and low … no stop can ever fire”</td><td>上面的 <code>continuous_entry…</code> 测试就是反例：只给收盘价，止损照样触发</td><td>见 <a href="phasor-py.html#guards">phasor-py · 护栏</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="reading">读码顺序</h2>
+  <ol class="steps">
+    <li><b><code>src/lib.rs</code></b>：模块文档的四条要点，然后十一行 <code>pub use</code> 和 <code>prelude</code>。</li>
+    <li><b><code>src/sweep.rs</code></b>：<code>from_factor</code>（校验 → 三重循环 → 三层标签）、<code>expand</code>、<code>args</code>；最后三个单元测试。</li>
+    <li><b><code>examples/factor_sweep.rs</code></b>：表达式 → SignalSweep → 结构体更新 → <code>Portfolio::from_signals</code>。</li>
+    <li><b><code>tests/factor_sweep.rs</code></b>：扫描 = 单独运行的拼接；止损后再进场。</li>
+    <li><b><code>tests/sweep.rs</code></b>：不走 SignalSweep、手工用 <code>ma</code> + <code>crossed_above_1d</code> 拼的扫描，以及“没交易的列排第一”的陷阱。</li>
+    <li>回到 <a href="phasor-sim.html">phasor-sim</a> 看 <code>FromSignals</code> 的其余字段，或者 <a href="phasor-py.html#sweep">phasor-py</a> 看同一个扫描布局在 Python 里怎么不复制价格。</li>
+  </ol>
+</main>
+
+<script>
+const SS_ERRORS = ["invariant violated: factor name cannot be empty", "invariant violated: factor has 1 symbol columns, but 0 symbol labels were supplied", "invariant violated: signal sweep needs at least one case", "invariant violated: duplicate signal sweep case label Str(\"same\")", "cannot broadcast (2, 2) against (2, 1)", "cannot broadcast (2, 2) against (2, 1)"];
+const E2E_OUT = "one factor, 2 cases, 3 symbols -> 6 parallel columns, 42 fills\n  factor=momentum, case=loose, symbol=BTC             51.51%\n  factor=momentum, case=loose, symbol=ETH             44.27%\n  factor=momentum, case=loose, symbol=SOL             36.50%\n  factor=momentum, case=strict, symbol=BTC            45.15%\n  factor=momentum, case=strict, symbol=ETH            38.21%\n  factor=momentum, case=strict, symbol=SOL            30.77%";
+
+// phasor::sweep::SignalSweep, JS port. factor: column-major Float64 values, t rows x s symbols.
+function signalSweep(factorName, factor, t, s, symbols, cases, delay, rule) {
+  if (!factorName.trim()) throw new Error("invariant violated: factor name cannot be empty");
+  if (t === 0 || s === 0) throw new Error("invariant violated: factor matrix cannot be empty");
+  if (symbols.length !== s) throw new Error(`invariant violated: factor has ${s} symbol columns, but ${symbols.length} symbol labels were supplied`);
+  if (!cases.length) throw new Error("invariant violated: signal sweep needs at least one case");
+  const seen = new Set();
+  for (const [label] of cases) { if (seen.has(label)) throw new Error(`invariant violated: duplicate signal sweep case label Str(${JSON.stringify(label)})`); seen.add(label); }
+  const nCols = cases.length * s, entries = new Array(t * nCols).fill(false), exits = new Array(t * nCols).fill(false);
+  if (delay < t) {
+    cases.forEach(([, params], ci) => {
+      for (let sym = 0; sym < s; sym++) {
+        const off = (ci * s + sym) * t;
+        for (let row = delay; row < t; row++) {
+          const score = factor[sym * t + (row - delay)];
+          if (Number.isFinite(score)) { const [e, x] = rule(score, params); entries[off + row] = e; exits[off + row] = x; }
+        }
+      }
+    });
+  }
+  // Level::repeat("factor", [name], nCols), Level::repeat("case", labels, s), Level::tile("symbol", symbols, nCases)
+  const levels = [
+    ["factor", Array(nCols).fill(factorName)],
+    ["case", cases.flatMap(([l]) => Array(s).fill(l))],
+    ["symbol", Array.from({ length: cases.length }, () => symbols).flat()],
+  ];
+  const describe = (c) => levels.map(([n, ls]) => `${n}=${ls[c]}`).join(", ");
+  const expand = (source) => { const out = []; for (let ci = 0; ci < cases.length; ci++) for (let sym = 0; sym < s; sym++) out.push(...source.slice(sym * t, sym * t + t)); return out; };
+  return { t, s, nCols, entries, exits, levels, describe, expand };
+}
+
+</script>
+<script>
+"use strict";
+const NS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs) { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v); return e; }
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/* ---------------- prelude ---------------- */
+const PRELUDE = [
+  ["phasor-core", ["Columns", "Label", "Level", "FlexArray", "Error", "Result", "Matrix"], ["math::{is_close, add}"]],
+  ["phasor-model", ["SizeType", "Direction", "OrderSide", "OrderStatus", "StatusInfo", "AccumulationMode", "ConflictMode", "DirectionConflictMode", "OppositeEntryMode", "StopEntryPrice", "StopExitPrice", "StopExitMode", "StopUpdateMode", "TradeDirection", "TradeStatus", "TradesType", "CashFlowKind", "InstrumentId", "Symbol", "Venue", "Price", "Quantity"], ["OhlcvPanel", "BarType"]],
+  ["phasor-exec", ["ExecuteOrderState", "Order", "OrderResult", "ProcessOrderState"], ["execute_order"]],
+  ["phasor-expr", ["ComputeBackend", "FactorInputs", "FactorSet", "FactorValues", "NativeBackend", "alpha158", "alpha360"], ["PolarsBackend（polars feature 时在 prelude 里）"]],
+  ["phasor-indicators", ["MaParams", "combinations", "ma"], ["其余七个指标", "sweep::column_of"]],
+  ["phasor-signals", ["ExitWindow", "FirstSignal", "clean_enex", "exit_after", "partition_ranges"], []],
+  ["phasor-sim", ["CallSeq", "Groups", "FromSignals", "simulate_from_signals", "simulate_from_signals_parallel"], ["FromOrders", "simulate_from_orders", "simulate_from_signals_logged"]],
+  ["phasor-records", ["OrderRecords", "exit_trades"], ["LogRecords", "entry_trades", "positions"]],
+  ["phasor-analysis", ["DAILY", "sharpe_ratio", "total_return", "Select", "Tag", "Value", "Portfolio", "Reduce", "Scoring", "best_column", "group_by"], ["returns_from_orders", "trade_stats::per_column"]],
+  ["phasor（本 crate）", ["SignalSweep"], []],
+  ["phasor-generic", [], ["elementwise::crossed_above_1d（tests/sweep.rs 直接从 phasor_generic 导入）"]],
+  ["phasor-data", [], ["整个 crate（data feature 下是 phasor::data）"]],
+];
+function plRender() {
+  const q = document.getElementById("pl-filter").value.trim().toLowerCase();
+  let shown = 0;
+  document.getElementById("pl-rows").innerHTML = PRELUDE.map(([crate, names, missing]) => {
+    const hit = names.filter((n) => !q || n.toLowerCase().includes(q));
+    const miss = missing.filter((n) => !q || n.toLowerCase().includes(q));
+    if (q && !hit.length && !miss.length) return "";
+    shown += hit.length;
+    return `<tr><td class="mono">${crate}</td><td class="mono" style="text-align:right">${names.length}</td><td><div class="chips">${hit.map((n) => `<code>${n}</code>`).join("") || '<span class="small">—</span>'}</div></td><td><span class="small">${miss.map(esc).join("、") || "—"}</span></td></tr>`;
+  }).join("");
+  const total = PRELUDE.reduce((a, [, n]) => a + n.length, 0);
+  document.getElementById("pl-foot").innerHTML = `共 ${total} 个名字${q ? `，匹配 ${shown} 个` : ""}。phasor-model 的 17 个枚举来自 <code>enums::*</code> 通配导入；“不在 prelude 里”一栏是挑出来的常用名字，不是穷举。`;
+}
+
+/* ---------------- dependency graph ---------------- */
+const COLORS = { "lib.rs": "#3a7afe", "sweep.rs": "#c9a227" };
+const UP = [
+  ["phasor-core", "core", ["lib.rs", "sweep.rs"], "Columns / Label / Level / FlexArray / Matrix / Error 进 prelude；sweep.rs 用它们建标签、信号视图和报错。"],
+  ["phasor-model", "model", ["lib.rs"], "17 个枚举（通配）、InstrumentId / Symbol / Venue、Price / Quantity。"],
+  ["phasor-exec", "exec", ["lib.rs"], "撮合内核的 Order、OrderResult 与两个状态结构体。"],
+  ["phasor-generic", "generic", ["lib.rs"], "只重新导出模块，prelude 里没有它的名字。"],
+  ["phasor-indicators", "indicators", ["lib.rs"], "MaParams、combinations、ma。"],
+  ["phasor-expr", "expr", ["lib.rs"], "FactorSet、FactorInputs、FactorValues、两个后端、alpha158/360；polars feature 透传给它。"],
+  ["phasor-signals", "signals", ["lib.rs"], "clean_enex、exit_after、partition_ranges 与两个枚举。"],
+  ["phasor-sim", "sim", ["lib.rs", "sweep.rs"], "FromSignals 与两个入口、Groups、CallSeq；sweep.rs 的 args() 返回一个 FromSignals。"],
+  ["phasor-records", "records", ["lib.rs"], "OrderRecords、exit_trades。"],
+  ["phasor-analysis", "analysis", ["lib.rs"], "Portfolio、Scoring、best_column、group_by、Reduce、两个指标函数与 stats 的 Select / Tag / Value。"],
+  ["phasor-data", "data（可选）", ["lib.rs"], "只在 data feature 下重新导出为 phasor::data；Arrow / Parquet 依赖因此是可选的。"],
+];
+const MODULES = [
+  ["lib.rs", "pub use × 11 · prelude", "71 行。没有逻辑：模块文档、十一行重新导出（data 带 cfg）、prelude、pub mod sweep。"],
+  ["sweep.rs", "SignalSweep", "293 行（含 3 个单元测试）。from_factor、columns、expand、args。只依赖 core 和 sim。"],
+];
+const DOWN = [
+  ["examples/factor_sweep.rs", "因子 → SignalSweep → Portfolio", ["lib.rs", "sweep.rs"], "端到端的可读版本；直接 use phasor_model::OhlcvPanel，下游照抄会编译失败。"],
+  ["tests/factor_sweep.rs", "扫描 = 单独运行的拼接", ["sweep.rs", "lib.rs"], "两个测试：逐列对照单独运行与 4 线程；止损后再进场。"],
+  ["tests/factor_path.rs", "表达式 → clean_enex → 组合", ["lib.rs"], "不经过 SignalSweep，手工延迟一根。"],
+  ["tests/sweep.rs", "均线扫描 · 排名陷阱", ["lib.rs"], "三个测试：一次运行、多线程逐位相同、没交易的列排第一。"],
+];
+const depSvg = document.getElementById("dep-graph"), detail = document.getElementById("detail");
+let pinned = null; const paths = [], gnodes = [];
+function nodeBox(id) {
+  const ui = UP.findIndex((u) => u[0] === id); if (ui >= 0) return { x: 16, y: 30 + ui * 51, w: 230, h: 42 };
+  const mi = MODULES.findIndex((m) => m[0] === id); if (mi >= 0) return { x: 380, y: 200 + mi * 130, w: 260, h: 64 };
+  const di = DOWN.findIndex((d) => d[0] === id); return { x: 770, y: 130 + di * 96, w: 254, h: 60 };
+}
+function edgeList() { const e = []; for (const [id, , mods] of UP) for (const m of mods) e.push({ from: id, to: m, color: COLORS[m], up: id, mod: m }); for (const [id, , uses] of DOWN) for (const m of uses) e.push({ from: m, to: id, color: COLORS[m], mod: m }); return e; }
+const edgeOpacity = (f, e) => (!f ? 0.5 : f.kind === "mod" ? (e.mod === f.id ? 0.95 : 0.05) : f.kind === "up" ? (e.up === f.id ? 0.95 : 0.05) : e.to === f.id ? 0.95 : 0.05);
+function applyFocus(f) {
+  for (const p of paths) p.el.setAttribute("opacity", String(edgeOpacity(f, p)));
+  for (const n of gnodes) { const on = f && f.id === n.id; n.rect.setAttribute("stroke-width", on ? "1.8" : "1"); if (n.kind === "mod") n.rect.setAttribute("fill", on ? COLORS[n.id] + "44" : "#262626"); else { n.rect.setAttribute("stroke", on ? "#8eb6ff" : "#3d3d3d"); n.rect.setAttribute("fill", on ? "#303030" : "#262626"); } }
+  for (const b of document.querySelectorAll("#legend button")) b.classList.toggle("on", Boolean(f && f.kind === "mod" && b.dataset.id === f.id));
+}
+function showDetail(f) {
+  if (!f) { detail.innerHTML = `<h3>点一个节点</h3><p class="muted" style="margin:0">依赖：门面从它重新导出了什么。文件：它做什么。下游：它怎么用门面。</p>`; return; }
+  const list = f.kind === "up" ? UP : f.kind === "mod" ? MODULES : DOWN;
+  const n = list.find((x) => x[0] === f.id);
+  const text = f.kind === "mod" ? n[2] : n[3];
+  const page = f.kind === "up" && f.id !== "phasor-data" ? ` · <a href="${f.id}.html">页面</a>` : "";
+  detail.innerHTML = `<h3>${f.kind === "up" ? `phasor::${n[1].replace("（可选）", "")} = ${n[0]}` : n[0]}${page}</h3><p class="muted" style="margin:0">${text}</p>`;
+}
+function buildGraph() {
+  depSvg.appendChild(svgEl("rect", { x: 360, y: 150, width: 300, height: 290, rx: 10, fill: "#181818", stroke: "#303030" }));
+  depSvg.appendChild(svgEl("text", { x: 510, y: 172, "text-anchor": "middle", "font-size": 12, "font-weight": 650, fill: "#f0f0f0" })).textContent = "phasor（门面）";
+  depSvg.appendChild(svgEl("text", { x: 131, y: 20, "text-anchor": "middle", "font-size": 10, fill: "#909090" })).textContent = "依赖（phasor::短名）";
+  depSvg.appendChild(svgEl("text", { x: 897, y: 118, "text-anchor": "middle", "font-size": 10, fill: "#909090" })).textContent = "用到它的地方（只有自己的测试和例子）";
+  for (const e of edgeList()) { const a = nodeBox(e.from), b = nodeBox(e.to), x1 = a.x + a.w, y1 = a.y + a.h / 2, x2 = b.x, y2 = b.y + b.h / 2, mid = (x1 + x2) / 2; const path = svgEl("path", { d: `M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`, fill: "none", stroke: e.color, "stroke-width": "1.4" }); depSvg.appendChild(path); paths.push({ el: path, ...e }); }
+  const add = (id, kind, title, sub, stroke, dashed) => {
+    const box = nodeBox(id), g = svgEl("g", { style: "cursor:pointer" });
+    const rect = svgEl("rect", { x: box.x, y: box.y, width: box.w, height: box.h, rx: 6, fill: "#262626", stroke, "stroke-width": 1 });
+    if (dashed) rect.setAttribute("stroke-dasharray", "4 3");
+    const t = svgEl("text", { x: box.x + box.w / 2, y: box.y + box.h / 2 - 2, "text-anchor": "middle", "font-size": 12, "font-weight": 650, fill: "#f0f0f0" }); t.textContent = title;
+    const s = svgEl("text", { x: box.x + box.w / 2, y: box.y + box.h / 2 + 12, "text-anchor": "middle", "font-size": 10, fill: "#b0b0b0" }); s.textContent = sub;
+    g.append(rect, t, s);
+    g.addEventListener("click", () => { pinned = pinned && pinned.id === id ? null : { kind, id }; showDetail(pinned); applyFocus(pinned); });
+    g.addEventListener("mouseenter", () => { if (pinned) return; showDetail({ kind, id }); applyFocus({ kind, id }); });
+    depSvg.appendChild(g); gnodes.push({ id, kind, rect });
+  };
+  for (const [id, short] of UP) add(id, "up", id, "phasor::" + short, "#3d3d3d", id === "phasor-data");
+  for (const [id, sub] of MODULES) add(id, "mod", id, sub, COLORS[id]);
+  for (const [id, sub] of DOWN) add(id, "down", id, sub, "#3d3d3d");
+  depSvg.addEventListener("mouseleave", () => { if (pinned) return; showDetail(null); applyFocus(null); });
+  const host = document.getElementById("legend");
+  host.innerHTML = MODULES.map(([id]) => `<button type="button" data-id="${id}"><i class="dot" style="background:${COLORS[id]}"></i>${id}</button>`).join("");
+  for (const btn of host.querySelectorAll("button")) btn.addEventListener("click", () => { const id = btn.dataset.id; pinned = pinned && pinned.id === id ? null : { kind: "mod", id }; showDetail(pinned); applyFocus(pinned); });
+  applyFocus(null);
+}
+
+/* ---------------- SignalSweep lab ---------------- */
+const SS = {
+  symbols: ["BTC", "ETH"],
+  factor: { BTC: "nan, 0.01, 0.03, 0.06, 0.04, -0.01, 0.02, 0.07", ETH: "0.00, -0.02, 0.025, 0.051, inf, 0.03, -0.005, 0.01" },
+  cases: [["loose", 0.02, 0.0], ["strict", 0.05, 0.01]],
+  delay: 1,
+};
+const parseNum = (t) => { t = t.trim().toLowerCase(); if (t === "nan") return NaN; if (t === "inf" || t === "+inf") return Infinity; if (t === "-inf") return -Infinity; const v = Number(t); return t === "" ? NaN : v; };
+const fmt = (v) => (Number.isNaN(v) ? "nan" : v === Infinity ? "inf" : v === -Infinity ? "−inf" : String(+v.toFixed(4)));
+function ssInputs() {
+  document.getElementById("ss-factor").innerHTML = SS.symbols.map((s) => `<label class="field"><span>${s}</span><input type="text" data-sym="${s}" value="${SS.factor[s]}" /></label>`).join("");
+  for (const inp of document.querySelectorAll("#ss-factor input")) inp.addEventListener("input", () => { SS.factor[inp.dataset.sym] = inp.value; ssRender(); });
+  document.getElementById("ss-cases").innerHTML = SS.cases.map(([l, e, x], i) => `<div class="case-row"><input type="text" data-i="${i}" data-k="0" value="${esc(l)}" /><input type="number" step="0.01" data-i="${i}" data-k="1" value="${e}" /><input type="number" step="0.01" data-i="${i}" data-k="2" value="${x}" />${SS.cases.length > 1 ? `<button type="button" class="chip" data-del="${i}">删除</button>` : ""}</div>`).join("");
+  for (const inp of document.querySelectorAll("#ss-cases input")) inp.addEventListener("input", () => { const i = +inp.dataset.i, k = +inp.dataset.k; SS.cases[i][k] = k === 0 ? inp.value : Number(inp.value); ssRender(); });
+  for (const b of document.querySelectorAll("#ss-cases [data-del]")) b.addEventListener("click", () => { SS.cases.splice(+b.dataset.del, 1); ssInputs(); ssRender(); });
+}
+function ssRender() {
+  const out = document.getElementById("ss-out");
+  const cols = SS.symbols.map((s) => SS.factor[s].split(",").map(parseNum));
+  const t = Math.max(...cols.map((c) => c.length));
+  if (cols.some((c) => c.length !== t)) { out.innerHTML = `<div class="verdict bad">每个标的的因子长度必须相同（Matrix 是矩形的）。</div>`; return; }
+  const factor = cols.flat();
+  let sw;
+  try { sw = signalSweep("momentum", factor, t, SS.symbols.length, SS.symbols, SS.cases.map(([l, e, x]) => [l, [e, x]]), SS.delay, (score, [e, x]) => [score > e, score < x]); }
+  catch (e) { out.innerHTML = `<div class="verdict bad">Error<br><code>${esc(e.message)}</code></div>`; return; }
+  const S = SS.symbols.length;
+  let h = `<table class="cells"><tr><th></th>${Array.from({ length: sw.nCols }, (_, c) => `<th class="ch">col ${c}<br>${esc(sw.levels[1][1][c])}<br>${esc(sw.levels[2][1][c])}</th>`).join("")}</tr>`;
+  for (let r = 0; r < t; r++) {
+    h += `<tr><th class="rl">t${r}</th>`;
+    for (let c = 0; c < sw.nCols; c++) {
+      const sym = c % S, e = sw.entries[c * t + r], x = sw.exits[c * t + r];
+      if (r < SS.delay) { h += `<td class="c nf dl" title="delay 区：不调用规则">·</td>`; continue; }
+      const v = factor[sym * t + r - SS.delay];
+      const cls = !Number.isFinite(v) ? "nf" : e && x ? "ex" : e ? "e" : x ? "x" : "";
+      h += `<td class="c ${cls}" title="读 factor[${r - SS.delay}, ${SS.symbols[sym]}] = ${fmt(v)}">${fmt(v)}</td>`;
+    }
+    h += "</tr>";
+  }
+  h += "</table>";
+  const nE = sw.entries.filter(Boolean).length, nX = sw.exits.filter(Boolean).length;
+  out.innerHTML = h +
+    `<div class="kpis"><span class="kpi">n_cols <b>${sw.nCols}</b> = ${SS.cases.length} 个情形 × ${S} 个标的</span><span class="kpi">进场 <b>${nE}</b></span><span class="kpi">出场 <b>${nX}</b></span></div>` +
+    `<div class="kpis">${sw.levels.map(([n, ls]) => `<span class="kpi">${n} <b>[${ls.join(", ")}]</b></span>`).join("")}</div>` +
+    `<div class="kpis"><span class="kpi">describe(${sw.nCols - 1}) <b>${esc(sw.describe(sw.nCols - 1))}</b></span></div>`;
+}
+
+/* ---------------- expand cost ---------------- */
+function exRender() {
+  const g = (id) => Math.max(1, parseInt(document.getElementById(id).value, 10) || 1);
+  const T = g("ex-t"), S = g("ex-s"), C = g("ex-c");
+  const src = T * S * 8, expanded = T * S * C * 8, sig = 2 * T * S * C;
+  const mb = (b) => (b / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 }) + " MB";
+  document.getElementById("ex-out").innerHTML =
+    `<div class="kpis"><span class="kpi">源收盘价 <b>${mb(src)}</b></span><span class="kpi">SignalSweep::expand 之后 <b>${mb(expanded)}</b>（再加源本身）</span><span class="kpi">MappedColumns / column_map <b>${mb(src)}</b></span><span class="kpi">信号（两份 bool） <b>${mb(sig)}</b></span><span class="kpi">价格多付 <b>${C}×</b></span></div>`;
+}
+
+/* ---------------- init ---------------- */
+plRender(); document.getElementById("pl-filter").addEventListener("input", plRender);
+buildGraph(); showDetail(null);
+ssInputs(); ssRender();
+const dh = document.getElementById("ss-delay");
+for (const d of [0, 1, 2, 3, 8]) { const b = document.createElement("button"); b.type = "button"; b.textContent = d === 8 ? "8（≥ T）" : String(d); if (d === SS.delay) b.classList.add("on"); b.addEventListener("click", () => { for (const x of dh.querySelectorAll("button")) x.classList.toggle("on", x === b); SS.delay = d; ssRender(); }); dh.appendChild(b); }
+document.getElementById("ss-add").addEventListener("click", () => { SS.cases.push([`c${SS.cases.length}`, 0.03, -0.01]); ssInputs(); ssRender(); });
+document.getElementById("ss-dup").addEventListener("click", () => { if (SS.cases.length < 2) SS.cases.push(["x", 0, 0]); SS.cases[1][0] = SS.cases[0][0]; ssInputs(); ssRender(); });
+const SS_ERR_LABELS = ["空因子名", "标签数不对", "没有情形", "重复情形标签", "expand 形状不符", "args 形状不符"];
+document.getElementById("ss-errs").innerHTML = SS_ERRORS.map((m, i) => `${SS_ERR_LABELS[i]}：<code>${esc(m)}</code>`).join("<br>");
+for (const id of ["ex-t", "ex-s", "ex-c"]) document.getElementById(id).addEventListener("input", exRender);
+exRender();
+document.getElementById("e2e-out").textContent = E2E_OUT;
+</script>
+<script id="toc-script">
+(() => {
+  const head = document.querySelector("header.top"), toc = document.getElementById("toc"), btn = document.getElementById("toc-btn");
+  const setH = () => document.documentElement.style.setProperty("--hh", head.offsetHeight + "px");
+  setH(); addEventListener("resize", setH);
+  const wide = () => matchMedia("(min-width: 1240px)").matches;
+  btn.addEventListener("click", () => { if (wide()) document.body.classList.toggle("toc-closed"); else document.body.classList.toggle("toc-open"); });
+  toc.addEventListener("click", (e) => { if (e.target.closest("a") && !wide()) document.body.classList.remove("toc-open"); });
+  const links = [...toc.querySelectorAll("ol.sec a")];
+  const targets = links.map((a) => document.getElementById(a.getAttribute("href").slice(1))).filter(Boolean);
+  const spy = () => {
+    const y = head.offsetHeight + 24; let cur = targets[0];
+    for (const t of targets) if (t.getBoundingClientRect().top <= y) cur = t;
+    for (const a of links) a.classList.toggle("on", cur && a.getAttribute("href") === "#" + cur.id);
+  };
+  addEventListener("scroll", spy, { passive: true }); spy();
+})();
+</script>
+</body>
+</html>

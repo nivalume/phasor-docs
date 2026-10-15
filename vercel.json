@@ -1,7 +1,7 @@
 {
   "framework": null,
-  "installCommand": "bun install",
-  "buildCommand": "bun run check && bun run build",
-  "outputDirectory": ".clio/site",
+  "installCommand": "",
+  "buildCommand": "",
+  "outputDirectory": ".",
   "cleanUrls": true
 }

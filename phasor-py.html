@@ -1,0 +1,1020 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>phasor-py 设计</title>
+<style>
+  :root {
+    --bg: #1e1e1e;
+    --chrome: #181818;
+    --elev: #262626;
+    --text: #f0f0f0;
+    --secondary: #b8b8b8;
+    --muted: #909090;
+    --stroke: #303030;
+    --stroke2: #3d3d3d;
+    --fill: #2b2b2b;
+    --accent: #3a7afe;
+    --math: #d35d5d;
+    --flex: #2fbfa8;
+    --matrix: #3a7afe;
+    --columns: #c9a227;
+    --error: #b07cd8;
+    --good: #4caf7a;
+    --bad: #d35d5d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    line-height: 1.55;
+    font-size: 14px;
+  }
+  a { color: #8eb6ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  header.top {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; gap: 16px; align-items: center;
+    padding: 10px 22px; background: var(--chrome); border-bottom: 1px solid var(--stroke); font-size: 13px;
+  }
+  header.top strong { font-size: 14px; }
+  header.top nav { display: flex; gap: 14px; margin-left: auto; flex-wrap: wrap; }
+  header.top nav a { color: var(--secondary); }
+  header.top nav a.sep { color: var(--muted); }
+  main { max-width: 1080px; margin: 0 auto; padding: 28px 22px 72px; }
+  h1 { font-size: 24px; line-height: 30px; font-weight: 600; margin: 0 0 8px; }
+  h2 { font-size: 18px; line-height: 24px; font-weight: 600; margin: 32px 0 10px; }
+  h3 { font-size: 15px; font-weight: 600; margin: 18px 0 4px; }
+  p { margin: 0 0 10px; }
+  .muted { color: var(--secondary); }
+  .small { color: var(--muted); font-size: 12px; line-height: 16px; }
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0 8px; }
+  .stat { border: 1px solid var(--stroke); border-radius: 8px; padding: 12px 14px; background: var(--elev); }
+  .stat b { display: block; font-size: 20px; font-weight: 650; margin-bottom: 2px; }
+  .stat span { color: var(--muted); font-size: 12px; }
+  .panel { border: 1px solid var(--stroke); border-radius: 8px; overflow: hidden; margin: 12px 0; }
+  .panel .cap { padding: 8px 12px; background: #242424; border-bottom: 1px solid var(--stroke); font-size: 12px; font-weight: 600; }
+  .panel .body { padding: 12px; background: var(--bg); overflow-x: auto; }
+  .panel .foot { padding: 8px 12px; border-top: 1px solid var(--stroke); }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 0 0 8px; }
+  .legend button, .chip, .seg button {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--stroke2); background: transparent; color: var(--secondary);
+    border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; font-family: inherit;
+  }
+  .legend button.on, .seg button.on { color: var(--text); background: var(--fill); border-color: #5a5a5a; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; align-items: center; }
+  .seg .lbl { color: var(--muted); font-size: 12px; margin-right: 2px; }
+  .dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+  .detail { min-height: 72px; border: 1px solid var(--stroke); border-radius: 8px; padding: 12px 14px; background: var(--elev); }
+  .detail h3 { margin: 0 0 4px; }
+  .uses { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; vertical-align: top; border-top: 1px solid var(--stroke); }
+  th { color: var(--text); font-weight: 600; background: var(--elev); border-top: none; }
+  td { color: var(--secondary); }
+  .wrap { border: 1px solid var(--stroke); border-radius: 6px; overflow: hidden; overflow-x: auto; }
+  .types td:first-child { white-space: nowrap; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .card { border: 1px solid var(--stroke); border-radius: 8px; padding: 12px 14px; background: #202020; }
+  .card h3 { margin-top: 0; }
+  .card p { color: var(--secondary); font-size: 13px; margin: 0; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  pre {
+    margin: 0; padding: 10px 12px; background: var(--fill); border: 1px solid var(--stroke);
+    border-radius: 6px; overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 18px;
+  }
+  .note { border-left: 3px solid var(--accent); background: #242424; border-radius: 6px; padding: 10px 12px; color: var(--secondary); font-size: 13px; margin: 10px 0; }
+  .note.warn { border-left-color: var(--bad); }
+  ol.steps { margin: 6px 0 10px; padding-left: 22px; }
+  ol.steps li { color: var(--secondary); margin: 0 0 6px; }
+  ol.steps li b { color: var(--text); }
+  svg text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; }
+  input[type="text"], input[type="number"] {
+    background: var(--fill); color: var(--text); border: 1px solid var(--stroke2); border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 5px 8px;
+  }
+  input[type="text"] { width: 100%; }
+  input[type="number"] { width: 96px; }
+  label.field { display: block; color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+  label.field span { display: block; margin-bottom: 3px; }
+  label.inline { display: inline-flex; align-items: center; gap: 6px; color: var(--secondary); font-size: 12px; margin-right: 14px; }
+  .err { color: var(--bad); font-size: 12px; min-height: 16px; margin-top: 4px; }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+  .kpis { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; }
+  .kpi { border: 1px solid var(--stroke2); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: var(--secondary); background: #232323; }
+  .kpi b { color: var(--text); font-family: ui-monospace, Menlo, monospace; }
+  .yes { color: var(--good); font-weight: 600; }
+  .no { color: var(--bad); font-weight: 600; }
+  /* cell grids */
+  table.cells { width: auto; border-collapse: separate; border-spacing: 3px; font-size: 11px; }
+  table.cells th, table.cells td { border: none; padding: 0; background: none; }
+  table.cells th.rl { text-align: right; padding-right: 8px; font-weight: 500; color: var(--secondary); white-space: nowrap; font-size: 12px; }
+  table.cells th.ix { color: var(--muted); font-weight: 400; text-align: center; font-family: ui-monospace, Menlo, monospace; padding: 0 2px; }
+  table.cells td.c {
+    min-width: 46px; height: 28px; padding: 0 4px; text-align: center; vertical-align: middle; border-radius: 4px;
+    border: 1px solid var(--stroke2); background: #232323; color: var(--secondary);
+    font-family: ui-monospace, Menlo, monospace; cursor: default;
+  }
+  table.cells td.hot { outline: 2px solid #f0f0f0; outline-offset: -1px; color: var(--text); }
+  table.cells td.dim { opacity: 0.35; }
+  table.cells td.none { border-style: dashed; color: #666; }
+  .flexrow { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+  .flexrow > div { min-width: 0; }
+  @media (max-width: 860px) {
+    .stats, .grid2, .grid3, .controls { grid-template-columns: 1fr; }
+    main { padding: 20px 16px 60px; }
+    header.top { padding: 10px 16px; flex-wrap: wrap; }
+  }
+</style>
+
+<style>
+  header.top strong { white-space: nowrap; }
+  .panel .body > svg { max-width: 100%; height: auto; display: block; }
+  select { background: var(--fill); color: var(--text); border: 1px solid var(--stroke2); border-radius: 6px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; padding: 4px 6px; max-width: 100%; }
+  table.cells td.ok { background: #1d3b2a; border-color: #4caf7a; color: #9be0b6; cursor: pointer; }
+  table.cells td.bad { background: #331a1a; border-color: #d35d5d; color: #ffb0b0; cursor: pointer; }
+  table.cells td.na { border-style: dashed; color: #666; }
+  table.cells td.copy { box-shadow: inset 0 -3px 0 #c9a227; }
+  table.cells th.kh { color: var(--secondary); font-weight: 500; font-size: 11px; text-align: center; padding: 0 2px 4px; white-space: nowrap; vertical-align: bottom; }
+  table.cells td.mem { min-width: 40px; height: 30px; }
+  .memrow { display: flex; flex-wrap: wrap; gap: 3px; }
+  .memrow .m { width: 44px; height: 30px; border-radius: 4px; border: 1px solid var(--stroke2); display: flex; align-items: center; justify-content: center; font-family: ui-monospace, Menlo, monospace; font-size: 11px; position: relative; }
+  .memrow .m i { position: absolute; top: -14px; font-style: normal; font-size: 9px; color: var(--muted); }
+  .verdict { margin-top: 10px; padding: 8px 12px; border-radius: 6px; font-size: 13px; }
+  .verdict.good { background: #1d3b2a; color: #9be0b6; border: 1px solid #2f6b48; }
+  .verdict.bad { background: #331a1a; color: #ffb0b0; border: 1px solid #6b2f2f; }
+  .kv { display: grid; grid-template-columns: 140px 1fr; gap: 4px 12px; font-size: 13px; }
+  .kv > div:nth-child(odd) { color: var(--muted); }
+  .kv > div:nth-child(even) { color: var(--secondary); }
+  .msg { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: #ffb0b0; white-space: pre-wrap; }
+  .bars { font-family: ui-monospace, Menlo, monospace; font-size: 11px; }
+  .bars .row { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+  .bars .row .lab { width: 64px; color: var(--muted); text-align: right; }
+  .bars .row .cells { display: flex; gap: 1px; }
+  .bars .cell { width: 12px; height: 14px; border-radius: 2px; background: #2a2a2a; }
+  .bars .cell.tr { background: #3a7afe; }
+  .bars .cell.te { background: #c9a227; }
+  .bars .cell.pu { background: transparent; border: 1px dashed #d35d5d; }
+  .bars .cell.em { background: transparent; border: 1px dashed #b07cd8; }
+  .colgrid { display: flex; flex-wrap: wrap; gap: 3px; }
+  .cc { width: 52px; border-radius: 4px; border: 1px solid var(--stroke2); padding: 3px 0; text-align: center; font-family: ui-monospace, Menlo, monospace; font-size: 11px; }
+  .cc small { display: block; color: var(--muted); font-size: 9px; }
+  .grp { display: inline-flex; gap: 3px; padding: 4px; border: 1px dashed #5a5a5a; border-radius: 6px; margin: 0 6px 6px 0; }
+  .timeline { display: flex; gap: 3px; align-items: flex-end; }
+  .timeline .t { width: 56px; text-align: center; font-family: ui-monospace, Menlo, monospace; font-size: 11px; }
+  .timeline .t .b { height: 26px; border-radius: 4px; border: 1px solid var(--stroke2); display: flex; align-items: center; justify-content: center; margin-top: 2px; }
+  .timeline .t .b.e { background: #1d3b2a; border-color: #4caf7a; color: #9be0b6; }
+  .timeline .t .b.x { background: #331a1a; border-color: #d35d5d; color: #ffb0b0; }
+  .timeline .t .b.lost { border-style: dashed; color: #888; }
+</style>
+<style id="toc-style">
+  :root { --toc-w: 248px; --hh: 45px; }
+  header.top { gap: 12px; }
+  header.top .toc-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid var(--stroke2, #3d3d3d); color: var(--secondary, #b8b8b8); border-radius: 6px; padding: 3px 9px; font: inherit; font-size: 12px; cursor: pointer; }
+  header.top .toc-btn:hover { color: var(--text, #f0f0f0); }
+  header.top .crumb { color: var(--muted, #909090); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header.top .crumb b { color: var(--secondary, #b8b8b8); font-weight: 500; }
+  aside.toc { position: fixed; z-index: 4; top: var(--hh); left: 0; bottom: 0; width: var(--toc-w); overflow-y: auto; background: var(--chrome, #181818); border-right: 1px solid var(--stroke, #303030); padding: 14px 10px 48px; font-size: 13px; line-height: 1.45; }
+  aside.toc .grp { margin: 0 0 12px; }
+  aside.toc .gh { color: var(--muted, #909090); font-size: 11px; letter-spacing: .02em; padding: 0 8px 3px; }
+  aside.toc ul { list-style: none; margin: 0; padding: 0; }
+  aside.toc a.pg, aside.toc span.pg { display: block; padding: 3px 8px; border-radius: 5px; color: var(--secondary, #b8b8b8); }
+  aside.toc a.pg:hover { background: #242424; text-decoration: none; color: var(--text, #f0f0f0); }
+  aside.toc span.pg { color: #6a6a6a; }
+  aside.toc span.pg small { font-size: 10px; margin-left: 4px; }
+  aside.toc li.cur > a.pg { color: var(--text, #f0f0f0); background: #262c3a; font-weight: 600; }
+  aside.toc ol.sec { list-style: none; margin: 3px 0 6px 10px; padding: 0 0 0 8px; border-left: 1px solid var(--stroke2, #3d3d3d); }
+  aside.toc ol.sec a { display: block; padding: 2px 8px; border-radius: 4px; color: var(--muted, #909090); font-size: 12px; }
+  aside.toc ol.sec a:hover { color: var(--text, #f0f0f0); text-decoration: none; }
+  aside.toc ol.sec a.on { color: #8eb6ff; background: #1f2633; }
+  [id] { scroll-margin-top: calc(var(--hh) + 12px); }
+  @media (min-width: 1240px) {
+    body:not(.toc-closed) { padding-left: var(--toc-w); }
+    body.toc-closed aside.toc { display: none; }
+  }
+  @media (max-width: 1239px) {
+    aside.toc { transform: translateX(-100%); transition: transform .18s ease; box-shadow: none; }
+    body.toc-open aside.toc { transform: none; box-shadow: 8px 0 24px rgba(0,0,0,.45); }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <button type="button" class="toc-btn" id="toc-btn" aria-controls="toc">☰ 目录</button>
+  <strong>phasor-py</strong>
+  <span class="crumb">L6 · 门面 · <b>phasor-py</b></span>
+</header>
+<aside class="toc" id="toc" aria-label="目录">
+  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li><li><a class="pg" href="architecture.html">设计与架构</a></li></ul></div>
+  <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
+  <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
+  <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
+  <div class="grp"><div class="gh">L3 · 记录</div><ul><li><a class="pg" href="phasor-records.html">phasor-records</a></li></ul></div>
+  <div class="grp"><div class="gh">L4 · 模拟</div><ul><li><a class="pg" href="phasor-sim.html">phasor-sim</a></li></ul></div>
+  <div class="grp"><div class="gh">L5 · 分析</div><ul><li><a class="pg" href="phasor-analysis.html">phasor-analysis</a></li></ul></div>
+  <div class="grp"><div class="gh">L6 · 门面</div><ul><li class="cur"><a class="pg" href="phasor-py.html" aria-current="page">phasor-py</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|order:内存序|routing:参数路由|defaults:默认值|life:一次调用|sweep:扫描布局|ranking:排名陷阱|enums:字符串|guards:护栏|validation:交叉验证|data:数据边界|docs:文档出入|reading:读码顺序"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#order">内存序</a></li><li><a href="#routing">参数路由</a></li><li><a href="#defaults">默认值</a></li><li><a href="#life">一次调用</a></li><li><a href="#sweep">扫描布局</a></li><li><a href="#ranking">排名陷阱</a></li><li><a href="#enums">字符串</a></li><li><a href="#guards">护栏</a></li><li><a href="#validation">交叉验证</a></li><li><a href="#data">数据边界</a></li><li><a href="#docs">文档出入</a></li><li><a href="#reading">读码顺序</a></li></ol></li><li><a class="pg" href="phasor.html">phasor（门面）</a></li></ul></div>
+</aside>
+<main>
+  <h1>phasor-py</h1>
+  <p class="muted">
+    Python 包。一个 wheel 里两层：Rust 扩展 <code>phasor._phasor</code>（PyO3 0.29 + rust-numpy，<code>abi3-py39</code>，maturin 构建）和包住它的纯 Python 壳
+    <code>python/phasor/</code>。会计算的东西全在 Rust 里，这一层只做三件事：把 NumPy 的缓冲区<b>按引擎读得懂的布局</b>交进去，把结果作为 NumPy 数组交出来，
+    在两门语言不同的生命周期之间搭桥。难点几乎都在第一件事上：引擎是列优先的，NumPy 默认是行优先的，而读反了的数组照样能跑出一份看起来正常的回测。
+  </p>
+  <div class="stats">
+    <div class="stat"><b>110 格实测</b><span>参数路由表的每一格都来自对已编译模块的真实调用：10 类参数 × 11 种输入 × 两层（<code>phasor</code> 与 <code>phasor._phasor</code>），记录的是转换、结果或报错原文</span></div>
+    <div class="stat"><b>191 通过 · 47 跳过</b><span><code>uv run --with pytest python -m pytest crates/phasor-py/tests</code>；跳过的是要装 vectorbt 1.1.0 才跑的对照测试。<code>cargo test -p phasor-py</code> 另有 6 个枚举映射测试</span></div>
+    <div class="stat"><b>只有 arrow.rs 有 unsafe</b><span>crate 根上 <code>#![deny(unsafe_code)]</code>，唯一的例外是 Arrow C Data 接口的导入导出。Rust 2,369 行（7 个文件），Python 1,257 行（4 个文件）</span></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="concept">从第一性原理看：一层绑定要回答什么</h2>
+  <p class="muted">先不看代码。把一个列优先、借用输入的 Rust 引擎暴露给 NumPy 用户，至少有六个问题绕不过去。</p>
+
+  <h3>1. 读反了也能跑</h3>
+  <p>
+    <code>(3, 2)</code> 的数组 <code>0..6</code>，C 序的内存是 <code>[0,1,2,3,4,5]</code>，F 序是 <code>[0,2,4,1,3,5]</code>。把 C 序缓冲区当列优先读，
+    得到的不是乱码而是一条“价格序列”——它会成交、出报告、Sharpe 看起来很普通。连续性检查拦不住（C 序也是连续的），形状检查也拦不住（方阵转置后形状不变）。
+    唯一能区分的是 <b>stride</b>。所以布局要在 Rust 里按 stride 检查，而不是只靠 Python 壳去转换——<code>phasor._phasor</code> 是可以直接 import 的。
+  </p>
+
+  <h3>2. 借用跨不过 FFI</h3>
+  <p>
+    引擎的 <code>Portfolio</code> 借用收盘价：一次扫描里收盘价矩阵是最大的东西，结果没有理由再存一份。但 Python 可以在函数返回的下一刻就释放那个数组。
+    所以 <code>PyPortfolio</code> 在运行结束时把收盘价<b>按源宽度</b>复制一份（有 <code>column_map</code> 时是 S 列而不是 S × P 列），每次调用方法时在这份副本上重建借用视图。
+    派生出来的价值曲线、收益率、交易放在 pyclass 自己持有的 <code>Cache</code> 里，比每次的借用视图活得久。
+  </p>
+
+  <h3>3. 一维数组有两种意思</h3>
+  <p>
+    长度为 n 的一维数组，可以是“每根 K 线一个值”，也可以是“每列一个值”。在 <code>T ≠ C</code> 时长度能区分，在方阵上不能。所以每个调用点必须自己声明
+    <code>OneDim::PerRow</code> 还是 <code>OneDim::PerColumn</code>：交易参数是每列，现金流（入金、收益）是每根 K 线。这不是能推断出来的事。
+  </p>
+
+  <h3>4. 默认值只能有一份</h3>
+  <p>
+    <code>fees</code> 默认 0，<code>size</code> 默认 inf，<code>size_granularity</code> 默认 NaN，这些都写在 <code>FromSignals::default()</code> 里。
+    如果 Python 签名里再写一遍，就有了第二份会悄悄漂移的拷贝——没有任何测试会去找它。所以签名里只写 <code>None</code>，表示“没提供”，由 Rust 用引擎自己的默认值替换。
+  </p>
+
+  <h3>5. 计算时不需要 GIL</h3>
+  <p>
+    模拟、因子求值、组合派生都不碰任何 Python 对象，输入是 NumPy 缓冲区的只读借用。所以它们都包在 <code>py.detach</code> 里，GIL 释放，别的 Python 线程可以同时跑。
+    唯一的例外是数据加载：解码器是用户写的 Python 函数，Rust 侧在 GIL 外读文件，每一批再重新拿 GIL 调一次解码器。
+  </p>
+
+  <h3>6. 错误要带着能行动的信息过来</h3>
+  <p>
+    引擎的错误是“第 3 行第 1 列拒单：现金不足”这种句子。手写 C ABI 会把它压成错误码，丢掉的恰好是用户唯一能用的部分。这里每个 <code>phasor_core::Error</code>
+    原样变成 <code>ValueError</code>；字符串转枚举失败时，错误信息里既有可选值，也有用户传进来的那个值。
+  </p>
+
+  <!-- ============================================================ -->
+  <h2 id="graph">依赖图</h2>
+  <p>左边是引擎 crate，中间是 <code>_phasor</code> 的七个 Rust 模块，右边是 Python 壳。点任一节点，只保留相关的线。</p>
+  <div class="legend" id="legend"></div>
+  <div class="panel">
+    <div class="cap">线的颜色 = 被用到的 Rust 模块。validation.py 是纯 NumPy，不碰扩展</div>
+    <div class="body"><svg id="dep-graph" width="1040" height="500" viewBox="0 0 1040 500" role="img" aria-label="phasor-py 依赖图"></svg></div>
+    <div class="foot"><p class="small" style="margin:0">来源：<code>Cargo.toml</code>、<code>src/*.rs</code> 里的 <code>use phasor_…</code>、<code>python/phasor/*.py</code> 里的 <code>_phasor.…</code>。phasor-signals、phasor-indicators、phasor（门面）都不在依赖里：Python 用户经由 <code>crossed_above</code> 和因子表达式拿到同类功能。</p></div>
+  </div>
+  <div class="detail" id="detail"><h3>点一个节点</h3><p class="muted" style="margin:0">引擎 crate：被哪些模块用到。Rust 模块：它负责边界的哪一段。Python 文件：它调扩展里的什么。</p></div>
+
+  <!-- ============================================================ -->
+  <h2 id="order">内存序陷阱</h2>
+  <p>
+    左边是你想表达的价格矩阵（每列一个标的），中间是它在内存里的样子，右边是一个列优先的读者按 <code>data[col * n_rows + row]</code> 读到的东西。
+    切换 C / F 看看；再切到方阵，看形状检查为什么帮不上忙。
+  </p>
+  <div class="panel">
+    <div class="cap">array.rs 的 <code>columns_of</code> 要防的事</div>
+    <div class="body">
+      <div class="seg" id="mo-shape"><span class="lbl">形状</span></div>
+      <div class="seg" id="mo-order"><span class="lbl">内存序</span></div>
+      <div class="flexrow" id="mo-out"></div>
+      <div id="mo-verdict"></div>
+    </div>
+    <div class="foot"><p class="small" style="margin:0" id="mo-foot"></p></div>
+  </div>
+  <div class="grid3">
+    <article class="card"><h3>第一道：Python 壳转换</h3><p><code>_matrix</code> / <code>_param</code> 对二维数组调 <code>np.asfortranarray</code>。已经是 F 序的 float64 原样返回（同一个对象），否则复制一份。复制是看得见的成本，不是悄悄的转置。</p></article>
+    <article class="card"><h3>第二道：Rust 按 stride 拒绝</h3><p><code>columns_of</code> 判断 <code>n_rows == 1 || n_cols == 1 || strides[0] == 1</code>，不满足就报错并给出修法；不连续的切片（<code>x[:, ::2]</code>）也拒绝。bool 数组走 <code>flex_bool</code>，同样的检查。</p></article>
+    <article class="card"><h3>为什么两道都要</h3><p>只有壳：直接调 <code>phasor._phasor</code> 的人拿到的是转置后的回测。只有 Rust：每个 NumPy 默认数组都报错。两道一起，默认路径无感，绕过壳的人得到报错而不是错误答案。</p></article>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="routing">参数路由表（实测）</h2>
+  <p>
+    一次 4 根 K 线 × 3 列的 <code>from_signals</code>。每一行是一类参数，每一列是一种传法。绿色是跑通了，红色是报错；黄色下划线表示 Python 壳为它复制了一份缓冲区。
+    切换“公开 API”和“直接调扩展”，点任一格看 Python 做了什么、Rust 怎么读、实际结果是什么。这些都是对编译好的模块调用出来的，不是从代码推出来的。
+  </p>
+  <div class="panel">
+    <div class="cap">phasor.from_signals vs phasor._phasor.from_signals · 收盘价 4 × 3</div>
+    <div class="body">
+      <div class="seg" id="rt-layer"><span class="lbl">调用层</span></div>
+      <div id="rt-grid"></div>
+      <div class="detail" id="rt-detail" style="margin-top:10px"><h3>点一格</h3><p class="muted" style="margin:0">共享资金的行用 <code>cash_sharing=True</code>，所有列一个组（<code>n_groups = 1</code>）。</p></div>
+    </div>
+    <div class="foot"><p class="small" style="margin:0">“交易参数”一行用的是 <code>size</code>；<code>fees</code>、<code>price</code>、<code>slippage</code>、<code>min_size</code>、<code>max_size</code>、<code>size_granularity</code>、<code>cash_limit</code>、<code>reject_prob</code>、<code>val_price</code>、止损止盈走同一条路（<code>flex_or_f64</code> + <code>OneDim::PerColumn</code>）。bool 参数一行用的是 <code>lock_cash</code>，<code>allow_partial</code>、<code>raise_reject</code>、<code>log</code>、<code>sl_trail</code> 相同。</p></div>
+  </div>
+  <div class="grid2">
+    <article class="card"><h3>一维的意思取决于参数</h3><p>交易参数和 <code>init_cash</code> 的一维数组是<b>每列一个</b>（长度 4 报 <code>per-column array has length 4, expected 3</code>）；<code>cash_deposits</code>、<code>cash_earnings</code> 是<b>每根 K 线一个</b>（长度 3 报 <code>per-row … expected 4</code>）。在 T = C 的方阵上两种长度都能过，读这张表是唯一的办法。</p></article>
+    <article class="card"><h3>非共享 <code>init_cash</code> 收下矩阵，只读第 0 行</h3><p>传一个 4 × 3 的 <code>init_cash</code>，各行不同：运行成功，三列的起始净值是 <code>[1000, 2000, 3000]</code>，正好是第 0 行；后面三行被静默忽略。<code>account_inputs</code> 用 <code>balances.get(0, group)</code> 取值，没有检查行数。</p></article>
+    <article class="card"><h3>共享账户：入金按组，收益按列</h3><p>共享时 <code>init_cash</code> 只能是标量或每组一个值；<code>cash_deposits</code> 的矩阵必须是 <code>(T, n_groups)</code>，经 <code>FlexArray::mapped</code> 映射到列上，不复制；<code>cash_earnings</code> 仍是 <code>(T, C)</code>。原因：引擎从组的第一列记一次入金，而收益（利息、费用）属于每一列的持仓。</p></article>
+    <article class="card"><h3>bool 参数没有一维形式；信号不收标量</h3><p><code>_flag</code> 把一维 bool 数组重塑成一列，只有单列的运行才对得上。公开 API 的 <code>entries</code>/<code>exits</code> 经 <code>_signals</code>，标量直接报错；扩展本身却收 bool 标量——壳比 Rust 更严格。整数数组正相反：壳把它转成 float64（复制），扩展拒绝，理由是“悄悄当成 float 读就得复制”。</p></article>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="defaults">默认值放在哪里</h2>
+  <p>
+    凡是会变成 <code>FlexArray</code> 的参数，Python 签名和 Rust 签名里的默认值都是 <code>None</code>；<code>flex_or_f64(&amp;value, …, default)</code> 在没提供时用
+    <code>FromSignals::default()</code> 的字段。字符串和普通标量（<code>ann_factor</code>、<code>seed</code>、<code>threads</code>……）不经过 FlexArray，
+    它们的默认值在 Python 壳和 <code>#[pyo3(signature)]</code> 里<b>各写了一份</b>——目前一致，但这正是上面第 4 条想避免的那种拷贝。
+  </p>
+  <div class="wrap">
+    <table class="types">
+      <thead><tr><th>参数</th><th>签名里</th><th>引擎默认（<code>FromSignals::default()</code>）</th><th>意思</th></tr></thead>
+      <tbody id="def-rows"></tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="life">一次调用的生命周期</h2>
+  <p>从 <code>phasor.from_signals(...)</code> 到 <code>pf.sharpe_ratio()</code>，数据在哪里、谁拿着 GIL。</p>
+  <div class="panel">
+    <div class="cap">四条泳道：Python 壳 · _phasor（持 GIL） · 引擎（GIL 已释放） · PyPortfolio</div>
+    <div class="body"><svg id="life-svg" width="1040" height="400" viewBox="0 0 1040 400" role="img" aria-label="调用生命周期"></svg></div>
+    <div class="foot"><p class="small" style="margin:0">共享资金的运行按执行顺序写成交；<code>assemble</code> 在这里排一次序（<code>sort_by_column</code>）存进 <code>sorted_orders</code>，以后每次重建都直接用，而不是每次都排。</p></div>
+  </div>
+  <h3>实测</h3>
+  <p class="muted">一台 8 核 macOS 机器，各跑一次的墙钟时间，只用来看量级和比例，不是基准测试。2,520 根 K 线 × 50 个标的 × 40 组参数（2,000 列），<code>strategy.sweep</code>。</p>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>测量</th><th>结果</th><th>说明</th></tr></thead>
+      <tbody id="perf-rows"></tbody>
+    </table>
+  </div>
+  <div class="note">
+    README 说“每个单独的指标访问器都会重建派生链……缓存每次都从空开始”，<code>metrics()</code> 的文档注释也说“分开要六个就做六倍的活”。
+    代码已经不是这样：<code>PyPortfolio</code> 自己持有 <code>cache: Cache</code>，第二次 <code>sharpe_ratio()</code> 从约 90 ms 降到约 19 ms，剩下的是重建借用视图和归约本身。
+    <code>metrics()</code> 仍然划算（一次重建、一次 GIL 往返），但不再是“六倍”。见<a href="#docs">文档出入</a>。
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="sweep">扫描布局：<code>@phasor.strategy</code></h2>
+  <p>
+    <code>strategy.sweep(data, params=[...])</code> 对每组参数调一次你的函数，把信号按参数组横向拼起来：第 p 组参数、第 s 个标的落在列 <code>p · S + s</code>。
+    收盘价不复制：<code>column_map = tile(arange(S), P)</code> 让每一列指回源列。开了 <code>cash_sharing</code> 时，每组参数是一个账户（<code>group_lens = [S] * P</code>）。
+  </p>
+  <div class="panel">
+    <div class="cap">列布局与保留的价格内存</div>
+    <div class="body">
+      <div class="seg">
+        <span class="lbl">标的 S</span><input type="number" id="sw-s" min="1" max="8" value="3" />
+        <span class="lbl" style="margin-left:10px">参数组 P</span><input type="number" id="sw-p" min="1" max="6" value="4" />
+        <span class="lbl" style="margin-left:10px">K 线 T</span><input type="number" id="sw-t" min="1" max="1000000" value="2520" />
+        <label class="inline" style="margin-left:10px"><input type="checkbox" id="sw-share" /> cash_sharing</label>
+      </div>
+      <div id="sw-out"></div>
+    </div>
+    <div class="foot"><p class="small" style="margin:0">实测：6 根 K 线、2 个标的、3 组参数，<code>n_cols = 6</code>，<code>price_nbytes = 96</code>（= 6 × 2 × 8，源矩阵本身）；共享时 <code>group_lens = (2, 2, 2)</code>。大扫描 2,520 × 50 × 40：保留 1,008,000 字节，铺开会是 40,320,000 字节。</p></div>
+  </div>
+  <h3><code>signal_delay</code>：信号晚一根执行</h3>
+  <p>
+    默认 <code>signal_delay=1</code>：第 t 根 K 线算出来的信号，在第 t + 1 根的收盘价成交，避免用当根收盘价决定、又按当根收盘价成交。实现是把信号整体下移
+    （<code>delayed[bars:] = array[:-bars]</code>），所以<b>最后 <code>delay</code> 根上的信号会被丢掉</b>——包括最后一根上的出场。
+  </p>
+  <div class="panel">
+    <div class="cap">一列：第 0 根进场、第 5 根出场（6 根 K 线）</div>
+    <div class="body">
+      <div class="seg" id="dl-seg"><span class="lbl">signal_delay</span></div>
+      <div id="dl-out"></div>
+    </div>
+    <div class="foot"><p class="small" style="margin:0">实测：<code>signal_delay=0</code> 成交在第 0、5 根；<code>signal_delay=1</code> 只剩第 1 根的买入——第 6 根不存在，出场信号没了，仓位到最后都开着。</p></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="ranking">两个排名陷阱</h2>
+  <div class="grid2">
+    <article class="card">
+      <h3>从没交易过的列，Sharpe 是 inf</h3>
+      <p>零收益除以零波动。实测两列，一列交易、一列信号从没触发：<code>sharpe_ratio() = [124.04, inf]</code>，<code>argmax</code> 选中的是那列<b>什么都没做</b>的。
+      <code>pf.traded_only(values)</code> 把没交易的列换成 NaN：<code>[124.04, nan]</code>，<code>nanargmax</code> 回到 0。这是参考实现的答案，不是 bug；这个方法是让排名说清楚它在排什么。</p>
+    </article>
+    <article class="card">
+      <h3><code>stats()</code> 里 NaN 和 None 不是一回事</h3>
+      <p>28 行，顺序与参考实现一致（所以两次运行可以直接 diff）。NaN 表示算了、没有答案：只涨不跌的列里 <code>Max Drawdown [%]</code>、<code>Avg Losing Trade [%]</code>、<code>Calmar Ratio</code> 都是 NaN。
+      None 表示没人提供算它的输入：共享资金运行不设基准，<code>Benchmark Return [%]</code> 是 None。共享运行的序列要用 <code>group=</code>，传 <code>col=</code> 会报错。</p>
+    </article>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="enums">字符串到枚举</h2>
+  <p>
+    <code>parse.rs</code> 很小，测试却一个变体一个变体地写：映射表的典型错误是“明显对、但有一行错”——<code>"targetvalue"</code> 落到 <code>TargetAmount</code> 能编译、能跑，
+    只是回测结果不同，下游没有任何东西能察觉。区分大小写，失败时同时列出可选值和传入的值。输入一个字符串试试。
+  </p>
+  <div class="panel">
+    <div class="cap">parse.rs + from_signals 的 size_type 限制，JS 移植（234 个实测用例全部一致）</div>
+    <div class="body">
+      <div class="seg" id="en-param"><span class="lbl">参数</span></div>
+      <div class="seg" id="en-loop"><span class="lbl">循环</span></div>
+      <label class="field"><span>传入的字符串</span><input type="text" id="en-in" value="targetvalue" /></label>
+      <div id="en-out"></div>
+    </div>
+    <div class="foot"><p class="small" style="margin:0" id="en-foot"></p></div>
+  </div>
+  <div class="grid2">
+    <article class="card"><h3>两个循环的不对称</h3><p><code>from_orders</code> 收六种 size type，<code>from_signals</code> 只收 Amount / Value / Percent：目标仓位说的是“该在哪里结束”，对每个元素是明确的，对一个只说“往哪边动”的信号是含糊的。参考实现拒绝同样三种，有测试钉住这一点。</p></article>
+    <article class="card"><h3><code>direction</code> 默认值也不同</h3><p>订单默认 <code>both</code>（数量的正负已经说明方向），信号默认 <code>longonly</code>。<code>"long"</code>、<code>"short"</code> 作为 <code>"longonly"</code>、<code>"shortonly"</code> 的别名接受；Python 壳另把 <code>accumulate=True / False</code> 翻译成 <code>"both"</code> / <code>"disabled"</code>。</p></article>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="guards">护栏：宁可报错，也不给一个看起来正常的错答案</h2>
+  <p>这一层拒绝的每样东西，如果放行，都会得到一次能跑完的回测。报错原文来自实测。</p>
+  <div class="wrap">
+    <table>
+      <thead><tr><th style="width:22%">情况</th><th style="width:40%">报错</th><th>放行会怎样</th></tr></thead>
+      <tbody id="guard-rows"></tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="validation">交叉验证：<code>phasor.validation</code></h2>
+  <p>
+    纯 NumPy，不碰扩展。在同一段 K 线上选参数又报告结果，衡量的是拟合而不是优势；这几个切分器只返回<b>行号</b>，所以可以切价格矩阵、喂给 <code>iloc</code>、喂给模型的 <code>fit</code>。
+    尺寸是显式的行数而不是比例：同一个调用用在更长的序列上，得到更多同样形状的切分，而不是形状变了。
+  </p>
+  <div class="panel">
+    <div class="cap">rolling / expanding / purged_kfold，JS 移植（432 个用例与 Python 逐一致）</div>
+    <div class="body">
+      <div class="seg" id="va-kind"><span class="lbl">切分器</span></div>
+      <div class="seg" id="va-form"></div>
+      <div id="va-out" class="bars"></div>
+      <div class="err" id="va-err"></div>
+    </div>
+    <div class="foot"><p class="small" style="margin:0"><span style="color:#8eb6ff">■</span> train　<span style="color:#e6c35c">■</span> test　<span style="color:#ff9b9b">┆</span> purge（测试段之前丢掉：标签向前看）　<span style="color:#d3b5ee">┆</span> embargo（测试段之后丢掉：特征向后看）</p></div>
+  </div>
+  <p class="small">
+    <code>walk_forward(fn, n, splits)</code> 在每个 train 上给整个参数网格打分、选一个键，再只保留这个键在 test 上的分数；其余 test 分数直接丢掉，免得它们影响选择。
+    NaN 分数永远不会被选中，平局取 <code>fn</code> 返回顺序里的第一个。
+  </p>
+
+  <!-- ============================================================ -->
+  <h2 id="data">数据边界：Arrow C Data 接口</h2>
+  <div class="grid3">
+    <article class="card"><h3>只认具体的 PyArrow 类</h3><p><code>arrow.rs</code> 先 <code>is_exact_instance(pyarrow.Schema / RecordBatch)</code>，再取 <code>__arrow_c_schema__</code> / <code>__arrow_c_array__</code> 胶囊。导入时 <code>FFI_ArrowArray::from_raw</code> 把数组的所有权搬出来并清空胶囊，防止重复释放。这是整个 crate 唯一的 <code>unsafe</code>。</p></article>
+    <article class="card"><h3>GIL 一批一放</h3><p><code>load_data</code> 在 <code>py.detach</code> 里调 <code>phasor_data::load</code>：读文件、对齐都不持 GIL；每读到一批，用 <code>Python::attach</code> 拿回 GIL，导出成 <code>pyarrow.RecordBatch</code>，调用户的解码器，再导回来。<code>prepare</code> 和 <code>align</code> 同样释放 GIL。</p></article>
+    <article class="card"><h3>出来的面板是 F 序</h3><p><code>prepare()</code> 返回扁平数组，<code>BarPanel._from_native</code> 用 <code>reshape(shape, order="F")</code> 还原成 <code>(T, S)</code>——不复制，直接就是 <code>from_signals</code> 想要的布局。库里只读本地文件；下载脚本在 <code>examples/</code>。</p></article>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="docs">文档与代码的出入</h2>
+  <p class="muted">以下对照的是当前工作树，结论都可以用上面的实测复现。</p>
+  <div class="wrap">
+    <table>
+      <thead><tr><th style="width:30%">文档说</th><th style="width:36%">代码 / 实测</th><th>影响</th></tr></thead>
+      <tbody>
+        <tr><td><code>crates/phasor-py/README.md</code>“Each individual metric accessor rebuilds the derivation chain … the cache starts empty each time”；<code>lib.rs</code> 的 <code>metrics()</code> 注释“asking for six of them separately does six times the work”</td><td><code>PyPortfolio</code> 持有 <code>cache: Cache</code>，结构体自己的文档说“a curve computed for one call is still there for the next”；第二次 <code>sharpe_ratio()</code> 约 19 ms，第一次约 90 ms</td><td>读者会以为必须用 <code>metrics()</code> 才不慢；实际上单独调用也会命中缓存</td></tr>
+        <tr><td>README“<code>phasor.data</code> supplies Binance Spot download, CSV caching and aligned OHLCV arrays”</td><td><code>python/phasor/data.py</code> 的模块文档是“Read-only local Arrow sources”，包里没有网络代码；下载在 <code>examples/fetch.py</code>、<code>download_binance_vision.py</code></td><td>与 AGENTS.md“库 crate 不下载、不写文件”的规则一致的是代码，不是这句文档</td></tr>
+        <tr><td>README 第 3 行“zero-copy in”；ARCHITECTURE §12.2“Arrays cross without copies”</td><td>只对连续、F 序、float64 的输入成立。C 序、整数、步长切片都会被壳复制（路由表里黄色下划线的格子）；运行结束后 <code>PyPortfolio</code> 还会复制一次源宽度的收盘价</td><td>“零拷贝”是一个条件，不是保证；大矩阵应该一开始就用 F 序构造</td></tr>
+        <tr><td>ARCHITECTURE §12.3“every parameter is scalar, per-column 1-D or (T, C)”</td><td>非共享 <code>init_cash</code> 的 <code>(T, C)</code> 只读第 0 行；共享时 <code>init_cash</code> 不收矩阵、<code>cash_deposits</code> 要 <code>(T, n_groups)</code>；现金流的一维是每根 K 线；bool 参数没有一维形式</td><td>按文档传一个逐行变化的 <code>init_cash</code> 矩阵不会报错，只会被截成第一行</td></tr>
+        <tr><td>ARCHITECTURE §12.3“stops need <code>high</code> and <code>low</code>”；<code>lib.rs</code> 的报错“with no range no stop can ever fire”</td><td>phasor-sim 的 <code>from_signals.rs</code> 在 open / high / low 为 NaN 时用收盘价重建它们，只给收盘价的止损照样触发（Rust 测试与 Python 实测都是成交在 [0, 1, 2]）</td><td>Python 用户被迫多传两个数组；只有收盘价的数据只能手工传 <code>high=close, low=close</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small">尚未暴露（<code>lib.rs</code> 模块文档与 ARCHITECTURE §12.5）：滚动指标、回撤记录、指标扫描、phasor-signals、<code>CallSeq::Explicit</code>、Polars。</p>
+
+  <!-- ============================================================ -->
+  <h2 id="reading">读码顺序</h2>
+  <ol class="steps">
+    <li><b><code>python/phasor/__init__.py</code></b>：模块文档的 Layout / Shapes 两节，然后 <code>_matrix</code>、<code>_param</code>、<code>_flag</code>、<code>_signals</code>——四个函数决定了路由表的“公开 API”一半。</li>
+    <li><b><code>src/array.rs</code></b>：模块文档讲为什么拒绝而不是转置；<code>columns_of</code>、<code>Borrowed</code>、<code>OneDim</code>、<code>flex_f64</code>、<code>borrow_opt_f64</code> 上关于默认值的注释。</li>
+    <li><b><code>src/lib.rs</code> 的 <code>PyPortfolio</code></b>：结构体文档（为什么拥有数组）、<code>core()</code>（为什么每次重建）、<code>assemble()</code>（为什么只排一次序）。</li>
+    <li><b><code>from_signals</code></b>：先借 <code>close</code> 定形状，止损必须配 <code>high</code>/<code>low</code>（一条与引擎不符的护栏，见<a href="#guards">护栏</a>），<code>account_inputs</code>、<code>deposits_view</code>、<code>market_optional</code>，最后 <code>py.detach</code> 里选四个入口之一。</li>
+    <li><b><code>src/params.rs</code>、<code>src/parse.rs</code></b>：两个循环共用的 14 个参数；字符串映射和它一行一行的测试。</li>
+    <li><b><code>src/expr.rs</code>、<code>python/phasor/strategy.py</code></b>：因子集和 <code>crossed_above</code> 怎么返回扁平的列优先数组；<code>sweep</code> 怎么拼列、映射收盘价、延迟信号。</li>
+    <li><b><code>src/data.rs</code>、<code>src/arrow.rs</code></b>：数据层的绑定和唯一的 <code>unsafe</code>。</li>
+    <li><b>测试</b>：<code>test_bindings.py</code> 里 <code>test_a_c_ordered_array_is_refused_rather_than_transposed</code>、<code>test_the_engine_does_not_write_through_a_borrowed_array</code>；<code>test_column_map.py</code> 证明映射与铺开在执行和分析上逐项一致，且改写或释放原数组不影响已返回的组合。</li>
+  </ol>
+</main>
+
+<script>
+const GRID = {"close|py_float":{"value":{"type":"float","repr":"10.0"},"py":{"error":"ValueError: close must be 1-D or 2-D; got 0 dimensions"},"public":{"ok":false,"type":"ValueError","msg":"close must be 1-D or 2-D; got 0 dimensions"},"raw":{"ok":false,"type":"TypeError","msg":"close must be a 2-D float64 array; it is what sets the run's shape"}},"close|py_int":{"value":{"type":"int","repr":"10"},"py":{"error":"ValueError: close must be 1-D or 2-D; got 0 dimensions"},"public":{"ok":false,"type":"ValueError","msg":"close must be 1-D or 2-D; got 0 dimensions"},"raw":{"ok":false,"type":"TypeError","msg":"close must be a 2-D float64 array; it is what sets the run's shape"}},"close|np_scalar":{"value":{"type":"numpy.float64","repr":"np.float64(10.0)"},"py":{"error":"ValueError: close must be 1-D or 2-D; got 0 dimensions"},"public":{"ok":false,"type":"ValueError","msg":"close must be 1-D or 2-D; got 0 dimensions"},"raw":{"ok":false,"type":"TypeError","msg":"close must be a 2-D float64 array; it is what sets the run's shape"}},"close|zero_d":{"value":{"type":"ndarray","dtype":"float64","shape":[],"order":""},"py":{"error":"ValueError: close must be 1-D or 2-D; got 0 dimensions"},"public":{"ok":false,"type":"ValueError","msg":"close must be 1-D or 2-D; got 0 dimensions"},"raw":{"ok":false,"type":"TypeError","msg":"close must be a 2-D float64 array; it is what sets the run's shape"}},"close|row_T":{"value":{"type":"ndarray","dtype":"float64","shape":[4],"order":""},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,1],"order":"CF"},"same":false,"shares":true},"public":{"ok":true,"shape":[4,1],"groups":1,"fills":2,"tr":[0.3],"v0":[1000.0]},"raw":{"ok":false,"type":"TypeError","msg":"close must be a 2-D float64 array; it is what sets the run's shape"}},"close|row_C":{"value":{"type":"ndarray","dtype":"float64","shape":[3],"order":""},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[3,1],"order":"CF"},"same":false,"shares":true},"public":{"ok":true,"shape":[3,1],"groups":1,"fills":2,"tr":[2.0],"v0":[1000.0]},"raw":{"ok":false,"type":"TypeError","msg":"close must be a 2-D float64 array; it is what sets the run's shape"}},"close|mat_F":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":true,"shares":true},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]}},"close|mat_C":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"C"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"ValueError","msg":"this array is C-ordered (4x3, strides [3, 1]) and this engine is column-major. Pass np.asfortranarray(x). Reading it as given would backtest the transposed series and report an ordinary-looking result"}},"close|mat_int":{"value":{"type":"ndarray","dtype":"int64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"TypeError","msg":"close must be a float, or a 1-D or 2-D float64 array; got ndarray. An integer array is not accepted, because silently viewing it as float would copy"}},"close|mat_wrong":{"value":{"type":"ndarray","dtype":"float64","shape":[4,2],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,2],"order":"F"},"same":true,"shares":true},"public":{"ok":true,"shape":[4,2],"groups":2,"fills":4,"tr":[0.3,0.1],"v0":[1000.0,1000.0]},"raw":{"ok":true,"shape":[4,2],"groups":2,"fills":4,"tr":[0.3,0.1],"v0":[1000.0,1000.0]}},"close|mat_strided":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"non-contig"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"ValueError","msg":"the array is not contiguous — a slice like x[:, ::2] cannot be borrowed; pass np.ascontiguousarray(x, order='F')"}},"entries|py_float":{"value":{"type":"bool","repr":"True"},"py":{"error":"ValueError: entries must be 1-D or 2-D; got 0 dimensions"},"public":{"ok":false,"type":"ValueError","msg":"entries must be 1-D or 2-D; got 0 dimensions"},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":3,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]}},"entries|py_int":{"value":{"type":"int","repr":"1"},"py":{"error":"ValueError: entries must be 1-D or 2-D; got 0 dimensions"},"public":{"ok":false,"type":"ValueError","msg":"entries must be 1-D or 2-D; got 0 dimensions"},"raw":{"ok":false,"type":"TypeError","msg":"entries must be a bool or a 2-D bool array; got int"}},"entries|np_scalar":{"value":{"type":"numpy.bool","repr":"np.True_"},"py":{"error":"ValueError: entries must be 1-D or 2-D; got 0 dimensions"},"public":{"ok":false,"type":"ValueError","msg":"entries must be 1-D or 2-D; got 0 dimensions"},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":3,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]}},"entries|zero_d":{"value":{"type":"ndarray","dtype":"bool","shape":[],"order":""},"py":{"error":"ValueError: entries must be 1-D or 2-D; got 0 dimensions"},"public":{"ok":false,"type":"ValueError","msg":"entries must be 1-D or 2-D; got 0 dimensions"},"raw":{"ok":false,"type":"TypeError","msg":"entries must be a bool or a 2-D bool array; got ndarray"}},"entries|row_T":{"value":{"type":"ndarray","dtype":"bool","shape":[4],"order":""},"py":{"result":{"type":"ndarray","dtype":"bool","shape":[4,1],"order":"CF"},"same":false,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"a 4x1 array against a 4x3 run"},"raw":{"ok":false,"type":"TypeError","msg":"entries must be a bool or a 2-D bool array; got ndarray"}},"entries|row_C":{"value":{"type":"ndarray","dtype":"bool","shape":[3],"order":""},"py":{"result":{"type":"ndarray","dtype":"bool","shape":[3,1],"order":"CF"},"same":false,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"a 3x1 array against a 4x3 run"},"raw":{"ok":false,"type":"TypeError","msg":"entries must be a bool or a 2-D bool array; got ndarray"}},"entries|mat_F":{"value":{"type":"ndarray","dtype":"bool","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"bool","shape":[4,3],"order":"F"},"same":true,"shares":true},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]}},"entries|mat_C":{"value":{"type":"ndarray","dtype":"bool","shape":[4,3],"order":"C"},"py":{"result":{"type":"ndarray","dtype":"bool","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"ValueError","msg":"this bool array is C-ordered (4x3); this engine is column-major. Pass np.asfortranarray(x)"}},"entries|mat_int":{"value":{"type":"ndarray","dtype":"int64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"bool","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"TypeError","msg":"entries must be a bool or a 2-D bool array; got ndarray"}},"entries|mat_wrong":{"value":{"type":"ndarray","dtype":"bool","shape":[4,2],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"bool","shape":[4,2],"order":"F"},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"a 4x2 array against a 4x3 run"},"raw":{"ok":false,"type":"ValueError","msg":"a 4x2 array against a 4x3 run"}},"entries|mat_strided":{"value":{"type":"ndarray","dtype":"bool","shape":[4,3],"order":"non-contig"},"py":{"result":{"type":"ndarray","dtype":"bool","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"ValueError","msg":"the array is not contiguous"}},"size|py_float":{"value":{"type":"float","repr":"1.0"},"py":{"result":{"type":"float","repr":"1.0"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.003,0.002,0.006],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.003,0.002,0.006],"v0":[1000.0,1000.0,1000.0]}},"size|py_int":{"value":{"type":"int","repr":"1"},"py":{"result":{"type":"int","repr":"1"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.003,0.002,0.006],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.003,0.002,0.006],"v0":[1000.0,1000.0,1000.0]}},"size|np_scalar":{"value":{"type":"numpy.float64","repr":"np.float64(1.0)"},"py":{"result":{"type":"numpy.float64","repr":"np.float64(1.0)"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.003,0.002,0.006],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.003,0.002,0.006],"v0":[1000.0,1000.0,1000.0]}},"size|zero_d":{"value":{"type":"ndarray","dtype":"float64","shape":[],"order":""},"py":{"result":{"type":"float","repr":"1.0"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.003,0.002,0.006],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.003,0.002,0.006],"v0":[1000.0,1000.0,1000.0]}},"size|row_T":{"value":{"type":"ndarray","dtype":"float64","shape":[4],"order":""},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4],"order":""},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"per-column array has length 4, expected 3"},"raw":{"ok":false,"type":"ValueError","msg":"per-column array has length 4, expected 3"}},"size|row_C":{"value":{"type":"ndarray","dtype":"float64","shape":[3],"order":""},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[3],"order":""},"same":true,"shares":true},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.003,0.004,0.018],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.003,0.004,0.018],"v0":[1000.0,1000.0,1000.0]}},"size|mat_F":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":true,"shares":true},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.003,0.004,0.018],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.003,0.004,0.018],"v0":[1000.0,1000.0,1000.0]}},"size|mat_C":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"C"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.003,0.004,0.018],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"ValueError","msg":"this array is C-ordered (4x3, strides [3, 1]) and this engine is column-major. Pass np.asfortranarray(x). Reading it as given would backtest the transposed series and report an ordinary-looking result"}},"size|mat_int":{"value":{"type":"ndarray","dtype":"int64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.003,0.004,0.018],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"TypeError","msg":"size must be a float, or a 1-D or 2-D float64 array; got ndarray. An integer array is not accepted, because silently viewing it as float would copy"}},"size|mat_wrong":{"value":{"type":"ndarray","dtype":"float64","shape":[4,2],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,2],"order":"F"},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"a 4x2 array against a 4x3 run"},"raw":{"ok":false,"type":"ValueError","msg":"a 4x2 array against a 4x3 run"}},"size|mat_strided":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"non-contig"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.003,0.004,0.018],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"ValueError","msg":"the array is not contiguous — a slice like x[:, ::2] cannot be borrowed; pass np.ascontiguousarray(x, order='F')"}},"init_cash|py_float":{"value":{"type":"float","repr":"1000.0"},"py":{"result":{"type":"float","repr":"1000.0"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]}},"init_cash|py_int":{"value":{"type":"int","repr":"1000"},"py":{"result":{"type":"int","repr":"1000"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]}},"init_cash|np_scalar":{"value":{"type":"numpy.float64","repr":"np.float64(1000.0)"},"py":{"result":{"type":"numpy.float64","repr":"np.float64(1000.0)"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]}},"init_cash|zero_d":{"value":{"type":"ndarray","dtype":"float64","shape":[],"order":""},"py":{"result":{"type":"float","repr":"1000.0"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]}},"init_cash|row_T":{"value":{"type":"ndarray","dtype":"float64","shape":[4],"order":""},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4],"order":""},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"per-column array has length 4, expected 3"},"raw":{"ok":false,"type":"ValueError","msg":"per-column array has length 4, expected 3"}},"init_cash|row_C":{"value":{"type":"ndarray","dtype":"float64","shape":[3],"order":""},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[3],"order":""},"same":true,"shares":true},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,2000.0,3000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,2000.0,3000.0]}},"init_cash|mat_F":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":true,"shares":true},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,2000.0,3000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,2000.0,3000.0]}},"init_cash|mat_C":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"C"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,2000.0,3000.0]},"raw":{"ok":false,"type":"ValueError","msg":"this array is C-ordered (4x3, strides [3, 1]) and this engine is column-major. Pass np.asfortranarray(x). Reading it as given would backtest the transposed series and report an ordinary-looking result"}},"init_cash|mat_int":{"value":{"type":"ndarray","dtype":"int64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,2000.0,3000.0]},"raw":{"ok":false,"type":"TypeError","msg":"init_cash must be a float, or a 1-D or 2-D float64 array; got ndarray. An integer array is not accepted, because silently viewing it as float would copy"}},"init_cash|mat_wrong":{"value":{"type":"ndarray","dtype":"float64","shape":[4,2],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,2],"order":"F"},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"a 4x2 array against a 4x3 run"},"raw":{"ok":false,"type":"ValueError","msg":"a 4x2 array against a 4x3 run"}},"init_cash|mat_strided":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"non-contig"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,2000.0,3000.0]},"raw":{"ok":false,"type":"ValueError","msg":"the array is not contiguous — a slice like x[:, ::2] cannot be borrowed; pass np.ascontiguousarray(x, order='F')"}},"init_cash_sh|py_float":{"value":{"type":"float","repr":"1000.0"},"py":{"result":{"type":"float","repr":"1000.0"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.3],"v0":[1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.3],"v0":[1000.0]}},"init_cash_sh|py_int":{"value":{"type":"int","repr":"1000"},"py":{"result":{"type":"int","repr":"1000"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.3],"v0":[1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.3],"v0":[1000.0]}},"init_cash_sh|np_scalar":{"value":{"type":"numpy.float64","repr":"np.float64(1000.0)"},"py":{"result":{"type":"numpy.float64","repr":"np.float64(1000.0)"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.3],"v0":[1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.3],"v0":[1000.0]}},"init_cash_sh|zero_d":{"value":{"type":"ndarray","dtype":"float64","shape":[],"order":""},"py":{"result":{"type":"float","repr":"1000.0"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.3],"v0":[1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.3],"v0":[1000.0]}},"init_cash_sh|row_T":{"value":{"type":"ndarray","dtype":"float64","shape":[4],"order":""},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4],"order":""},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"per-column array has length 4, expected 1"},"raw":{"ok":false,"type":"ValueError","msg":"per-column array has length 4, expected 1"}},"init_cash_sh|row_C":{"value":{"type":"ndarray","dtype":"float64","shape":[3],"order":""},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[3],"order":""},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"per-column array has length 3, expected 1"},"raw":{"ok":false,"type":"ValueError","msg":"per-column array has length 3, expected 1"}},"init_cash_sh|mat_F":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"shared init_cash must be a scalar or one value per group"},"raw":{"ok":false,"type":"ValueError","msg":"shared init_cash must be a scalar or one value per group"}},"init_cash_sh|mat_C":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"C"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":false,"type":"ValueError","msg":"shared init_cash must be a scalar or one value per group"},"raw":{"ok":false,"type":"ValueError","msg":"shared init_cash must be a scalar or one value per group"}},"init_cash_sh|mat_int":{"value":{"type":"ndarray","dtype":"int64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":false,"type":"ValueError","msg":"shared init_cash must be a scalar or one value per group"},"raw":{"ok":false,"type":"TypeError","msg":"init_cash must be a float, or a 1-D or 2-D float64 array; got ndarray. An integer array is not accepted, because silently viewing it as float would copy"}},"init_cash_sh|mat_wrong":{"value":{"type":"ndarray","dtype":"float64","shape":[4,2],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,2],"order":"F"},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"shared init_cash must be a scalar or one value per group"},"raw":{"ok":false,"type":"ValueError","msg":"shared init_cash must be a scalar or one value per group"}},"init_cash_sh|mat_strided":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"non-contig"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":false,"type":"ValueError","msg":"shared init_cash must be a scalar or one value per group"},"raw":{"ok":false,"type":"ValueError","msg":"shared init_cash must be a scalar or one value per group"}},"deposits|py_float":{"value":{"type":"float","repr":"1.0"},"py":{"result":{"type":"float","repr":"1.0"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.2994365879,0.0996956117,0.1995494787],"v0":[1001.0,1001.0,1001.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.2994365879,0.0996956117,0.1995494787],"v0":[1001.0,1001.0,1001.0]}},"deposits|py_int":{"value":{"type":"int","repr":"1"},"py":{"result":{"type":"int","repr":"1"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.2994365879,0.0996956117,0.1995494787],"v0":[1001.0,1001.0,1001.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.2994365879,0.0996956117,0.1995494787],"v0":[1001.0,1001.0,1001.0]}},"deposits|np_scalar":{"value":{"type":"numpy.float64","repr":"np.float64(1.0)"},"py":{"result":{"type":"numpy.float64","repr":"np.float64(1.0)"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.2994365879,0.0996956117,0.1995494787],"v0":[1001.0,1001.0,1001.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.2994365879,0.0996956117,0.1995494787],"v0":[1001.0,1001.0,1001.0]}},"deposits|zero_d":{"value":{"type":"ndarray","dtype":"float64","shape":[],"order":""},"py":{"result":{"type":"float","repr":"1.0"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.2994365879,0.0996956117,0.1995494787],"v0":[1001.0,1001.0,1001.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.2994365879,0.0996956117,0.1995494787],"v0":[1001.0,1001.0,1001.0]}},"deposits|row_T":{"value":{"type":"ndarray","dtype":"float64","shape":[4],"order":""},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4],"order":""},"same":true,"shares":true},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.297029703,0.099009901,0.198019802],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.297029703,0.099009901,0.198019802],"v0":[1000.0,1000.0,1000.0]}},"deposits|row_C":{"value":{"type":"ndarray","dtype":"float64","shape":[3],"order":""},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[3],"order":""},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"per-row array has length 3, expected 4"},"raw":{"ok":false,"type":"ValueError","msg":"per-row array has length 3, expected 4"}},"deposits|mat_F":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":true,"shares":true},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.297029703,0.0980392157,0.1941747573],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.297029703,0.0980392157,0.1941747573],"v0":[1000.0,1000.0,1000.0]}},"deposits|mat_C":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"C"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.297029703,0.0980392157,0.1941747573],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"ValueError","msg":"this array is C-ordered (4x3, strides [3, 1]) and this engine is column-major. Pass np.asfortranarray(x). Reading it as given would backtest the transposed series and report an ordinary-looking result"}},"deposits|mat_int":{"value":{"type":"ndarray","dtype":"int64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.297029703,0.0980392157,0.1941747573],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"TypeError","msg":"cash_deposits must be a float, or a 1-D or 2-D float64 array; got ndarray. An integer array is not accepted, because silently viewing it as float would copy"}},"deposits|mat_wrong":{"value":{"type":"ndarray","dtype":"float64","shape":[4,2],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,2],"order":"F"},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"a 4x2 array against a 4x3 run"},"raw":{"ok":false,"type":"ValueError","msg":"a 4x2 array against a 4x3 run"}},"deposits|mat_strided":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"non-contig"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.297029703,0.0980392157,0.1941747573],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"ValueError","msg":"the array is not contiguous — a slice like x[:, ::2] cannot be borrowed; pass np.ascontiguousarray(x, order='F')"}},"deposits_sh|py_float":{"value":{"type":"float","repr":"1.0"},"py":{"result":{"type":"float","repr":"1.0"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.2994365879],"v0":[1001.0]},"raw":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.2994365879],"v0":[1001.0]}},"deposits_sh|py_int":{"value":{"type":"int","repr":"1"},"py":{"result":{"type":"int","repr":"1"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.2994365879],"v0":[1001.0]},"raw":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.2994365879],"v0":[1001.0]}},"deposits_sh|np_scalar":{"value":{"type":"numpy.float64","repr":"np.float64(1.0)"},"py":{"result":{"type":"numpy.float64","repr":"np.float64(1.0)"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.2994365879],"v0":[1001.0]},"raw":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.2994365879],"v0":[1001.0]}},"deposits_sh|zero_d":{"value":{"type":"ndarray","dtype":"float64","shape":[],"order":""},"py":{"result":{"type":"float","repr":"1.0"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.2994365879],"v0":[1001.0]},"raw":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.2994365879],"v0":[1001.0]}},"deposits_sh|row_T":{"value":{"type":"ndarray","dtype":"float64","shape":[4],"order":""},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4],"order":""},"same":true,"shares":true},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.297029703],"v0":[1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.297029703],"v0":[1000.0]}},"deposits_sh|row_C":{"value":{"type":"ndarray","dtype":"float64","shape":[3],"order":""},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[3],"order":""},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"per-row array has length 3, expected 4"},"raw":{"ok":false,"type":"ValueError","msg":"per-row array has length 3, expected 4"}},"deposits_sh|mat_F":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"shared cash_deposits must be (n_rows, n_groups) = (4, 1); got (4, 3)"},"raw":{"ok":false,"type":"ValueError","msg":"shared cash_deposits must be (n_rows, n_groups) = (4, 1); got (4, 3)"}},"deposits_sh|mat_C":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"C"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":false,"type":"ValueError","msg":"shared cash_deposits must be (n_rows, n_groups) = (4, 1); got (4, 3)"},"raw":{"ok":false,"type":"ValueError","msg":"this array is C-ordered (4x3, strides [3, 1]) and this engine is column-major. Pass np.asfortranarray(x). Reading it as given would backtest the transposed series and report an ordinary-looking result"}},"deposits_sh|mat_int":{"value":{"type":"ndarray","dtype":"int64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":false,"type":"ValueError","msg":"shared cash_deposits must be (n_rows, n_groups) = (4, 1); got (4, 3)"},"raw":{"ok":false,"type":"TypeError","msg":"cash_deposits must be a float, or a 1-D or 2-D float64 array; got ndarray. An integer array is not accepted, because silently viewing it as float would copy"}},"deposits_sh|mat_wrong":{"value":{"type":"ndarray","dtype":"float64","shape":[4,2],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,2],"order":"F"},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"shared cash_deposits must be (n_rows, n_groups) = (4, 1); got (4, 2)"},"raw":{"ok":false,"type":"ValueError","msg":"shared cash_deposits must be (n_rows, n_groups) = (4, 1); got (4, 2)"}},"deposits_sh|mat_strided":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"non-contig"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":false,"type":"ValueError","msg":"shared cash_deposits must be (n_rows, n_groups) = (4, 1); got (4, 3)"},"raw":{"ok":false,"type":"ValueError","msg":"the array is not contiguous — a slice like x[:, ::2] cannot be borrowed; pass np.ascontiguousarray(x, order='F')"}},"earnings|py_float":{"value":{"type":"float","repr":"1.0"},"py":{"result":{"type":"float","repr":"1.0"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.304,0.104,0.204],"v0":[1001.0,1001.0,1001.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.304,0.104,0.204],"v0":[1001.0,1001.0,1001.0]}},"earnings|py_int":{"value":{"type":"int","repr":"1"},"py":{"result":{"type":"int","repr":"1"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.304,0.104,0.204],"v0":[1001.0,1001.0,1001.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.304,0.104,0.204],"v0":[1001.0,1001.0,1001.0]}},"earnings|np_scalar":{"value":{"type":"numpy.float64","repr":"np.float64(1.0)"},"py":{"result":{"type":"numpy.float64","repr":"np.float64(1.0)"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.304,0.104,0.204],"v0":[1001.0,1001.0,1001.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.304,0.104,0.204],"v0":[1001.0,1001.0,1001.0]}},"earnings|zero_d":{"value":{"type":"ndarray","dtype":"float64","shape":[],"order":""},"py":{"result":{"type":"float","repr":"1.0"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.304,0.104,0.204],"v0":[1001.0,1001.0,1001.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.304,0.104,0.204],"v0":[1001.0,1001.0,1001.0]}},"earnings|row_T":{"value":{"type":"ndarray","dtype":"float64","shape":[4],"order":""},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4],"order":""},"same":true,"shares":true},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.31,0.11,0.21],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.31,0.11,0.21],"v0":[1000.0,1000.0,1000.0]}},"earnings|row_C":{"value":{"type":"ndarray","dtype":"float64","shape":[3],"order":""},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[3],"order":""},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"per-row array has length 3, expected 4"},"raw":{"ok":false,"type":"ValueError","msg":"per-row array has length 3, expected 4"}},"earnings|mat_F":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":true,"shares":true},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.31,0.12,0.23],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.31,0.12,0.23],"v0":[1000.0,1000.0,1000.0]}},"earnings|mat_C":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"C"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.31,0.12,0.23],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"ValueError","msg":"this array is C-ordered (4x3, strides [3, 1]) and this engine is column-major. Pass np.asfortranarray(x). Reading it as given would backtest the transposed series and report an ordinary-looking result"}},"earnings|mat_int":{"value":{"type":"ndarray","dtype":"int64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.31,0.12,0.23],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"TypeError","msg":"cash_earnings must be a float, or a 1-D or 2-D float64 array; got ndarray. An integer array is not accepted, because silently viewing it as float would copy"}},"earnings|mat_wrong":{"value":{"type":"ndarray","dtype":"float64","shape":[4,2],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,2],"order":"F"},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"a 4x2 array against a 4x3 run"},"raw":{"ok":false,"type":"ValueError","msg":"a 4x2 array against a 4x3 run"}},"earnings|mat_strided":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"non-contig"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.31,0.12,0.23],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"ValueError","msg":"the array is not contiguous — a slice like x[:, ::2] cannot be borrowed; pass np.ascontiguousarray(x, order='F')"}},"earnings_sh|py_float":{"value":{"type":"float","repr":"1.0"},"py":{"result":{"type":"float","repr":"1.0"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.312],"v0":[1003.0]},"raw":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.312],"v0":[1003.0]}},"earnings_sh|py_int":{"value":{"type":"int","repr":"1"},"py":{"result":{"type":"int","repr":"1"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.312],"v0":[1003.0]},"raw":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.312],"v0":[1003.0]}},"earnings_sh|np_scalar":{"value":{"type":"numpy.float64","repr":"np.float64(1.0)"},"py":{"result":{"type":"numpy.float64","repr":"np.float64(1.0)"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.312],"v0":[1003.0]},"raw":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.312],"v0":[1003.0]}},"earnings_sh|zero_d":{"value":{"type":"ndarray","dtype":"float64","shape":[],"order":""},"py":{"result":{"type":"float","repr":"1.0"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.312],"v0":[1003.0]},"raw":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.312],"v0":[1003.0]}},"earnings_sh|row_T":{"value":{"type":"ndarray","dtype":"float64","shape":[4],"order":""},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4],"order":""},"same":true,"shares":true},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.33],"v0":[1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.33],"v0":[1000.0]}},"earnings_sh|row_C":{"value":{"type":"ndarray","dtype":"float64","shape":[3],"order":""},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[3],"order":""},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"per-row array has length 3, expected 4"},"raw":{"ok":false,"type":"ValueError","msg":"per-row array has length 3, expected 4"}},"earnings_sh|mat_F":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":true,"shares":true},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.36],"v0":[1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.36],"v0":[1000.0]}},"earnings_sh|mat_C":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"C"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.36],"v0":[1000.0]},"raw":{"ok":false,"type":"ValueError","msg":"this array is C-ordered (4x3, strides [3, 1]) and this engine is column-major. Pass np.asfortranarray(x). Reading it as given would backtest the transposed series and report an ordinary-looking result"}},"earnings_sh|mat_int":{"value":{"type":"ndarray","dtype":"int64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.36],"v0":[1000.0]},"raw":{"ok":false,"type":"TypeError","msg":"cash_earnings must be a float, or a 1-D or 2-D float64 array; got ndarray. An integer array is not accepted, because silently viewing it as float would copy"}},"earnings_sh|mat_wrong":{"value":{"type":"ndarray","dtype":"float64","shape":[4,2],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,2],"order":"F"},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"a 4x2 array against a 4x3 run"},"raw":{"ok":false,"type":"ValueError","msg":"a 4x2 array against a 4x3 run"}},"earnings_sh|mat_strided":{"value":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"non-contig"},"py":{"result":{"type":"ndarray","dtype":"float64","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":1,"fills":2,"tr":[0.36],"v0":[1000.0]},"raw":{"ok":false,"type":"ValueError","msg":"the array is not contiguous — a slice like x[:, ::2] cannot be borrowed; pass np.ascontiguousarray(x, order='F')"}},"lock_cash|py_float":{"value":{"type":"bool","repr":"True"},"py":{"result":{"type":"bool","repr":"True"},"same":true,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]}},"lock_cash|py_int":{"value":{"type":"int","repr":"1"},"py":{"result":{"type":"bool","repr":"True"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"TypeError","msg":"lock_cash must be a bool or a 2-D bool array; got int"}},"lock_cash|np_scalar":{"value":{"type":"numpy.bool","repr":"np.True_"},"py":{"result":{"type":"bool","repr":"True"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]}},"lock_cash|zero_d":{"value":{"type":"ndarray","dtype":"bool","shape":[],"order":""},"py":{"result":{"type":"bool","repr":"True"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"TypeError","msg":"lock_cash must be a bool or a 2-D bool array; got ndarray"}},"lock_cash|row_T":{"value":{"type":"ndarray","dtype":"bool","shape":[4],"order":""},"py":{"result":{"type":"ndarray","dtype":"bool","shape":[4,1],"order":"CF"},"same":false,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"a 4x1 array against a 4x3 run"},"raw":{"ok":false,"type":"TypeError","msg":"lock_cash must be a bool or a 2-D bool array; got ndarray"}},"lock_cash|row_C":{"value":{"type":"ndarray","dtype":"bool","shape":[3],"order":""},"py":{"result":{"type":"ndarray","dtype":"bool","shape":[3,1],"order":"CF"},"same":false,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"a 3x1 array against a 4x3 run"},"raw":{"ok":false,"type":"TypeError","msg":"lock_cash must be a bool or a 2-D bool array; got ndarray"}},"lock_cash|mat_F":{"value":{"type":"ndarray","dtype":"bool","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"bool","shape":[4,3],"order":"F"},"same":true,"shares":true},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]}},"lock_cash|mat_C":{"value":{"type":"ndarray","dtype":"bool","shape":[4,3],"order":"C"},"py":{"result":{"type":"ndarray","dtype":"bool","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"ValueError","msg":"this bool array is C-ordered (4x3); this engine is column-major. Pass np.asfortranarray(x)"}},"lock_cash|mat_int":{"value":{"type":"ndarray","dtype":"int64","shape":[4,3],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"bool","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"TypeError","msg":"lock_cash must be a bool or a 2-D bool array; got ndarray"}},"lock_cash|mat_wrong":{"value":{"type":"ndarray","dtype":"bool","shape":[4,2],"order":"F"},"py":{"result":{"type":"ndarray","dtype":"bool","shape":[4,2],"order":"F"},"same":true,"shares":true},"public":{"ok":false,"type":"ValueError","msg":"a 4x2 array against a 4x3 run"},"raw":{"ok":false,"type":"ValueError","msg":"a 4x2 array against a 4x3 run"}},"lock_cash|mat_strided":{"value":{"type":"ndarray","dtype":"bool","shape":[4,3],"order":"non-contig"},"py":{"result":{"type":"ndarray","dtype":"bool","shape":[4,3],"order":"F"},"same":false,"shares":false},"public":{"ok":true,"shape":[4,3],"groups":3,"fills":6,"tr":[0.3,0.1,0.2],"v0":[1000.0,1000.0,1000.0]},"raw":{"ok":false,"type":"ValueError","msg":"the array is not contiguous"}}};
+const PERF = {"big":{"rows":2520,"symbols":50,"params":40,"n_cols":2000,"price_nbytes":1008000,"tiled_nbytes":40320000,"fills":639785,"run_s":0.2102269169408828},"cache":{"first_sharpe_s":0.09029462502803653,"second_sharpe_s":0.018780583050101995,"metrics_cold_s":0.18162950000260025,"four_after_metrics_s":0.059366833069361746},"gil":{"serial_4_s":0.4374137499835342,"threads_4_s":0.12101941695436835},"threads_identical":true,"cpus":8};
+const G_MSG = {"c_order": "this array is C-ordered (4x3, strides [3, 1]) and this engine is column-major. Pass np.asfortranarray(x). Reading it as given would backtest the transposed series and report an ordinary-looking result", "strided": "the array is not contiguous — a slice like x[:, ::2] cannot be borrowed; pass np.ascontiguousarray(x, order='F')", "int": "TypeError: size must be a float, or a 1-D or 2-D float64 array; got ndarray. An integer array is not accepted, because silently viewing it as float would copy", "close": "TypeError: close must be a 2-D float64 array; it is what sets the run's shape", "stop": "sl_stop or tp_stop was given without high and low. A stop level is tested against the bar's range, and with no range no stop can ever fire — the run would report a stopless strategy. Pass high and low (open too, for gaps)", "target": "Only Amount, Value and Percent are supported by signals; use from_orders for targets", "lens": "group_lens requires cash_sharing=True", "share_cash": "shared init_cash must be a scalar or one value per group", "share_dep": "shared cash_deposits must be (n_rows, n_groups) = (4, 1); got (4, 3)", "per_col": "per-column array has length 4, expected 3", "per_row": "per-row array has length 3, expected 4", "ohlc": "OHLC arrays must have the source close shape\nmapped OHLC must be a source-shaped matrix or scalar", "col": "shared-account series require group=, not col", "enum_case": "size_type must be one of amount, value, percent, targetamount, targetvalue, targetpercent; got \"Amount\""};
+
+function vInt(name, value, minimum) {
+  if (typeof value !== "number" || !Number.isInteger(value)) throw new Error(`${name} must be an integer; got ${value}`);
+  if (value < minimum) throw new Error(`${name} must be >= ${minimum}; got ${value}`);
+  return value;
+}
+function vRange(a, b) { const r = []; for (let i = a; i < b; i++) r.push(i); return r; }
+function rolling(n, train, test, step) {
+  n = vInt("n", n, 0); train = vInt("train", train, 1); test = vInt("test", test, 1);
+  step = step == null ? test : vInt("step", step, 1);
+  if (train + test > n) throw new Error(`train + test (${train} + ${test}) exceeds n (${n}); no split fits`);
+  const out = [];
+  for (let s = 0; s < n - train - test + 1; s += step) out.push([vRange(s, s + train), vRange(s + train, s + train + test)]);
+  return out;
+}
+function expanding(n, minTrain, test, step) {
+  n = vInt("n", n, 0); minTrain = vInt("min_train", minTrain, 1); test = vInt("test", test, 1);
+  step = step == null ? test : vInt("step", step, 1);
+  if (minTrain + test > n) throw new Error(`min_train + test (${minTrain} + ${test}) exceeds n (${n}); no split fits`);
+  const out = [];
+  for (let e = minTrain; e < n - test + 1; e += step) out.push([vRange(0, e), vRange(e, e + test)]);
+  return out;
+}
+function arraySplit(n, k) { // numpy.array_split on arange(n)
+  const base = Math.floor(n / k), extra = n % k, out = []; let s = 0;
+  for (let i = 0; i < k; i++) { const len = base + (i < extra ? 1 : 0); out.push([s, s + len]); s += len; }
+  return out;
+}
+function purgedKfold(n, k, purge, embargo) {
+  n = vInt("n", n, 0); k = vInt("k", k, 2); purge = vInt("purge", purge ?? 0, 0); embargo = vInt("embargo", embargo ?? 0, 0);
+  if (k > n) throw new Error(`k (${k}) exceeds n (${n}); some fold would be empty`);
+  const out = [];
+  for (const [start, stop] of arraySplit(n, k)) {
+    const train = [];
+    for (let r = 0; r < n; r++) if (r < start - purge || r >= stop + embargo) train.push(r);
+    if (!train.length) throw new Error(`purge (${purge}) and embargo (${embargo}) leave no train rows for the test fold [${start}:${stop}]`);
+    out.push([train, vRange(start, stop)]);
+  }
+  return out;
+}
+
+const ENUMS = {
+  size_type: { map: { amount: "Amount", value: "Value", percent: "Percent", targetamount: "TargetAmount", targetvalue: "TargetValue", targetpercent: "TargetPercent" },
+    err: (w) => `size_type must be one of amount, value, percent, targetamount, targetvalue, targetpercent; got ${JSON.stringify(w)}` },
+  direction: { map: { longonly: "LongOnly", long: "LongOnly", shortonly: "ShortOnly", short: "ShortOnly", both: "Both" },
+    err: (w) => `direction must be 'longonly', 'shortonly' or 'both'; got ${JSON.stringify(w)}` },
+  accumulate: { map: { disabled: "Disabled", both: "Both", addonly: "AddOnly", removeonly: "RemoveOnly" },
+    err: (w) => `accumulate must be 'disabled', 'both', 'addonly' or 'removeonly'; got ${JSON.stringify(w)}` },
+  trades: { map: { exit: "ExitTrades", entry: "EntryTrades", position: "Positions", positions: "Positions" },
+    err: (w) => `trades must be 'exit', 'entry' or 'positions'; got ${JSON.stringify(w)}` },
+  call_seq: { map: { default: "CallSeq::Default", auto: "CallSeq::Auto" }, err: () => "call_seq must be 'default' or 'auto'" },
+};
+function parseEnum(param, word, fn) {
+  const e = ENUMS[param];
+  if (!Object.prototype.hasOwnProperty.call(e.map, word)) return { ok: false, msg: e.err(word) };
+  const v = e.map[word];
+  if (param === "size_type" && fn === "from_signals" && v.startsWith("Target"))
+    return { ok: false, msg: "Only Amount, Value and Percent are supported by signals; use from_orders for targets" };
+  return { ok: true, value: v };
+}
+
+</script>
+<script>
+"use strict";
+const NS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs) { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v); return e; }
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+function seg(host, items, current, onPick) {
+  const h = document.getElementById(host);
+  for (const b of h.querySelectorAll("button")) b.remove();
+  for (const [id, label] of items) {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.dataset.id = id;
+    if (id === current) b.classList.add("on");
+    b.addEventListener("click", () => { for (const x of h.querySelectorAll("button")) x.classList.toggle("on", x === b); onPick(id); });
+    h.appendChild(b);
+  }
+}
+
+/* ---------------- dependency graph ---------------- */
+const COLORS = { "lib.rs": "#3a7afe", "array.rs": "#2fbfa8", "params.rs": "#c9a227", "parse.rs": "#b07cd8", "expr.rs": "#d35d5d", "data.rs": "#4caf7a", "arrow.rs": "#e08a3c" };
+const UP = [
+  { id: "phasor-core", sub: "FlexArray · Matrix · Error", mods: ["array.rs", "params.rs", "lib.rs", "expr.rs"], role: "FlexArray 是所有参数在引擎里的样子；array.rs 把 NumPy 借用变成它。Error 经 to_py_err 原样变成 ValueError。", page: "phasor-core.html" },
+  { id: "phasor-model", sub: "SizeType · Direction · BarType", mods: ["parse.rs", "lib.rs", "data.rs"], role: "parse.rs 把字符串映射到 SizeType、Direction、AccumulationMode、TradesType；data.rs 包装 InstrumentId 与 BarType。", page: "phasor-model.html" },
+  { id: "phasor-sim", sub: "FromSignals · FromOrders · Groups", mods: ["lib.rs"], role: "lib.rs 用借来的视图填 FromSignals / FromOrders，调四个入口之一（带日志或不带、串行或并行）；Groups、CallSeq 从 Python 参数构造。", page: "phasor-sim.html" },
+  { id: "phasor-analysis", sub: "Portfolio · Cache · Scoring", mods: ["lib.rs"], role: "每个 PyPortfolio 方法用 Portfolio::from_borrowed 在自有副本上重建引擎视图，并把 pyclass 持有的 Cache 借给它。", page: "phasor-analysis.html" },
+  { id: "phasor-records", sub: "OrderRecords · LogRecords", mods: ["lib.rs"], role: "运行留下的成交和日志；共享资金时 assemble 调 sort_by_column 排一次序。orders()/logs()/trades() 以列式字典交出。", page: "phasor-records.html" },
+  { id: "phasor-expr", sub: "FactorSet · alpha158/360", mods: ["expr.rs"], role: "编译好的因子集；evaluate 在 py.detach 里跑，返回扁平的列优先数组，壳用 order=\"F\" 还原。", page: "phasor-expr.html" },
+  { id: "phasor-generic", sub: "crossed_above_1d", mods: ["expr.rs"], role: "crossed_above 按列调用 crossed_above_1d，结果作为一个扁平 bool 数组返回——嵌套 list 曾是扫描里最慢的一步。", page: "phasor-generic.html" },
+  { id: "phasor-data", sub: "load · Dataset · align", mods: ["data.rs"], role: "本地 Arrow 源的加载、准备、按可用时间对齐；没有独立页面，见 ARCHITECTURE §4。", page: null },
+  { id: "arrow-array/schema", sub: "ffi feature", mods: ["arrow.rs"], role: "Arrow C Data 接口的 FFI 结构体；arrow.rs 在这里用 unsafe 把胶囊转成 RecordBatch 再转回去。", page: null },
+];
+const MODULES = [
+  { id: "lib.rs", sub: "Portfolio · from_signals · from_orders", blurb: "1,328 行。PyPortfolio（拥有收盘价副本、记录、Cache）、两个模拟入口、account_inputs / deposits_view / market_optional 这些形状规则，以及模块注册。" },
+  { id: "array.rs", sub: "columns_of · Borrowed · OneDim", blurb: "NumPy → FlexArray。按 stride 拒绝 C 序，拒绝不连续与整数数组；一维数组的含义由调用者用 OneDim 声明；None → 引擎默认值。" },
+  { id: "params.rs", sub: "Shared（14 个共用参数）", blurb: "from_signals 与 from_orders 共用的 14 个可选参数，一次借完；wants_logs 判断要不要走带日志的入口（标量 false 走不带日志的）。" },
+  { id: "parse.rs", sub: "字符串 → 枚举", blurb: "size_type / direction / accumulate / trades 的映射。返回 Result<_, String>，所以不用 Python 解释器就能测；测试逐个变体写出。" },
+  { id: "expr.rs", sub: "_FactorSet · crossed_above", blurb: "因子表达式的绑定：compile、names、required_fields、uses_future、evaluate；alpha158()、alpha360()；crossed_above。" },
+  { id: "data.rs", sub: "InstrumentId · BarType · load_data", blurb: "数据层：标识类型、DecodeContext、_Dataset（prepare / batches / align）、catalog_files、load_data。" },
+  { id: "arrow.rs", sub: "Arrow C Data（唯一的 unsafe）", blurb: "只接受具体的 pyarrow.Schema / RecordBatch；导入时搬走数组所有权并清空胶囊，导出时用 _import_from_c_capsule。" },
+];
+const DOWN = [
+  { id: "phasor/__init__.py", sub: "from_signals · from_orders · FactorSet", uses: ["lib.rs", "expr.rs", "data.rs"], role: "614 行。_matrix / _param / _flag / _signals 把输入整理成扩展要的形状和布局；FactorSet、Expression 包装；两个入口的长文档。" },
+  { id: "phasor/strategy.py", sub: "@strategy · factors · crossed_above", uses: ["expr.rs", "lib.rs"], role: "@strategy 给函数加 run / sweep：拼列、column_map 平铺、group_lens、signal_delay。factors() 拒绝用到未来数据的表达式。" },
+  { id: "phasor/data.py", sub: "Source · Catalog · BarPanel", uses: ["data.rs"], role: "DataSchema、Source、Catalog、Dataset（asof / window）、BarPanel；加载显式、只读。" },
+  { id: "phasor/validation.py", sub: "rolling · expanding · purged_kfold", uses: [], role: "345 行纯 NumPy：切分器只返回行号；walk_forward 在 train 上选、在 test 上报。" },
+];
+const depSvg = document.getElementById("dep-graph"), detail = document.getElementById("detail");
+let pinned = null;
+const paths = [], gnodes = [];
+function nodeBox(id) {
+  const ui = UP.findIndex((u) => u.id === id);
+  if (ui >= 0) return { x: 16, y: 34 + ui * 50, w: 220, h: 42 };
+  const mi = MODULES.findIndex((m) => m.id === id);
+  if (mi >= 0) return { x: 330, y: 44 + mi * 64, w: 290, h: 50 };
+  const di = DOWN.findIndex((d) => d.id === id);
+  return { x: 760, y: 80 + di * 96, w: 264, h: 60 };
+}
+function edgeList() { const e = []; for (const u of UP) for (const m of u.mods) e.push({ from: u.id, to: m, color: "#8a8a8a", up: u.id, mod: m }); for (const d of DOWN) for (const m of d.uses) e.push({ from: m, to: d.id, color: COLORS[m], mod: m }); return e; }
+const edgeOpacity = (f, e) => (!f ? 0.5 : f.kind === "mod" ? (e.mod === f.id ? 0.95 : 0.04) : f.kind === "up" ? (e.up === f.id ? 0.95 : 0.04) : e.to === f.id ? 0.95 : 0.04);
+function applyFocus(f) {
+  for (const p of paths) p.el.setAttribute("opacity", String(edgeOpacity(f, p)));
+  for (const n of gnodes) { const on = f && f.id === n.id; n.rect.setAttribute("stroke-width", on ? "1.8" : "1"); if (n.kind === "mod") n.rect.setAttribute("fill", on ? COLORS[n.id] + "44" : "#262626"); else { n.rect.setAttribute("stroke", on ? "#8eb6ff" : "#3d3d3d"); n.rect.setAttribute("fill", on ? "#303030" : "#262626"); } }
+  for (const b of document.querySelectorAll("#legend button")) b.classList.toggle("on", Boolean(f && f.kind === "mod" && b.dataset.id === f.id));
+}
+function buildGraph() {
+  depSvg.appendChild(svgEl("rect", { x: 314, y: 12, width: 322, height: 476, rx: 10, fill: "#181818", stroke: "#303030" }));
+  depSvg.appendChild(svgEl("text", { x: 475, y: 32, "text-anchor": "middle", "font-size": 12, "font-weight": 650, fill: "#f0f0f0" })).textContent = "phasor._phasor（Rust）";
+  depSvg.appendChild(svgEl("text", { x: 126, y: 24, "text-anchor": "middle", "font-size": 10, fill: "#909090" })).textContent = "引擎 crate";
+  depSvg.appendChild(svgEl("text", { x: 892, y: 66, "text-anchor": "middle", "font-size": 10, fill: "#909090" })).textContent = "Python 壳（python/phasor/）";
+  for (const e of edgeList()) { const a = nodeBox(e.from), b = nodeBox(e.to), x1 = a.x + a.w, y1 = a.y + a.h / 2, x2 = b.x, y2 = b.y + b.h / 2, mid = (x1 + x2) / 2; const path = svgEl("path", { d: `M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`, fill: "none", stroke: e.color, "stroke-width": "1.4" }); depSvg.appendChild(path); paths.push({ el: path, ...e }); }
+  const add = (id, kind, title, sub, stroke, dashed) => {
+    const box = nodeBox(id), g = svgEl("g", { style: "cursor:pointer" });
+    const rect = svgEl("rect", { x: box.x, y: box.y, width: box.w, height: box.h, rx: 6, fill: "#262626", stroke, "stroke-width": 1 });
+    if (dashed) rect.setAttribute("stroke-dasharray", "4 3");
+    const t = svgEl("text", { x: box.x + box.w / 2, y: box.y + box.h / 2 - 2, "text-anchor": "middle", "font-size": 12, "font-weight": 650, fill: "#f0f0f0" }); t.textContent = title;
+    const s = svgEl("text", { x: box.x + box.w / 2, y: box.y + box.h / 2 + 12, "text-anchor": "middle", "font-size": 10, fill: "#b0b0b0" }); s.textContent = sub;
+    g.append(rect, t, s);
+    g.addEventListener("click", () => { pinned = pinned && pinned.id === id ? null : { kind, id }; showDetail(pinned); applyFocus(pinned); });
+    g.addEventListener("mouseenter", () => { if (pinned) return; showDetail({ kind, id }); applyFocus({ kind, id }); });
+    depSvg.appendChild(g); gnodes.push({ id, kind, rect });
+  };
+  for (const u of UP) add(u.id, "up", u.id, u.sub, "#3d3d3d", !u.page && u.id !== "phasor-data");
+  for (const m of MODULES) add(m.id, "mod", m.id, m.sub, COLORS[m.id]);
+  for (const d of DOWN) add(d.id, "down", d.id, d.sub, "#3d3d3d", d.uses.length === 0);
+  depSvg.addEventListener("mouseleave", () => { if (pinned) return; showDetail(null); applyFocus(null); });
+  applyFocus(null);
+}
+const chip = (m) => `<span class="chip" style="cursor:default"><i class="dot" style="background:${COLORS[m]}"></i>${m}</span>`;
+function showDetail(f) {
+  if (!f) { detail.innerHTML = `<h3>点一个节点</h3><p class="muted" style="margin:0">引擎 crate：被哪些模块用到。Rust 模块：它负责边界的哪一段。Python 文件：它调扩展里的什么。</p>`; return; }
+  if (f.kind === "mod") { const m = MODULES.find((x) => x.id === f.id); detail.innerHTML = `<h3>${m.id}</h3><p class="muted" style="margin:0">${m.blurb}</p>`; return; }
+  if (f.kind === "up") { const u = UP.find((x) => x.id === f.id); detail.innerHTML = `<h3>${u.page ? `<a href="${u.page}">${u.id}</a>` : u.id}</h3><p class="muted" style="margin:0">${u.role}</p><div class="uses">${u.mods.map(chip).join("")}</div>`; return; }
+  const d = DOWN.find((x) => x.id === f.id); detail.innerHTML = `<h3>${d.id}</h3><p class="muted" style="margin:0">${d.role}</p><div class="uses">${d.uses.length ? d.uses.map(chip).join("") : '<span class="small">不调用扩展</span>'}</div>`;
+}
+function buildLegend() {
+  const host = document.getElementById("legend");
+  host.innerHTML = MODULES.map((m) => `<button type="button" data-id="${m.id}"><i class="dot" style="background:${COLORS[m.id]}"></i>${m.id}</button>`).join("");
+  for (const btn of host.querySelectorAll("button")) btn.addEventListener("click", () => { const id = btn.dataset.id; pinned = pinned && pinned.id === id ? null : { kind: "mod", id }; showDetail(pinned); applyFocus(pinned); });
+}
+
+/* ---------------- memory order ---------------- */
+const MO_PRICES = {
+  rect: { rows: 3, cols: ["A", "B"], data: [[10, 50], [11, 49], [12, 51]] },
+  square: { rows: 3, cols: ["A", "B", "C"], data: [[10, 50, 80], [11, 49, 82], [12, 51, 81]] },
+};
+const MO_TINT = ["#3a7afe", "#c9a227", "#b07cd8"];
+let moShape = "rect", moOrder = "C";
+function moRender() {
+  const P = MO_PRICES[moShape], R = P.rows, C = P.cols.length;
+  const cells = []; // logical cells with origin
+  for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) cells.push({ r, c, v: P.data[r][c] });
+  const buffer = moOrder === "C" ? cells.slice() : cells.slice().sort((a, b) => a.c - b.c || a.r - b.r);
+  const cellHtml = (cell, label) => `<td class="c" style="background:${MO_TINT[cell.c]}22;border-color:${MO_TINT[cell.c]}" title="来自 ${P.cols[cell.c]} 第 ${cell.r} 根">${label ?? cell.v}</td>`;
+  let logical = `<table class="cells"><tr><th></th>${P.cols.map((n) => `<th class="ix">${n}</th>`).join("")}</tr>`;
+  for (let r = 0; r < R; r++) logical += `<tr><th class="rl">t${r}</th>${P.cols.map((_, c) => cellHtml(cells[r * C + c])).join("")}</tr>`;
+  logical += "</table>";
+  const mem = `<div class="memrow">${buffer.map((cell, i) => `<div class="m" style="background:${MO_TINT[cell.c]}22;border-color:${MO_TINT[cell.c]}"><i>${i}</i>${cell.v}</div>`).join("")}</div>`;
+  let seen = `<table class="cells"><tr><th></th>${P.cols.map((n) => `<th class="ix">读作 ${n}</th>`).join("")}</tr>`;
+  for (let r = 0; r < R; r++) seen += `<tr><th class="rl">t${r}</th>${P.cols.map((_, c) => cellHtml(buffer[c * R + r])).join("")}</tr>`;
+  seen += "</table>";
+  document.getElementById("mo-out").innerHTML =
+    `<div><div class="small" style="margin-bottom:6px">你的意思（${R} × ${C}）</div>${logical}</div>` +
+    `<div><div class="small" style="margin-bottom:20px">内存（${moOrder} 序，下标是偏移量）</div>${mem}</div>` +
+    `<div><div class="small" style="margin-bottom:6px">列优先读者看到的</div>${seen}</div>`;
+  const colA = Array.from({ length: R }, (_, r) => buffer[r].v);
+  const v = document.getElementById("mo-verdict");
+  if (moOrder === "F") v.innerHTML = `<div class="verdict good">F 序：每一列在内存里连续，读到的就是你的意思。Python 壳对已经是 F 序的 float64 数组什么都不做（返回同一个对象），Rust 借用它的缓冲区。</div>`;
+  else if (moShape === "rect") v.innerHTML = `<div class="verdict bad">C 序：形状照样是 ${R} × ${C}，但“A”读到的是 [${colA.join(", ")}]——一条在两个标的之间来回跳的价格。它会成交，会有收益率。Rust 看 strides = [${C}, 1]，拒绝：<br><span class="msg">this array is C-ordered (${R}x${C}, strides [${C}, 1]) and this engine is column-major. Pass np.asfortranarray(x). Reading it as given would backtest the transposed series and report an ordinary-looking result</span></div>`;
+  else v.innerHTML = `<div class="verdict bad">C 序的方阵：读到的恰好是转置。“A”变成了第 0 根 K 线上三个标的的截面 [${colA.join(", ")}]，形状 3 × 3 一点不差，任何形状检查都看不出来。只有 strides（[3, 1] 而不是 [1, 3]）能区分。</div>`;
+  document.getElementById("mo-foot").innerHTML = `特例：<code>n_rows == 1</code> 或 <code>n_cols == 1</code> 时两种序的内存完全一样，<code>columns_of</code> 直接接受。实测：对 4 × 3 的 C 序 <code>size</code>，<code>phasor.from_signals</code> 正常运行（壳复制成 F 序），<code>phasor._phasor.from_signals</code> 报上面那句错。`;
+}
+
+/* ---------------- routing grid ---------------- */
+const RT_ROWS = [
+  ["close", "close", "市场数据，决定形状"],
+  ["entries", "entries", "信号（exits 相同）"],
+  ["size", "size", "交易参数（每列）"],
+  ["init_cash", "init_cash", "起始资金"],
+  ["init_cash_sh", "init_cash · 共享", "一组一个值"],
+  ["deposits", "cash_deposits", "入金（每根 K 线）"],
+  ["deposits_sh", "cash_deposits · 共享", "(T, n_groups)"],
+  ["earnings", "cash_earnings", "收益（每根 K 线）"],
+  ["earnings_sh", "cash_earnings · 共享", ""],
+  ["lock_cash", "lock_cash", "bool 参数"],
+];
+const RT_KINDS = [
+  ["py_float", "Python<br>标量"], ["py_int", "Python<br>int"], ["np_scalar", "NumPy<br>标量"], ["zero_d", "0 维<br>数组"],
+  ["row_T", "1-D<br>长 4 (T)"], ["row_C", "1-D<br>长 3 (C)"], ["mat_F", "2-D<br>F 序"], ["mat_C", "2-D<br>C 序"],
+  ["mat_int", "2-D<br>int64"], ["mat_wrong", "2-D<br>4 × 2"], ["mat_strided", "2-D<br>x[:, ::2]"],
+];
+let rtLayer = "public", rtPick = null;
+const valText = (v) => v.type === "ndarray" ? `ndarray ${v.dtype} shape (${v.shape.join(", ")}${v.shape.length === 1 ? "," : ""})${v.order ? " · " + (v.order === "CF" ? "C/F 皆是" : v.order === "non-contig" ? "不连续" : v.order + " 序") : ""}` : `${v.type} ${v.repr}`;
+function pyStepText(cell) {
+  const p = cell.py;
+  if (p.error) return `<span class="msg">${esc(p.error)}</span>`;
+  const r = p.result;
+  if (r.type !== "ndarray") return cell.value.type === "ndarray" ? `0 维数组拆成 <code>${esc(r.repr)}</code>，让引擎走不分配的标量路径` : `保持标量 <code>${esc(r.repr)}</code>（不为它造数组）`;
+  if (p.same) return `原样传下去（同一个对象，没有复制）`;
+  if (p.shares) return `变成 ${esc(valText(r))}，<b>共享</b>原缓冲区（只是视图）`;
+  return `<b>复制</b>成 ${esc(valText(r))}`;
+}
+function rustRule(row, eff, ok) {
+  // eff: what reaches Rust, in the order the code checks it
+  const isBool = row === "entries" || row === "lock_cash";
+  if (eff.type !== "ndarray") {
+    if (row === "close") return "<code>borrow_f64</code> 得到标量；close 必须是二维数组，因为它决定运行的形状";
+    if (isBool) return eff.type === "bool" || eff.type === "numpy.bool" ? "<code>BorrowedBool::Scalar</code> → <code>FlexArray::Scalar</code>" : "<code>extract::&lt;bool&gt;</code> 不接受 int / 0 维数组 → TypeError";
+    if (row === "init_cash_sh") return "标量 → 每组一个同样的值（<code>account_inputs</code>）";
+    return "<code>Borrowed::Scalar</code> → <code>FlexArray::Scalar(v)</code>：不分配，所有 (行, 列) 读同一个数";
+  }
+  const nd = eff.shape.length;
+  if (nd === 0) {
+    if (row === "close") return "<code>extract::&lt;f64&gt;</code> 从 0 维数组取出一个数；close 必须是二维数组";
+    if (isBool) return "<code>extract::&lt;bool&gt;</code> 不接受 0 维数组，<code>PyReadonlyArray2</code> 也不是 → TypeError";
+    if (row === "init_cash_sh") return "<code>extract::&lt;f64&gt;</code> 从 0 维数组取出一个数 → 每组一个同样的值";
+    return "<code>extract::&lt;f64&gt;</code> 从 0 维数组取出一个数 → <code>FlexArray::Scalar</code>";
+  }
+  if (nd === 1) {
+    if (row === "close") return "close 不收一维（壳会先把它变成一列）";
+    if (isBool) return "<code>borrow_bool</code> 只收二维 bool 数组";
+    if (row === "deposits" || row === "deposits_sh" || row === "earnings" || row === "earnings_sh") return "<code>Borrowed::Row</code> → <code>FlexArray::per_row(slice, n_rows)</code>：长度必须等于 K 线数";
+    if (row === "init_cash_sh") return "<code>per_column(slice, n_groups)</code>：长度必须等于组数（这里是 1）";
+    return "<code>Borrowed::Row</code> → <code>FlexArray::per_column(slice, n_cols)</code>：长度必须等于列数";
+  }
+  if (!isBool && eff.dtype !== "float64") return "<code>extract::&lt;PyReadonlyArray2&lt;f64&gt;&gt;</code> 因 dtype 不符失败 → TypeError（不悄悄转换，转换就得复制）";
+  if (isBool && eff.dtype !== "bool") return "<code>extract::&lt;PyReadonlyArray2&lt;bool&gt;&gt;</code> 因 dtype 不符失败 → TypeError";
+  if (row === "init_cash_sh") return "<code>account_inputs</code>：共享的 init_cash 不收矩阵（在读布局之前就拒绝）";
+  const want = row === "deposits_sh" ? "4,1" : "4,3";
+  if (isBool && row !== "close" && eff.shape.join() !== want) return `<code>flex_bool</code> 先比形状：${eff.shape.join(" × ")} 对不上 4 × 3`;
+  if (eff.order === "non-contig") return "<code>to_slice_memory_order()</code> 失败：步长切片借不出一段连续内存";
+  if (eff.order === "C") return "<code>strides[0] != 1</code> → 拒绝 C 序";
+  if (row === "close") return "<code>columns_of</code> 借成列优先切片 → <code>FlexArray::full</code>（有 column_map 时 <code>mapped</code>）；它的形状就是运行的形状";
+  if (eff.shape.join() !== want) return row === "deposits_sh" ? "<code>deposits_view</code>：共享时必须是 (n_rows, n_groups) = (4, 1)" : `形状 ${eff.shape.join(" × ")} 对不上 4 × 3 的运行`;
+  if (row === "deposits_sh") return "<code>deposits_view</code>：(n_rows, n_groups)，再 <code>FlexArray::mapped</code> 到列上，不复制";
+  if (row === "init_cash") return "<code>FlexArray::full</code>，但 <code>account_inputs</code> 只读 <code>get(0, group)</code>——第 0 行";
+  return `<code>columns_of</code> 检查 stride 与形状 → <code>FlexArray::full(flat, n_rows, n_cols)</code>，借用 NumPy 缓冲区${ok ? "，零拷贝" : ""}`;
+}
+function outcomeText(o) {
+  if (!o.ok) return `<span class="msg">${esc(o.type)}: ${esc(o.msg)}</span>`;
+  return `运行成功：${o.shape[0]} × ${o.shape[1]}，${o.groups} 个账户，${o.fills} 笔成交<br>total_return = [${o.tr.map((x) => +x.toFixed(6)).join(", ")}]<br>第 0 根的账户净值 = [${o.v0.join(", ")}]`;
+}
+function rtRender() {
+  let h = `<table class="cells"><tr><th></th>${RT_KINDS.map(([, l]) => `<th class="kh">${l}</th>`).join("")}</tr>`;
+  for (const [rid, label, note] of RT_ROWS) {
+    h += `<tr><th class="rl" title="${esc(note)}">${label}${note ? `<br><span class="small">${note}</span>` : ""}</th>`;
+    for (const [k] of RT_KINDS) {
+      const cell = GRID[`${rid}|${k}`];
+      if (!cell) { h += `<td class="c na" title="这一行没有对应的整数输入">—</td>`; continue; }
+      const o = cell[rtLayer];
+      const copy = rtLayer === "public" && cell.py.result && cell.py.result.type === "ndarray" && !cell.py.same && !cell.py.shares;
+      const hot = rtPick === `${rid}|${k}` ? " hot" : "";
+      h += `<td class="c ${o.ok ? "ok" : "bad"}${copy ? " copy" : ""}${hot}" data-key="${rid}|${k}">${o.ok ? "✓" : "✗"}</td>`;
+    }
+    h += "</tr>";
+  }
+  h += "</table>";
+  const host = document.getElementById("rt-grid"); host.innerHTML = h;
+  for (const td of host.querySelectorAll("td[data-key]")) td.addEventListener("click", () => { rtPick = td.dataset.key; rtRender(); rtDetail(); });
+}
+function rtDetail() {
+  if (!rtPick) return;
+  const [rid, k] = rtPick.split("|"), cell = GRID[rtPick];
+  const row = RT_ROWS.find((r) => r[0] === rid), kind = RT_KINDS.find((x) => x[0] === k);
+  const o = cell[rtLayer];
+  const eff = rtLayer === "public" ? (cell.py.result || cell.value) : cell.value;
+  const pyLine = rtLayer === "public" ? pyStepText(cell) : "不经过壳：参数原样交给 <code>phasor._phasor</code>";
+  const reachesRust = rtLayer === "raw" || !cell.py.error;
+  document.getElementById("rt-detail").innerHTML =
+    `<h3>${row[1]} · ${kind[1].replace("<br>", " ")}（${rtLayer === "public" ? "phasor.from_signals" : "phasor._phasor.from_signals"}）</h3>` +
+    `<div class="kv"><div>传入</div><div>${esc(valText(cell.value))}</div>` +
+    `<div>Python 壳</div><div>${pyLine}</div>` +
+    `<div>Rust 怎么读</div><div>${reachesRust ? rustRule(rid, eff, o.ok) : "没到 Rust：壳已经报错"}</div>` +
+    `<div>实测结果</div><div>${outcomeText(o)}</div></div>`;
+}
+
+/* ---------------- defaults ---------------- */
+const DEFAULTS = [
+  ["init_cash", "None", "100.0", "每列（或每组）起始现金"],
+  ["size", "None", "inf", "按方向用尽可用现金或仓位"],
+  ["price", "None", "inf", "+inf 读作当根收盘价，−inf 读作开盘价"],
+  ["fees / fixed_fees / slippage", "None", "0.0", "无成本"],
+  ["min_size", "None", "1e-8（DEFAULT_MIN_SIZE）", "与参考实现相同；更小的单记为未达最小数量"],
+  ["max_size / cash_limit", "None", "inf", "不设上限"],
+  ["size_granularity", "None", "NaN", "不取整"],
+  ["reject_prob", "None", "0.0", "随机拒单关闭；抽签是 (seed, row, col) 的函数"],
+  ["lock_cash / raise_reject / log", "None", "false", ""],
+  ["allow_partial", "None", "true", "资金不足时允许部分成交"],
+  ["sl_stop / tp_stop", "None", "NaN", "没有止损止盈；Python 层要求同时给 high、low（引擎本身不需要，见护栏）"],
+  ["val_price", "None", "inf", "估值价取当根价格"],
+  ["cash_deposits / cash_dividends / cash_earnings", "None", "0.0", "没有现金流"],
+  ["open / high / low", "None", "NaN", "没有 K 线范围"],
+  ["size_type", '"amount"', "—", "签名里的字符串，两份（Python 壳与 #[pyo3(signature)]）"],
+  ["direction", '"longonly"（信号）/ "both"（订单）', "—", "同上"],
+  ["accumulate / trades / call_seq", '"disabled" / "exit" / "default"', "—", "同上"],
+  ["ann_factor / risk_free / seed / threads", "365.0 / 0.0 / 0 / 1", "—", "普通标量，同样两份"],
+];
+
+/* ---------------- lifecycle ---------------- */
+function buildLife() {
+  const svg = document.getElementById("life-svg");
+  const lanes = [["Python 壳", "持 GIL", "#8eb6ff"], ["_phasor", "持 GIL", "#2fbfa8"], ["引擎", "GIL 已释放", "#4caf7a"], ["PyPortfolio", "Python 对象", "#c9a227"]];
+  lanes.forEach(([n, s, c], i) => {
+    const y = 20 + i * 92;
+    svg.appendChild(svgEl("rect", { x: 10, y, width: 1020, height: 84, rx: 8, fill: i === 2 ? "#1b2620" : "#202020", stroke: "#303030" }));
+    svg.appendChild(svgEl("text", { x: 22, y: y + 22, "font-size": 12, "font-weight": 650, fill: c })).textContent = n;
+    svg.appendChild(svgEl("text", { x: 22, y: y + 38, "font-size": 10, fill: "#909090" })).textContent = s;
+  });
+  const steps = [
+    [0, 120, "① _matrix / _param / _flag", "asarray + asfortranarray\nF 序 float64：原样；否则复制"],
+    [1, 300, "② borrow_f64 · columns_of", "PyReadonlyArray 只读借用\n检查 stride → FlexArray 视图"],
+    [2, 480, "③ simulate_from_signals", "四个入口之一\n串行 / threads 个线程"],
+    [3, 660, "④ assemble", "close 按源宽度复制一份\ninit_cash 逐列；共享时排序成交"],
+    [0, 840, "⑤ pf.sharpe_ratio()", "方法调用"],
+    [2, 840, "⑥ core() + 派生", "from_borrowed(&副本, &cache)\n缓存命中就跳过派生"],
+    [1, 660, "⑦ into_pyarray", "结果 Vec 交给 NumPy\n（交出所有权，不再复制）"],
+  ];
+  const boxes = steps.map(([lane, x, t, sub]) => ({ lane, x, y: 20 + lane * 92 + 16, w: 170, h: 54, t, sub }));
+  const arrow = (a, b) => {
+    const x1 = a.x + a.w / 2, y1 = a.lane < b.lane ? a.y + a.h : a.y, x2 = b.x + b.w / 2, y2 = a.lane < b.lane ? b.y : b.y + b.h;
+    const path = svgEl("path", { d: a.lane === b.lane ? `M ${a.x + a.w} ${a.y + a.h / 2} H ${b.x}` : `M ${x1} ${y1} C ${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`, fill: "none", stroke: "#8a8a8a", "stroke-width": 1.3, "marker-end": "url(#la)" });
+    svg.appendChild(path);
+  };
+  const defs = svgEl("defs"); const mk = svgEl("marker", { id: "la", viewBox: "0 0 8 8", refX: 7, refY: 4, markerWidth: 7, markerHeight: 7, orient: "auto" }); mk.appendChild(svgEl("path", { d: "M0,0 L8,4 L0,8 z", fill: "#8a8a8a" })); defs.appendChild(mk); svg.appendChild(defs);
+  for (let i = 0; i + 1 < boxes.length; i++) if (i !== 3) arrow(boxes[i], boxes[i + 1]);
+  for (const b of boxes) {
+    svg.appendChild(svgEl("rect", { x: b.x, y: b.y, width: b.w, height: b.h, rx: 6, fill: "#262626", stroke: lanes[b.lane][2] }));
+    svg.appendChild(svgEl("text", { x: b.x + b.w / 2, y: b.y + 16, "text-anchor": "middle", "font-size": 11, "font-weight": 650, fill: "#f0f0f0" })).textContent = b.t;
+    b.sub.split("\n").forEach((line, k) => { svg.appendChild(svgEl("text", { x: b.x + b.w / 2, y: b.y + 31 + k * 12, "text-anchor": "middle", "font-size": 9.5, fill: "#b8b8b8" })).textContent = line; });
+  }
+  const t = svgEl("text", { x: 22, y: 392, "font-size": 10.5, fill: "#909090" });
+  t.textContent = "③ 和 ⑥ 都在 py.detach 里：输入是守卫对象保活的借用切片，循环里不碰任何 Python 对象，所以别的 Python 线程可以同时跑。① 和 ⑦ 必须持 GIL。";
+  svg.appendChild(t);
+}
+
+/* ---------------- sweep layout ---------------- */
+const SW_TINT = ["#3a7afe", "#c9a227", "#b07cd8", "#4caf7a", "#d35d5d", "#2fbfa8"];
+function swRender() {
+  const clamp = (v, lo, hi, d) => { v = parseInt(v, 10); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
+  const S = clamp(document.getElementById("sw-s").value, 1, 8, 3), P = clamp(document.getElementById("sw-p").value, 1, 6, 4), T = clamp(document.getElementById("sw-t").value, 1, 1000000, 2520);
+  const share = document.getElementById("sw-share").checked;
+  const cols = []; for (let p = 0; p < P; p++) for (let s = 0; s < S; s++) cols.push({ col: p * S + s, p, s });
+  const cell = (c) => `<div class="cc" style="background:${SW_TINT[c.p]}22;border-color:${SW_TINT[c.p]}">${c.col}<small>p${c.p} · s${c.s}</small></div>`;
+  let grid;
+  if (share) grid = Array.from({ length: P }, (_, p) => `<span class="grp" title="账户 ${p}">${cols.filter((c) => c.p === p).map(cell).join("")}</span>`).join("");
+  else grid = `<div class="colgrid">${cols.map(cell).join("")}</div>`;
+  const map = cols.map((c) => c.s);
+  const kept = T * S * 8, tiled = T * S * P * 8;
+  document.getElementById("sw-out").innerHTML =
+    `<div style="margin:6px 0 8px">${grid}</div>` +
+    `<div class="kpis"><span class="kpi">n_cols <b>${S * P}</b></span><span class="kpi">column_map <b>[${map.join(", ")}]</b></span>` +
+    `<span class="kpi">group_lens <b>${share ? "[" + Array(P).fill(S).join(", ") + "]" : "—（每列一个账户）"}</b></span>` +
+    `<span class="kpi">n_groups <b>${share ? P : S * P}</b></span></div>` +
+    `<div class="kpis"><span class="kpi">price_nbytes <b>${kept.toLocaleString()}</b></span><span class="kpi">铺开会是 <b>${tiled.toLocaleString()}</b></span><span class="kpi">节省 <b>${P}×</b></span></div>`;
+}
+let dlDelay = 1;
+function dlRender() {
+  const n = 6, entries = [true, false, false, false, false, false], exits = [false, false, false, false, false, true];
+  const shift = (a) => a.map((_, i) => (i - dlDelay >= 0 ? a[i - dlDelay] : false));
+  const e2 = shift(entries), x2 = shift(exits);
+  const lost = [...entries.keys()].filter((i) => (entries[i] || exits[i]) && i + dlDelay >= n);
+  const merged = (e, x) => e.map((v, i) => (v ? "e" : x[i] ? "x" : ""));
+  const show = (label, arr, extra) => `<div class="timeline"><div class="t" style="width:80px;text-align:right;color:var(--muted);font-family:inherit">${label}</div>${arr.map((c, i) => `<div class="t">${extra ? i : ""}<div class="b ${c}">${c === "e" ? "进" : c === "x" ? "出" : ""}</div></div>`).join("")}</div>`;
+  const fills = merged(e2, x2).map((c, i) => (c ? i : null)).filter((v) => v !== null);
+  document.getElementById("dl-out").innerHTML = show("原始信号", merged(entries, exits), true) + `<div style="height:6px"></div>` + show(`delay = ${dlDelay}`, merged(e2, x2), false) +
+    `<div class="kpis"><span class="kpi">成交所在的根 <b>[${fills.join(", ")}]</b></span>${lost.length ? `<span class="kpi" style="border-color:#6b2f2f">丢掉的信号 <b>${lost.map((i) => "第 " + i + " 根").join("、")}</b></span>` : ""}<span class="kpi">收盘时仓位 <b>${fills.length % 2 ? "仍开着" : "已平"}</b></span></div>`;
+}
+
+/* ---------------- enums ---------------- */
+let enParam = "size_type", enLoop = "from_signals";
+const EN_ACCEPT = { size_type: "amount, value, percent, targetamount, targetvalue, targetpercent", direction: "longonly | long, shortonly | short, both", accumulate: "disabled, both, addonly, removeonly（仅 from_signals）", trades: "exit, entry, position | positions", call_seq: "default, auto" };
+function enRender() {
+  const w = document.getElementById("en-in").value;
+  const out = document.getElementById("en-out");
+  if (enParam === "accumulate" && enLoop === "from_orders") { out.innerHTML = `<div class="verdict bad">from_orders 没有 accumulate 参数。</div>`; return; }
+  const r = parseEnum(enParam, w, enLoop);
+  out.innerHTML = r.ok ? `<div class="verdict good"><code>${esc(enParam)}=${esc(JSON.stringify(w))}</code> → <b>${esc(r.value)}</b></div>` : `<div class="verdict bad">ValueError<br><span class="msg">${esc(r.msg)}</span></div>`;
+  document.getElementById("en-foot").innerHTML = `接受的拼写：<code>${EN_ACCEPT[enParam]}</code>。试试 <code>Amount</code>、<code>long</code>、<code>exits</code>、在 from_signals 下的 <code>targetpercent</code>。`;
+}
+
+/* ---------------- guards ---------------- */
+const GUARDS = [
+  ["C 序二维数组（直接调扩展）", G_MSG.c_order, "按列优先读 C 序缓冲区 = 回测转置或打乱后的序列，照样出一份普通的报告。测试：<code>test_a_c_ordered_array_is_refused_rather_than_transposed</code>"],
+  ["不连续的切片（直接调扩展）", G_MSG.strided, "借不出一段连续内存；要读就得悄悄复制——复制应该是调用者看得见的决定"],
+  ["整数数组（直接调扩展）", G_MSG.int, "当成 float 读必须复制；壳会替你转换（看得见的复制），扩展不会"],
+  ["close 不是二维（直接调扩展）", G_MSG.close, "close 决定运行的形状，其他参数都按它检查；不能从“先到的那个数组”推断"],
+  ["止损止盈没有 high / low", G_MSG.stop, "<b>这条的理由不成立。</b>引擎在 open / high / low 缺失时用收盘价重建（open = close，low = min(open, close)，high = max），注释写明“so a close-only series still tests stops”（phasor-sim <code>from_signals.rs</code>）。实测：Rust 测试 <code>continuous_entry_condition_can_reenter_after_a_stop</code> 只给收盘价，成交在第 0、1、2 根（进场、止损、再进场）；Python 传 <code>high=close, low=close</code> 得到同样的 [0, 1, 2]。被拒绝的是一个引擎能正确执行的运行"],
+  ["from_signals 用目标 size type", G_MSG.target, "目标仓位对信号是含糊的；参考实现拒绝同样三种"],
+  ["group_lens 但没开 cash_sharing", G_MSG.lens, "分组只对共享资金有意义；悄悄忽略会让人以为账户被分了组"],
+  ["共享时 init_cash 是矩阵", G_MSG.share_cash, "共享账户每组一笔起始资金；矩阵的含义说不清"],
+  ["共享时 cash_deposits 形状不对", G_MSG.share_dep, "入金按组记一次（从组的第一列）；(T, C) 的矩阵会让同一组的几列给出互相矛盾的入金"],
+  ["一维数组长度对不上", G_MSG.per_col + "\n" + G_MSG.per_row, "错误信息里写明了是“每列”还是“每根 K 线”的数组，这本身就是对一维歧义的说明"],
+  ["column_map 下 OHLC 不是源形状", G_MSG.ohlc, "开高低收按源列 (T, S) 存一份，通过同一个 column_map 映射；一维或铺开后的形状都对不上映射"],
+  ["共享运行用 col= 取序列", G_MSG.col, "共享账户的现金和净值属于组，不属于列"],
+  ["枚举名大小写不对", G_MSG.enum_case, "接受 \"Amount\" 会让映射表翻倍；重要的是拒绝要响亮，而不是悄悄回落到默认值"],
+];
+
+/* ---------------- validation ---------------- */
+let vaKind = "rolling";
+const VA_FIELDS = { rolling: [["n", 30], ["train", 10], ["test", 5], ["step", ""]], expanding: [["n", 30], ["min_train", 8], ["test", 5], ["step", ""]], purged_kfold: [["n", 30], ["k", 5], ["purge", 2], ["embargo", 1]] };
+const vaVals = { rolling: {}, expanding: {}, purged_kfold: {} };
+function vaForm() {
+  const host = document.getElementById("va-form");
+  host.innerHTML = VA_FIELDS[vaKind].map(([name, d]) => { const v = vaVals[vaKind][name] ?? d; return `<span class="lbl">${name}</span><input type="number" data-n="${name}" value="${v}" placeholder="${name === "step" ? "默认 = test" : ""}" />`; }).join(" ");
+  for (const inp of host.querySelectorAll("input")) inp.addEventListener("input", () => { vaVals[vaKind][inp.dataset.n] = inp.value; vaRender(); });
+}
+function vaRender() {
+  const vals = {};
+  for (const [name, d] of VA_FIELDS[vaKind]) { const raw = vaVals[vaKind][name] ?? d; vals[name] = raw === "" ? null : Number(raw); }
+  const err = document.getElementById("va-err"), out = document.getElementById("va-out");
+  let splits;
+  try {
+    if (vals.n > 120) throw new Error("演示里 n 最多 120（Python 没有这个限制）");
+    if (vaKind === "rolling") splits = rolling(vals.n, vals.train, vals.test, vals.step);
+    else if (vaKind === "expanding") splits = expanding(vals.n, vals.min_train, vals.test, vals.step);
+    else splits = purgedKfold(vals.n, vals.k, vals.purge ?? 0, vals.embargo ?? 0);
+    err.textContent = "";
+  } catch (e) { err.textContent = "ValueError: " + e.message; out.innerHTML = ""; return; }
+  const n = vals.n;
+  out.innerHTML = splits.map(([tr, te], i) => {
+    const trS = new Set(tr), teS = new Set(te), lo = te[0], hi = te[te.length - 1];
+    const cells = Array.from({ length: n }, (_, r) => {
+      let c = "";
+      if (trS.has(r)) c = "tr"; else if (teS.has(r)) c = "te";
+      else if (vaKind === "purged_kfold" && r < lo && r >= lo - (vals.purge ?? 0)) c = "pu";
+      else if (vaKind === "purged_kfold" && r > hi && r < hi + 1 + (vals.embargo ?? 0)) c = "em";
+      return `<div class="cell ${c}" title="行 ${r}"></div>`;
+    }).join("");
+    const span = (a) => (a.length && a[a.length - 1] - a[0] + 1 === a.length ? `[${a[0]}:${a[a.length - 1] + 1}]` : `<${a.length} rows in [${a[0]}:${a[a.length - 1] + 1}]>`);
+    return `<div class="row"><div class="lab">split ${i}</div><div class="cells">${cells}</div><div class="small" style="margin-left:8px">Split(train=${span(tr)}, test=${span(te)})</div></div>`;
+  }).join("") + (vaKind !== "purged_kfold" && splits.length ? `<div class="small" style="margin-top:6px">末尾填不满一个 test 窗口的行不参与（不在短窗口上测试）。</div>` : "");
+}
+
+/* ---------------- perf ---------------- */
+function buildPerf() {
+  const p = PERF;
+  const ms = (s) => (s * 1000).toFixed(0) + " ms";
+  const rows = [
+    ["sweep 运行（2,000 列）", `${ms(p.big.run_s)}，${p.big.fills.toLocaleString()} 笔成交`, "含 Python 侧生成 40 组信号、拼接；模拟本身在 GIL 外"],
+    ["保留的价格内存", `${p.big.price_nbytes.toLocaleString()} 字节`, `铺开成 2,000 列会是 ${p.big.tiled_nbytes.toLocaleString()} 字节（40×）；price_nbytes 与参数组数无关`],
+    ["第一次 sharpe_ratio()", ms(p.cache.first_sharpe_s), "冷缓存：重建视图 + 派生价值曲线和收益率 + 归约"],
+    ["第二次 sharpe_ratio()", ms(p.cache.second_sharpe_s), "缓存命中：只剩重建借用视图和归约"],
+    ["metrics()（冷）", ms(p.cache.metrics_cold_s), "六个指标 + 交易次数，一次重建"],
+    ["之后再单独调 4 个访问器", ms(p.cache.four_after_metrics_s), "total_return、max_drawdown、sharpe_ratio、trade_count；平均每个约 15 ms，与上面“缓存命中”的那次同一量级"],
+    ["4 次运行：串行", ms(p.gil.serial_4_s), "同一个 2,520 × 2,000 的 from_signals"],
+    ["4 次运行：4 个 Python 线程", ms(p.gil.threads_4_s), `${(p.gil.serial_4_s / p.gil.threads_4_s).toFixed(1)}× ——GIL 在模拟期间释放（${p.cpus} 核）`],
+    ["threads=1 vs threads=8", p.threads_identical ? "total_return 逐位相同" : "不同", "并行单位是账户；随机抽签是 (seed, row, col) 的函数"],
+  ];
+  document.getElementById("perf-rows").innerHTML = rows.map(([a, b, c]) => `<tr><td>${a}</td><td class="mono">${b}</td><td>${c}</td></tr>`).join("");
+}
+
+/* ---------------- init ---------------- */
+buildLegend(); buildGraph(); showDetail(null);
+seg("mo-shape", [["rect", "3 根 × 2 个标的"], ["square", "3 × 3（方阵）"]], moShape, (id) => { moShape = id; moRender(); });
+seg("mo-order", [["C", "C 序（NumPy 默认）"], ["F", "F 序（asfortranarray）"]], moOrder, (id) => { moOrder = id; moRender(); });
+moRender();
+seg("rt-layer", [["public", "phasor（公开 API）"], ["raw", "phasor._phasor（直接调扩展）"]], rtLayer, (id) => { rtLayer = id; rtRender(); rtDetail(); });
+rtRender();
+document.getElementById("def-rows").innerHTML = DEFAULTS.map(([a, b, c, d]) => `<tr><td class="mono">${a}</td><td class="mono">${esc(b)}</td><td class="mono">${c}</td><td>${d}</td></tr>`).join("");
+buildLife(); buildPerf();
+for (const id of ["sw-s", "sw-p", "sw-t", "sw-share"]) document.getElementById(id).addEventListener("input", swRender);
+swRender();
+seg("dl-seg", [[0, "0"], [1, "1（默认）"], [2, "2"], [3, "3"]], dlDelay, (id) => { dlDelay = id; dlRender(); });
+dlRender();
+seg("en-param", Object.keys(ENUMS).map((k) => [k, k]), enParam, (id) => { enParam = id; enRender(); });
+seg("en-loop", [["from_signals", "from_signals"], ["from_orders", "from_orders"]], enLoop, (id) => { enLoop = id; enRender(); });
+document.getElementById("en-in").addEventListener("input", enRender);
+enRender();
+document.getElementById("guard-rows").innerHTML = GUARDS.map(([a, b, c]) => `<tr><td>${a}</td><td><span class="msg">${esc(b)}</span></td><td>${c}</td></tr>`).join("");
+seg("va-kind", [["rolling", "rolling"], ["expanding", "expanding"], ["purged_kfold", "purged_kfold"]], vaKind, (id) => { vaKind = id; vaForm(); vaRender(); });
+vaForm(); vaRender();
+</script>
+<script id="toc-script">
+(() => {
+  const head = document.querySelector("header.top"), toc = document.getElementById("toc"), btn = document.getElementById("toc-btn");
+  const setH = () => document.documentElement.style.setProperty("--hh", head.offsetHeight + "px");
+  setH(); addEventListener("resize", setH);
+  const wide = () => matchMedia("(min-width: 1240px)").matches;
+  btn.addEventListener("click", () => { if (wide()) document.body.classList.toggle("toc-closed"); else document.body.classList.toggle("toc-open"); });
+  toc.addEventListener("click", (e) => { if (e.target.closest("a") && !wide()) document.body.classList.remove("toc-open"); });
+  const links = [...toc.querySelectorAll("ol.sec a")];
+  const targets = links.map((a) => document.getElementById(a.getAttribute("href").slice(1))).filter(Boolean);
+  const spy = () => {
+    const y = head.offsetHeight + 24; let cur = targets[0];
+    for (const t of targets) if (t.getBoundingClientRect().top <= y) cur = t;
+    for (const a of links) a.classList.toggle("on", cur && a.getAttribute("href") === "#" + cur.id);
+  };
+  addEventListener("scroll", spy, { passive: true }); spy();
+})();
+</script>
+</body>
+</html>
