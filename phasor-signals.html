@@ -350,7 +350,7 @@
     </div>
     <div class="foot">
       <p class="small" style="margin:0">
-        来源：各 crate 的 Cargo.toml 与 src/ 中的 <code>use phasor_signals::…</code>。工作区里只有门面 crate <code>phasor</code> 依赖它；phasor-py 和 phasor-analysis 都没有。
+        来源：各 crate 的 Cargo.toml 与 src/ 中的 <code>use phasor_signals::…</code>。工作区里依赖它的是门面 crate <code>phasor</code> 和 phasor-py（只用 random 与 labels）；phasor-analysis 不依赖它。
         phasor 的测试 <code>tests/factor_path.rs</code> 用 <code>clean_enex</code> 走通“因子 → 信号 → from_signals”整条路径。
       </p>
     </div>
@@ -775,6 +775,8 @@ const UPSTREAM = [
 const DOWN = [
   { id: "phasor", sub: "门面 · prelude", uses: ["clean", "generate", "ranges", "random", "rank", "labels"], dashed: false,
     role: "pub use phasor_signals as signals 整体再导出（所以六个模块都可用）；prelude 只放 ExitWindow、FirstSignal、clean_enex、exit_after、partition_ranges。tests/factor_path.rs 用 clean_enex 走通“因子 → 信号 → from_signals”。" },
+  { id: "phasor-py", sub: "phasor.labels · phasor.signals", uses: ["random", "labels"], dashed: false,
+    role: "research.rs 包装四种标签（fixed_horizon_returns、trend_labels、triple_barrier、pivot_labels）和三种随机信号（random_by_prob、random_n、random_entries_exits），每个都是一次调用，列主序进出、计算时释放 GIL。clean、generate、rank、ranges 没有接到 Python。" },
   { id: "from_signals", sub: "phasor-sim · 数据衔接", uses: ["clean", "generate", "random"], dashed: true,
     role: "phasor-sim 不依赖这个 crate。clean_enex、exit_after / exit_on、random_* 产出的列主序 Vec<bool> 直接作为 entries / exits 交给 from_signals；止损、冲突模式、定量都在那边。" },
   { id: "模型训练", sub: "labels 的唯一去处", uses: ["labels"], dashed: true,

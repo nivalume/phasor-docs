@@ -401,7 +401,7 @@
     <div class="foot">
       <p class="small" style="margin:0">
         来源：各 crate 的 Cargo.toml，以及 src/ 中的 <code>use phasor_records::…</code>（不含 tests/、examples/）。
-        excursions 模块（<code>excursions</code>、<code>edge_ratio</code>）目前只是公开 API，工作区里没有 src 调用。
+        excursions 模块由 phasor-analysis 的 <code>Portfolio::excursions</code>、<code>Portfolio::edge_ratio</code> 调用，Python 经由它们拿到（<code>pf.excursions(high, low)</code>）。
         phasor 门面用 <code>pub use phasor_records as records</code> 整体再导出，图上只画出 prelude 里点名的两项。
       </p>
     </div>
@@ -1063,6 +1063,7 @@ journal.logs.reason_counts(col, n_cols)?
         <tr><td class="mono">find_drawdowns</td><td class="mono">(ts: &amp;[f64], n_rows, n_cols) -&gt; Result&lt;DrawdownRecords&gt;</td><td>列主序序列，长度不是 <code>n_rows × n_cols</code> 时返回 <code>Error::Broadcast</code>。NaN 跳过。<code>drawdowns.rs:247</code></td></tr>
         <tr><td class="mono">excursions</td><td class="mono">(&amp;TradeRecords, high, low, close, n_rows) -&gt; Result&lt;Excursions&gt;</td><td>入场/出场越界、出场早于入场、入场价 ≤ 0 或 NaN 时返回 Invariant。high/low 缺失用 close 代替。<code>excursions.rs:67</code></td></tr>
         <tr><td class="mono">edge_ratio</td><td class="mono">(&amp;Excursions) -&gt; f64</td><td>mean(mfe_ret) / mean(|mae_ret|)。没有交易或从没逆向走过时为 NaN。<code>excursions.rs:135</code></td></tr>
+        <tr><td class="mono">edge_ratio_by_column</td><td class="mono">(&amp;Excursions, cols, n_cols) -&gt; Result&lt;Vec&lt;f64&gt;&gt;</td><td>每列一个 edge ratio，按交易原来的顺序取子集，所以和对那个子集调 <code>edge_ratio</code> 逐位相同；没有交易的列为 NaN。<code>cols</code> 和 <code>ex</code> 长度不同或列号越界时返回 Invariant。<code>Portfolio::edge_ratio</code> 传账户号进来，得到按账户的值。<code>excursions.rs:149</code></td></tr>
       </tbody>
     </table>
   </div>
@@ -1159,7 +1160,7 @@ Journal::extend: order_id += offset      // -1 保持 -1</pre>
         <tr><td class="mono">src/trades.rs</td><td>TradeRecords、trade_stats、entry_trades、exit_trades、positions、duration。</td></tr>
         <tr><td class="mono">src/mapped.rs</td><td>ColMap、MappedArray、各命名归约、top/bottom_n_mask、arg_extreme。</td></tr>
         <tr><td class="mono">src/drawdowns.rs</td><td>DrawdownStatus、DrawdownRecords 及其派生量、find_drawdowns。</td></tr>
-        <tr><td class="mono">src/excursions.rs</td><td>Excursions、excursions、edge_ratio。</td></tr>
+        <tr><td class="mono">src/excursions.rs</td><td>Excursions、excursions、edge_ratio、edge_ratio_by_column。</td></tr>
         <tr><td class="mono">src/logs.rs</td><td>LogEntry、LogRecords、LogSink、Journal。</td></tr>
         <tr><td class="mono">tests/parity_*.rs</td><td>三份差分测试，回放 tests/fixtures/ 下的 TSV。</td></tr>
       </tbody>
@@ -1185,7 +1186,7 @@ const MODULES = [
   { id: "drawdowns", name: "drawdowns", up: { "phasor-core": "Error（形状不对返回 Broadcast）" },
     blurb: "每段回撤一条记录：峰值、开始、谷底、结束、是否恢复，以及持续时间、深度、恢复比等派生量。" },
   { id: "excursions", name: "excursions", up: { "phasor-core": "FlexArray（high / low / close）、Error::Invariant", "phasor-model": "TradeDirection、TradeStatus" },
-    blurb: "每笔交易的 MAE / MFE 以及 edge_ratio。目前工作区内没有 src 调用方。" },
+    blurb: "每笔交易的 MAE / MFE 以及 edge_ratio、edge_ratio_by_column。调用方是 phasor-analysis 的 Portfolio::excursions / edge_ratio。" },
   { id: "logs", name: "logs", up: { "phasor-core": "Result", "phasor-model": "OrderSide、OrderStatus、StatusInfo、CashFlowKind", "phasor-exec": "Order、OrderResult（LogEntry 原样持有）" },
     blurb: "38 字段的订单日志，Journal 把成交和日志放在一起并在合并时重定位 order_id；reasons / reason_counts 把状态翻回文字。" },
 ];
@@ -1196,7 +1197,7 @@ const UPSTREAM = [
 ];
 const DOWN = [
   { id: "phasor-sim", uses: ["lib", "cash", "logs"], role: "from_orders、from_signals 的循环对 S: SinkBuffer 泛型：每个组（并行时每个线程）with_capacity 一个缓冲，push_order 写成交，push_cash 写入金、收益、分红，订单要求记日志时 push_log，最后 SinkBuffer::merge 按组序拼回。cash.rs 只依赖 RecordSink::push_cash。" },
-  { id: "phasor-analysis", uses: ["lib", "cash", "trades", "mapped", "drawdowns"], role: "Portfolio 构造时 sort_by_column，并用 ColMap::build 一次性校验列号。series.rs 只从记录重建现金（add_cash_records；deposits 用 is_deposit 挑出入金）。trades() 按 TradesType 调 entry_trades / exit_trades；Positions 是 exit_trades 再 positions。回撤用 find_drawdowns；trade_stats 用 col_map + mapped 按列归约；stats 读 duration() 和 drawdown()。" },
+  { id: "phasor-analysis", uses: ["lib", "cash", "trades", "mapped", "drawdowns", "excursions"], role: "Portfolio 构造时 sort_by_column，并用 ColMap::build 一次性校验列号。series.rs 只从记录重建现金（add_cash_records；deposits 用 is_deposit 挑出入金）。trades() 按 TradesType 调 entry_trades / exit_trades；Positions 是 exit_trades 再 positions。回撤用 find_drawdowns；trade_stats 用 col_map + mapped 按列归约；stats 读 duration() 和 drawdown()。excursions / edge_ratio 把 trades() 和调用方给的 high、low 交给 excursions，再按账户调 edge_ratio_by_column。" },
   { id: "phasor", uses: ["lib", "trades"], role: "门面：pub use phasor_records as records 整体再导出；prelude 只放 OrderRecords 和 exit_trades。" },
   { id: "phasor-py", uses: ["lib", "cash", "logs", "trades"], role: "Python 边界：共享现金时另存一份 sort_by_column 后的 OrderRecords；把成交、cash_records、LogRecords 转成 NumPy 数组的 dict；暴露 logs.reasons() 和 reason_counts(col)；trades 导出时附带 duration()。Journal 在调用后拆成 orders 和 logs 两半。" },
 ];

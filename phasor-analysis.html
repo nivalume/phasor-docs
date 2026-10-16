@@ -401,7 +401,7 @@
   <h2 id="portfolio">Portfolio：只存四样东西</h2>
   <div class="grid2">
     <article class="card"><h3>存什么</h3><p>成交记录（含 <code>CashRecords</code>）、收盘价（<b>借用</b>，扫描的价格矩阵是系统里最大的东西）、初始资金、形状，以及可选的基准。<code>from_records</code>、<code>from_grouped_records</code>（共享资金分组）、<code>from_borrowed</code>（Python 层借入一份 <code>Cache</code>），另有直接跑模拟的 <code>from_orders / from_signals</code>。</p></article>
-    <article class="card"><h3>算什么</h3><p>assets、cash、free_cash、asset_value、value、returns、deposits、gross / long / short / net exposure、allocations、trades、drawdowns……每个都在第一次被问到时算一次，存进 <code>Cache</code> 里对应的 <code>OnceLock</code>。不是 <code>RefCell</code>，所以多个线程可以从同一个 Portfolio 并行算不同列的指标。</p></article>
+    <article class="card"><h3>算什么</h3><p>assets、cash、free_cash、asset_value、value、returns、deposits、gross_exposure、trades、drawdowns……每个都在第一次被问到时算一次，存进 <code>Cache</code> 里对应的 <code>OnceLock</code>。allocations、long / short / net exposure、gross_long_short、position_coverage 不进缓存，每次从缓存里的 asset_value 和 value 现算；excursions、edge_ratio 要调用方传 high、low，也不缓存。不是 <code>RefCell</code>，所以多个线程可以从同一个 Portfolio 并行算不同列的指标。</p></article>
     <article class="card"><h3>账户分组</h3><p>仓位和交易始终按标的；现金、净值和收益类指标按共享资金分组，初始资金每组只算一次。独立列就是大小为 1 的组。</p></article>
     <article class="card"><h3>Scoring</h3><p><code>ann_factor = 365</code>、<code>risk_free = 0</code>、<code>trades_type = ExitTrades</code>、<code>incl_open = false</code>。改评分方式用 <code>with_scoring</code>，缓存的重建结果仍然有效，不需要重跑模拟。</p></article>
   </div>
@@ -1000,7 +1000,7 @@ function gauss(r) { return Math.sqrt(-2 * Math.log(r() + 1e-12)) * Math.cos(2 * 
 /* ---------------- dependency graph ---------------- */
 const COLORS = { series: "#3a7afe", metrics: "#2fbfa8", benchmark: "#8fbf4a", rolling: "#5ea0ff", robust: "#d35d5d", percentile: "#9a9a9a", events: "#b07cd8", trade_stats: "#e07a3d", aggregate: "#c9a227", stats: "#e6c35c", portfolio: "#f0f0f0" };
 const MODULES = [
-  { id: "portfolio", sub: "Portfolio · Cache · Scoring", blurb: "结果对象：只存记录、价格、初始资金、形状，其余按需重建并缓存；按账户分组。" },
+  { id: "portfolio", sub: "Portfolio · Cache · Scoring", blurb: "结果对象：只存记录、价格、初始资金、形状，其余按需重建并缓存；按账户分组。excursions / edge_ratio 收调用方的 high、low，转给 phasor-records 的 excursions。" },
   { id: "series", sub: "重建链", blurb: "records → asset_flow / cash_flow → assets / cash → value → returns；free_cash 重放 debt 账本；总敞口。" },
   { id: "metrics", sub: "18 个收益指标", blurb: "total / annualized return、volatility、drawdown、Sharpe、Sortino、Calmar、Omega、tail ratio、VaR、CVaR。" },
   { id: "benchmark", sub: "beta · alpha · capture", blurb: "相对基准：information ratio、beta（按收益缺失对齐）、alpha、capture / up / down capture。" },
@@ -1021,7 +1021,7 @@ const UP = [
 ];
 const DOWN = [
   { id: "phasor", sub: "门面 · prelude", uses: ["portfolio", "aggregate", "metrics", "stats"], role: "pub use phasor_analysis as analysis；prelude 放 DAILY、sharpe_ratio、total_return、Select、Tag、Value、Portfolio、Reduce、Scoring、best_column、group_by。tests/sweep.rs 固定“没交易的列会赢”的两种结果。" },
-  { id: "phasor-py", sub: "phasor.Portfolio", uses: ["portfolio", "stats"], role: "lib.rs：Python 的 Portfolio 拥有价格，每次调用用 Portfolio::from_borrowed 借一份长期存在的 Cache，所以上一次算过的净值下一次还在；stats 用 Select / Value。" },
+  { id: "phasor-py", sub: "phasor.Portfolio · events · robust", uses: ["portfolio", "stats", "events", "robust"], role: "lib.rs：Python 的 Portfolio 拥有价格，每次调用用 Portfolio::from_borrowed 借一份长期存在的 Cache，所以上一次算过的净值下一次还在；stats 用 Select / Value；敞口方法整张矩阵返回，excursions / edge_ratio 收 Python 传来的 high、low。research.rs：phasor.events 包装 forward_paths 和 EventPaths 的三个方法，phasor.robust 包装 robust.rs 的四个函数。" },
 ];
 const depSvg = document.getElementById("dep-graph"), detail = document.getElementById("detail");
 let pinned = null;

@@ -197,7 +197,7 @@
   <div class="stats">
     <div class="stat"><b>只依赖 phasor-core</b><span>用 <code>Matrix</code> 和 <code>Error</code>；每个函数先写一维 <code>_1d</code> 版本，矩阵版本逐列调用它</span></div>
     <div class="stat"><b>1,650 条 fixture</b><span>13 条“故意别扭”的序列（前后缺口、全 NaN、常数、跨 16 个数量级……）× 18 个函数 × 参数组合，对照 vectorbt</span></div>
-    <div class="stat"><b>3 个模块，1 个没人用</b><span>rolling 和 elementwise 被 indicators、expr、analysis、py 调用；synthetic 的三个生成器在工作区里还没有调用方</span></div>
+    <div class="stat"><b>3 个模块</b><span>rolling 和 elementwise 被 indicators、expr、analysis、py 调用；synthetic 的三个生成器只有 Python 绑定在用（<code>phasor.synthetic</code>）</span></div>
   </div>
 
   <!-- ============================================================ -->
@@ -413,8 +413,8 @@
     </div>
     <div class="foot"><p class="small" style="margin:0">改“列数”：第 0 列的路径不变——它只依赖 <code>(seed, row, 0)</code>，与总共要了多少列无关。<code>ohlc_from_close</code> 在同一布局上生成开高低：开盘 = 上一根收盘，高 = <code>max(o,c) + |max(o,c)|·spread·U</code>，低同理，所以即使随机游走穿过 0，也保持 <code>low ≤ min(o,c) ≤ max(o,c) ≤ high</code>。</p></div>
   </div>
-  <div class="note warn">
-    <b>目前没有调用方：</b>ARCHITECTURE §2.3 把合成价格列为这个 crate 的职责，但 <code>gbm</code>、<code>random_walk</code>、<code>ohlc_from_close</code> 在工作区的 <code>src/</code>、示例和 Python 包里都没有被调用，Python 层也没有绑定它们。
+  <div class="note">
+    <b>调用方只有 Python 绑定：</b>ARCHITECTURE §2.3 把合成价格列为这个 crate 的职责。<code>gbm</code>、<code>random_walk</code>、<code>ohlc_from_close</code> 在工作区的 Rust 代码和示例里没有调用方，phasor-py 的 <code>research.rs</code> 把它们包成 <code>phasor.synthetic</code>：<code>shape</code> 传整数得一维，传 <code>(n_rows, n_cols)</code> 得 F 序二维。
     它们和 rolling / elementwise 不同，不是参考实现的移植，所以不在 <code>generic.tsv</code> 里；验证靠自己的性质测试（同种子逐位相同、列独立、对数收益的均值和方差、OHLC 不等式）。
   </div>
 
@@ -698,7 +698,7 @@ const COLORS = { rolling: "#3a7afe", elementwise: "#2fbfa8", synthetic: "#c9a227
 const MODULES = [
   { id: "rolling", sub: "rolling_* · expanding_* · ewm_* · apply", blurb: "滚动、扩展和指数加权窗口；rolling_apply_1d 是通用回调版本。几乎所有下游用的都是它。" },
   { id: "elementwise", sub: "shift · diff · fill · crossed_*", blurb: "平移、差分、百分比变化、填充和交叉。bshift / bfill 读未来。" },
-  { id: "synthetic", sub: "gbm · random_walk · ohlc_from_close", blurb: "可复现的合成价格，做“没有优势”的对照组。工作区里目前没有调用方。", dashed: true },
+  { id: "synthetic", sub: "gbm · random_walk · ohlc_from_close", blurb: "可复现的合成价格，做“没有优势”的对照组。调用方只有 Python 绑定（phasor.synthetic）。" },
 ];
 const DOWN = [
   { id: "phasor-indicators", sub: "MA · MSTD · RSI · STOCH · MACD · ATR · OBV", uses: ["rolling", "elementwise"],
@@ -707,8 +707,8 @@ const DOWN = [
     role: "eval.rs 的 Mean、Max、Min 算子调用 rolling_mean_1d / rolling_max_1d / rolling_min_1d，minp = Some(1)——qlib 的语义，从第 0 根就出值。rolling_apply_1d 只在它的测试里用来对照自己的滑窗实现。" },
   { id: "phasor-analysis", sub: "滚动指标", uses: ["rolling"],
     role: "rolling.rs 的 rolling_solo! / 基准类宏全部走 rolling_apply_1d：把含 NaN 的整窗交给标量指标（Sharpe、Sortino、beta……），所以滚动形式和标量形式在满窗上一致。" },
-  { id: "phasor-py", sub: "Python 绑定", uses: ["elementwise"],
-    role: "expr.rs 暴露 crossed_above：逐列调用 crossed_above_1d(…, wait = 0)，结果拼成列主序的布尔数组交回 NumPy。" },
+  { id: "phasor-py", sub: "Python 绑定", uses: ["elementwise", "synthetic"],
+    role: "expr.rs 暴露 crossed_above：逐列调用 crossed_above_1d(…, wait = 0)，结果拼成列主序的布尔数组交回 NumPy。research.rs 包装 random_walk、gbm、ohlc_from_close，Python 里是 phasor.synthetic，结果原地 reshape 成 F 序交回。" },
   { id: "phasor", sub: "门面", uses: ["rolling", "elementwise", "synthetic"],
     role: "pub use phasor_generic as generic 整体再导出（所以三个模块都可用）；prelude 里没有它的条目。" },
 ];
@@ -725,7 +725,7 @@ function nodeBox(id) {
 }
 function edgeList() {
   const edges = MODULES.map((m) => ({ from: "phasor-core", to: m.id, mod: m.id, up: true }));
-  for (const d of DOWN) for (const u of d.uses) edges.push({ from: u, to: d.id, mod: u, dashed: u === "synthetic" });
+  for (const d of DOWN) for (const u of d.uses) edges.push({ from: u, to: d.id, mod: u });
   return edges;
 }
 function edgeOpacity(focus, e) {
