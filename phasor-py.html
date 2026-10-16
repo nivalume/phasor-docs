@@ -611,6 +611,7 @@ const DOWN = [
   { id: "phasor/__init__.py", sub: "from_signals · from_orders · FactorSet", uses: ["lib.rs", "expr.rs", "data.rs"], role: "614 行。_matrix / _param / _flag / _signals 把输入整理成扩展要的形状和布局；FactorSet、Expression 包装；两个入口的长文档。" },
   { id: "phasor/strategy.py", sub: "@strategy · factors · crossed_above", uses: ["expr.rs", "lib.rs"], role: "@strategy 给函数加 run / sweep：拼列、column_map 平铺、group_lens、signal_delay。factors() 拒绝用到未来数据的表达式。" },
   { id: "phasor/data.py", sub: "Source · Catalog · BarPanel", uses: ["data.rs"], role: "DataSchema、Source、Catalog、Dataset（asof / window）、BarPanel；加载显式、只读。" },
+  { id: "phasor/signals.py", sub: "random_* · generate_ohlc_stop_exits", uses: ["lib.rs"], role: "随机信号；generate_ohlc_stop_exits 不经模拟算出每个入场的止损出场、触发价和类型（D6），参数和 from_signals 的止损一致。" },
   { id: "phasor/validation.py", sub: "rolling · expanding · purged_kfold", uses: [], role: "345 行纯 NumPy：切分器只返回行号；walk_forward 在 train 上选、在 test 上报。" },
 ];
 const depSvg = document.getElementById("dep-graph"), detail = document.getElementById("detail");
@@ -829,6 +830,9 @@ const DEFAULTS = [
   ["from_ago / bid_price / ask_price / price_area_vio_mode", "0 / None / None / None", "0 / NaN / NaN / Ignore", "订单取几根之前的；买卖价是市场数据，经过 column_map"],
   ["tsl_stop / tsl_th / td_stop / dt_stop", "None", "NaN", "from_signals：移动止损和门槛、时间止损（按行数）"],
   ["stop_ladder / stop_order_type / stop_limit_delta", "None", "Disabled / Market / NaN", "阶梯时 sl_stop、tp_stop 的行是级；止损限价单"],
+  ["entries / exits", "None", "false", "from_signals：可省略（order_mode 不读它们）"],
+  ["size_type", '"amount"', "Amount", "from_signals 也接受三种目标类型：入场调到目标，出场全平（D7）"],
+  ["order_mode", "False", "false", "from_signals：size 就是订单，和 from_orders 一样，止损和限价单照常可用"],
   ["order_type", "None", "Market", "from_signals：\"market\" 或 \"limit\"，字符串或每列一个"],
   ["limit_delta / delta_format / limit_reverse", "None", "NaN / Percent / false", "限价离订单价多远、怎么读，是否反向（突破单）"],
   ["limit_order_price / limit_delay / limit_tif / limit_expiry", "None", "Limit / false / NaN / NaN", "成交价规则、是否推到下一根、有效期（按 K 线根数和行号）"],
