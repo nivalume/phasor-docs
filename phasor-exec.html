@@ -684,7 +684,7 @@
       <tbody>
         <tr><td class="mono">crates/phasor-exec/src/lib.rs</td><td>两种失败、确定性、两套 fixture 的说明；再导出内核函数、四个类型和五个 phasor-model 枚举。</td></tr>
         <tr><td class="mono">src/types.rs</td><td>ExecuteOrderState（debt / free_cash 的含义）、ProcessOrderState（flat）、Order 及其 Default、OrderResult。</td></tr>
-        <tr><td class="mono">src/kernel.rs</td><td>sign / floor_to；buy（:48）、sell（:228）；validate_bar（:388）、param_violation（:427）；ValidatedOrder（:476）；execute_order（:542）、execute_validated（:559，换算链 :610–677）；单元测试。</td></tr>
+        <tr><td class="mono">src/kernel.rs</td><td>sign / floor_to；buy（:48）、sell（:228）；validate_bar（:388）、param_violation（:427）；ValidatedOrder（:476）；execute_order（:542）、execute_validated（:559，换算链 :610–677）；单元测试。之后：percent_spelling，不内联的冷函数，换算链在 TargetPercent 之前用一次比较把 ValuePercent 和三种 *100 写法交给它（B5）。</td></tr>
         <tr><td class="mono">tests/parity.rs · tests/parity_sequence.rs</td><td>单次与链式的差分测试；tests/common/mod.rs 是 fixture 读取与 agree。</td></tr>
         <tr><td class="mono">tests/fixtures/execute_order.tsv · order_sequence.tsv</td><td>参考实现的输出，由 tests/parity/generate_execute_order.py、generate_order_sequence.py 生成。</td></tr>
         <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §7、§14.4</td><td>撮合内核的设计说明；变异测试。</td></tr>
