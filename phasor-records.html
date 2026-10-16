@@ -192,7 +192,7 @@
     这个 crate 定义记录的结构（成交、现金流、日志），并从记录派生交易、回撤和 MAE/MFE，再提供按列分段归约。
   </p>
   <div class="stats">
-    <div class="stat"><b>7 / 42</b><span>成交记录 7 个字段（含 id；带杠杆的运行再加 debt、locked_cash），日志 42 个。日志默认关闭，按订单单独打开</span></div>
+    <div class="stat"><b>7 / 45</b><span>成交记录 7 个字段（含 id；带杠杆或有保证金列的运行再加 debt、locked_cash、margin），日志 45 个。日志默认关闭，按订单单独打开</span></div>
     <div class="stat"><b>3 种视图 · 1 套结构</b><span>entry_trades、exit_trades、positions 共用 TradeRecords，只是一条记录代表的东西不同</span></div>
     <div class="stat"><b>3 份 fixture</b><span>trades、drawdowns、mapped 三份 TSV 来自 vectorbt，cargo test 直接回放，不需要 Python</span></div>
   </div>
@@ -297,7 +297,7 @@
         <tr><td>数量恒为正，方向单独一列</td><td>“卖出”和“做空”是两个概念：卖出 1 可能是平多也可能是开空。方向显式存储，成交量可以直接求和。</td><td>带符号的数量让“平仓还是反手”要靠上下文推断。</td></tr>
         <tr><td>价格存实际成交价（含滑点），费用单独一列</td><td>PnL 可以拆成价格贡献和成本贡献，才能做交易成本分析、换费率重估。</td><td>把费用并进价格后，成本无法再分离出来。</td></tr>
         <tr><td>非成交现金流是另一种事件</td><td>入金、利息、分红改变余额但没有成交，同样需要 谁 / 何时 / 多少 / 类型。金额记实际入账额，而不是请求额。</td><td>只从成交重建现金，入金和分红会让余额对不上。</td></tr>
-        <tr><td>借款跟着成交记下余额</td><td>带杠杆时借多少取决于成交当时手上的现金（lazy 先花自有现金），成交本身推不出来；所以带杠杆的运行在每笔成交上附带它留下的负债和占用的自有资金。</td><td>不带杠杆时不必存：多头不欠钱，空头冻结两倍所得，都能从成交算出。为它给每次运行加两列，是让默认的运行为用不到的功能付费。</td></tr>
+        <tr><td>借款跟着成交记下余额</td><td>带杠杆时借多少取决于成交当时手上的现金（lazy 先花自有现金），成交本身推不出来；所以带杠杆的运行在每笔成交上附带它留下的负债和占用的自有资金。保证金列也这样记，再加一个 <code>margin</code> 标志：同样两列在那里读作持仓成本和已押的初始保证金，分析层靠它区分两种读法。</td><td>不带杠杆、也没有保证金列时不必存：多头不欠钱，空头冻结两倍所得，都能从成交算出。为它给每次运行加三列，是让默认的运行为用不到的功能付费。</td></tr>
         <tr><td>记录的身份由确定的顺序决定</td><td>id 应当是“排好序之后的位置”，而不是“谁先写进来”。</td><td>用共享计数器分配 id，并行时 id 取决于线程交错，结果不可复现。</td></tr>
       </tbody>
     </table>
@@ -375,7 +375,7 @@
     <table>
       <thead><tr><th>第一性原理的问题</th><th>phasor 的回答</th><th>小节</th></tr></thead>
       <tbody>
-        <tr><td>事件长什么样</td><td><code>OrderRecords</code>（6 列 + 带杠杆时的 <code>debt</code>、<code>locked_cash</code> + 内嵌 <code>CashRecords</code>），结构数组</td><td><a href="#order">成交记录</a> · <a href="#types">类型</a></td></tr>
+        <tr><td>事件长什么样</td><td><code>OrderRecords</code>（6 列 + 带杠杆或有保证金列时的 <code>debt</code>、<code>locked_cash</code>、<code>margin</code> + 内嵌 <code>CashRecords</code>），结构数组</td><td><a href="#order">成交记录</a> · <a href="#types">类型</a></td></tr>
         <tr><td>顺序与身份</td><td>列主序，id = 合并后下标，无共享计数器；共享现金组用 <code>sort_by_column</code></td><td><a href="#order">成交记录</a></td></tr>
         <tr><td>写入接口与存储分离</td><td><code>RecordSink</code> / <code>LogSink</code> / <code>SinkBuffer</code>，<code>OrderRecords</code> 或 <code>Journal</code></td><td><a href="#flow">流程</a> · <a href="#class">类图</a></td></tr>
         <tr><td>配对规则</td><td><code>entry_trades</code>、<code>exit_trades</code>（平均成本，分别按入场/出场归因）和 <code>positions</code>；不提供 FIFO/LIFO</td><td><a href="#views">三种交易视图</a></td></tr>
@@ -477,7 +477,7 @@
   <div class="grid2">
     <article class="card">
       <h3><span class="dot" style="background:var(--lib)"></span> lib.rs：成交记录与写入口</h3>
-      <p><code>OrderRecords</code> 是结构数组：<code>col、idx、size、price、fees、side</code> 六列，加一个内嵌的 <code>cash</code>。<code>id</code> 不存储，就是记录在合并后数组里的位置。带杠杆的运行每笔成交后再调一次 <code>push_balances</code>，多出 <code>debt</code>、<code>locked_cash</code> 两列；不带杠杆时这两列是空的，合并和排序也跳过它们。<code>RecordSink</code> 是模拟循环写成交和现金流的接口，<code>SinkBuffer</code> 再加上 <code>with_capacity</code> 和 <code>merge</code>，让同一份线程代码同时服务普通运行和带日志的运行。</p>
+      <p><code>OrderRecords</code> 是结构数组：<code>col、idx、size、price、fees、side</code> 六列，加一个内嵌的 <code>cash</code>。<code>id</code> 不存储，就是记录在合并后数组里的位置。带杠杆或有保证金列的运行每笔成交后再调一次 <code>push_balances(debt, locked_cash, margin)</code>，多出 <code>debt</code>、<code>locked_cash</code>、<code>margin</code> 三列。<code>margin</code> 标出成交所在的列是不是保证金列，那里 <code>debt</code> 是持仓成本、<code>locked_cash</code> 是已押的初始保证金，多空都一样。两样都没有时这三列是空的（三列同时为空），排序跳过它们，合并照样拼接。<code>RecordSink</code> 是模拟循环写成交和现金流的接口，<code>SinkBuffer</code> 再加上 <code>with_capacity</code> 和 <code>merge</code>，让同一份线程代码同时服务普通运行和带日志的运行。</p>
     </article>
     <article class="card">
       <h3><span class="dot" style="background:var(--cash)"></span> cash：不是成交的现金流</h3>
@@ -832,11 +832,11 @@
   <div class="fields">
     <div class="card"><h3>位置 · 3</h3><p>group<br>col<br>idx</p></div>
     <div class="card"><h3>下单前 · 7</h3><p>cash<br>position<br>debt<br>locked_cash<br>free_cash<br>val_price<br>value</p></div>
-    <div class="card"><h3>请求 · 17</h3><p>req_size · req_price<br>req_size_type<br>req_direction<br>req_fees · req_fixed_fees<br>req_slippage<br>req_min_size · req_max_size<br>req_size_granularity<br>req_leverage · req_leverage_mode<br>req_reject_prob<br>req_lock_cash<br>req_allow_partial<br>req_raise_reject · req_log</p></div>
+    <div class="card"><h3>请求 · 20</h3><p>req_size · req_price<br>req_size_type<br>req_direction<br>req_fees · req_fixed_fees<br>req_slippage<br>req_min_size · req_max_size<br>req_size_granularity<br>req_leverage · req_leverage_mode<br>req_account_type<br>req_initial_margin · req_margin_basis<br>req_reject_prob<br>req_lock_cash<br>req_allow_partial<br>req_raise_reject · req_log</p></div>
     <div class="card"><h3>下单后 · 7</h3><p>new_cash<br>new_position<br>new_debt<br>new_locked_cash<br>new_free_cash<br>new_val_price<br>new_value</p></div>
     <div class="card"><h3>结果 · 7</h3><p>res_size · res_price<br>res_fees<br>res_side（未成交 −1）<br>res_status<br>res_status_info（无 −1）<br>order_id（未成交 −1）</p></div>
   </div>
-  <p class="small" style="margin-top:8px">41 列，加上不存储的 <code>id</code> 共 42 个字段。参考实现 schema 的 37 列按原名、原顺序都在，杠杆的 4 列放在它们扩展的字段旁边：<code>locked_cash</code> 在 <code>debt</code> 后、<code>new_locked_cash</code> 在 <code>new_debt</code> 后、<code>req_leverage</code> 和 <code>req_leverage_mode</code> 在 <code>req_size_granularity</code> 后；不带杠杆时它们是 0、0、1、Lazy。模拟循环先填一个 <code>LogEntry</code> 结构体再交给 <code>push_log</code>，没有写成 42 个位置参数：<code>cash</code> 和 <code>free_cash</code> 挨着、都是 f64，最容易无声地传反。</p>
+  <p class="small" style="margin-top:8px">44 列，加上不存储的 <code>id</code> 共 45 个字段。参考实现 schema 的 37 列按原名、原顺序都在，杠杆的 4 列放在它们扩展的字段旁边：<code>locked_cash</code> 在 <code>debt</code> 后、<code>new_locked_cash</code> 在 <code>new_debt</code> 后、<code>req_leverage</code> 和 <code>req_leverage_mode</code> 在 <code>req_size_granularity</code> 后；不带杠杆时它们是 0、0、1、Lazy。保证金的 3 列 <code>req_account_type</code>、<code>req_initial_margin</code>、<code>req_margin_basis</code> 接在 <code>req_leverage_mode</code> 后，两个枚举存判别值；默认参数下是 Cash、NaN、Notional，即 0、NaN、0。模拟循环先填一个 <code>LogEntry</code> 结构体再交给 <code>push_log</code>，没有写成 45 个位置参数：<code>cash</code> 和 <code>free_cash</code> 挨着、都是 f64，最容易无声地传反。</p>
 
   <div class="grid2" style="margin-top:12px">
     <div class="panel" style="margin:0">
@@ -894,7 +894,7 @@ journal.logs.reason_counts(col, n_cols)?
           <text x="28" y="36" fill="#9ec1ff">«trait» RecordSink</text>
           <text x="28" y="63" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ push_order(row, col, size, price, fees, side)</text>
           <text x="28" y="81" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ push_cash(row, col, amount, kind)</text>
-          <text x="28" y="99" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ push_balances(debt, locked_cash)  // 默认空</text>
+          <text x="28" y="99" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ push_balances(debt, locked_cash, margin)</text>
 
           <rect x="370" y="16" width="300" height="92" rx="6" fill="#262626" stroke="#c084fc"/>
           <rect x="370" y="16" width="300" height="30" rx="6" fill="#2a1f3a"/><rect x="370" y="34" width="300" height="12" fill="#2a1f3a"/>
@@ -909,20 +909,21 @@ journal.logs.reason_counts(col, n_cols)?
           <text x="736" y="86" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ merge(parts: Vec&lt;Self&gt;) -&gt; Self</text>
 
           <!-- OrderRecords -->
-          <rect x="16" y="176" width="300" height="196" rx="6" fill="#262626" stroke="#3a7afe"/>
+          <rect x="16" y="176" width="300" height="206" rx="6" fill="#262626" stroke="#3a7afe"/>
           <rect x="16" y="176" width="300" height="30" rx="6" fill="#1a2744"/><rect x="16" y="194" width="300" height="12" fill="#1a2744"/>
           <text x="28" y="196" fill="#9ec1ff">«struct» OrderRecords</text>
           <text x="28" y="224" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ col, idx: Vec&lt;i64&gt;</text>
           <text x="28" y="242" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ size, price, fees: Vec&lt;f64&gt;</text>
           <text x="28" y="260" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ side: Vec&lt;i8&gt;</text>
-          <text x="28" y="278" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ debt, locked_cash: Vec&lt;f64&gt;  // 杠杆</text>
-          <text x="28" y="296" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ cash: CashRecords</text>
-          <text x="28" y="318" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ len / ids / extend / sort_by_column()</text>
-          <text x="28" y="336" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ concat(&amp;[Self]) · PARALLEL_CONCAT</text>
-          <text x="28" y="358" fill="#909090">impl RecordSink · LogSink（空）· SinkBuffer</text>
+          <text x="28" y="278" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ debt, locked_cash: Vec&lt;f64&gt;  // 杠杆或保证金</text>
+          <text x="28" y="296" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ margin: Vec&lt;bool&gt;  // 是否保证金列</text>
+          <text x="28" y="314" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ cash: CashRecords</text>
+          <text x="28" y="336" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ len / ids / extend / sort_by_column()</text>
+          <text x="28" y="354" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ concat(&amp;[Self]) · PARALLEL_CONCAT</text>
+          <text x="28" y="376" fill="#909090">impl RecordSink · LogSink（空）· SinkBuffer</text>
 
           <!-- Journal -->
-          <rect x="370" y="176" width="300" height="196" rx="6" fill="#262626" stroke="#c084fc"/>
+          <rect x="370" y="176" width="300" height="206" rx="6" fill="#262626" stroke="#c084fc"/>
           <rect x="370" y="176" width="300" height="30" rx="6" fill="#2a1f3a"/><rect x="370" y="194" width="300" height="12" fill="#2a1f3a"/>
           <text x="382" y="196" fill="#d8b8ff">«struct» Journal</text>
           <text x="382" y="224" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ orders: OrderRecords</text>
@@ -931,20 +932,20 @@ journal.logs.reason_counts(col, n_cols)?
           <text x="382" y="284" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ concat(&amp;[Self])</text>
           <text x="382" y="310" fill="#909090">push_order / push_balances / push_cash 转给 orders</text>
           <text x="382" y="328" fill="#909090">push_log 写 logs</text>
-          <text x="382" y="358" fill="#909090">impl RecordSink · LogSink · SinkBuffer</text>
+          <text x="382" y="376" fill="#909090">impl RecordSink · LogSink · SinkBuffer</text>
 
           <!-- LogRecords -->
-          <rect x="724" y="176" width="300" height="196" rx="6" fill="#262626" stroke="#c084fc"/>
+          <rect x="724" y="176" width="300" height="206" rx="6" fill="#262626" stroke="#c084fc"/>
           <rect x="724" y="176" width="300" height="30" rx="6" fill="#2a1f3a"/><rect x="724" y="194" width="300" height="12" fill="#2a1f3a"/>
           <text x="736" y="196" fill="#d8b8ff">«struct» LogRecords</text>
           <text x="736" y="224" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ group, col, idx</text>
           <text x="736" y="242" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ cash … value          (7)</text>
-          <text x="736" y="260" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ req_size … req_log    (17)</text>
+          <text x="736" y="260" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ req_size … req_log    (20)</text>
           <text x="736" y="278" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ new_cash … new_value  (7)</text>
           <text x="736" y="296" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ res_* · order_id      (7)</text>
           <text x="736" y="318" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ push(&amp;LogEntry) / col_map</text>
           <text x="736" y="336" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ reasons() / reason_counts()</text>
-          <text x="736" y="358" fill="#909090">PartialEq 遇 NaN 不自反</text>
+          <text x="736" y="376" fill="#909090">PartialEq 遇 NaN 不自反</text>
 
           <!-- CashRecords -->
           <rect x="16" y="430" width="300" height="94" rx="6" fill="#262626" stroke="#2fbfa8"/>
@@ -979,14 +980,14 @@ journal.logs.reason_counts(col, n_cols)?
         <polygon points="670,250 682,244 694,250 682,256" fill="#c084fc"/>
         <path d="M694 250 H724" fill="none" stroke="#c084fc"/>
         <text x="694" y="240" font-size="10" fill="#d8b8ff">logs</text>
-        <polygon points="166,372 160,384 166,396 172,384" fill="#3a7afe"/>
-        <path d="M166 396 V430" fill="none" stroke="#3a7afe"/>
-        <text x="174" y="414" font-size="10" fill="#9ec1ff">cash</text>
-        <path d="M874 430 V372" fill="none" stroke="#b8b8b8" stroke-dasharray="4 3" marker-end="url(#dep)"/>
-        <text x="882" y="404" font-size="10" fill="#b8b8b8">push(&amp;LogEntry)</text>
+        <polygon points="166,382 160,394 166,406 172,394" fill="#3a7afe"/>
+        <path d="M166 406 V430" fill="none" stroke="#3a7afe"/>
+        <text x="174" y="421" font-size="10" fill="#9ec1ff">cash</text>
+        <path d="M874 430 V382" fill="none" stroke="#b8b8b8" stroke-dasharray="4 3" marker-end="url(#dep)"/>
+        <text x="882" y="410" font-size="10" fill="#b8b8b8">push(&amp;LogEntry)</text>
       </svg>
     </div>
-    <div class="foot"><p class="small" style="margin:0">来源：<code>lib.rs:55</code>（RecordSink，push_balances 在 :79）、<code>lib.rs:95</code>（SinkBuffer）、<code>lib.rs:148</code>（OrderRecords）、<code>cash.rs:25</code>、<code>logs.rs:60</code>（LogEntry）、<code>logs.rs:119</code>（LogRecords）、<code>logs.rs:462</code>（Journal）。</p></div>
+    <div class="foot"><p class="small" style="margin:0">来源：<code>lib.rs:55</code>（RecordSink，push_balances 在 :80）、<code>lib.rs:96</code>（SinkBuffer）、<code>lib.rs:149</code>（OrderRecords）、<code>cash.rs:25</code>、<code>logs.rs:60</code>（LogEntry）、<code>logs.rs:119</code>（LogRecords）、<code>logs.rs:477</code>（Journal）。</p></div>
   </div>
 
   <div class="panel">
@@ -1077,12 +1078,12 @@ journal.logs.reason_counts(col, n_cols)?
     <table>
       <thead><tr><th>类型</th><th>字段</th><th>要点</th></tr></thead>
       <tbody>
-        <tr><td class="mono">OrderRecords</td><td class="mono">col idx size price fees side · cash</td><td>size 永远为正，方向在 side（Buy=0, Sell=1）。price 是滑点之后的成交价。<code>len</code>、<code>ids</code> 只数成交，不数现金流。</td></tr>
+        <tr><td class="mono">OrderRecords</td><td class="mono">col idx size price fees side · cash（· debt locked_cash margin）</td><td>size 永远为正，方向在 side（Buy=0, Sell=1）。price 是滑点之后的成交价。括号里三列只在带杠杆或有保证金列的运行里有，每笔成交一个，否则都是空的。<code>len</code>、<code>ids</code> 只数成交，不数现金流。</td></tr>
         <tr><td class="mono">CashRecords</td><td class="mono">col idx amount kind</td><td>amount 有符号，是实际入账额（封顶之后），不是请求额。入金记在账户组的第一列（初始现金从那列读），属于某个标的的流水记在该标的列；按账户求和时两者都落进同一个账户。kind：Deposit=0, Earning=1, Dividend=2。</td></tr>
         <tr><td class="mono">TradeRecords</td><td class="mono">13 列，见类图</td><td>三种视图一个结构。direction：Long=0, Short=1；status：Open=0, Closed=1。open 交易的 exit_idx 是最后一根，exit_price 是那根的收盘价。parent_id 跨列全局编号，单独就能标识一个仓位。</td></tr>
         <tr><td class="mono">DrawdownRecords</td><td class="mono">9 列，见类图</td><td><code>drawdown()</code> 是负数：(valley − peak) / peak。<code>recovery_duration_ratio</code> 大于 1 表示爬回来比跌下去慢，这是常态，也是回撤代价高于其深度的原因。</td></tr>
         <tr><td class="mono">Excursions</td><td class="mono">mae mfe mae_ret mfe_ret</td><td>顺序与输入交易相同。乘以 size 得到金额尺度。</td></tr>
-        <tr><td class="mono">LogRecords / LogEntry</td><td class="mono">41 列 / 结构体</td><td>见上节。<code>Journal</code> 是打开日志时传入的 sink。</td></tr>
+        <tr><td class="mono">LogRecords / LogEntry</td><td class="mono">44 列 / 结构体</td><td>见上节。<code>Journal</code> 是打开日志时传入的 sink。</td></tr>
       </tbody>
     </table>
   </div>
@@ -1191,15 +1192,15 @@ const MODULES = [
   { id: "excursions", name: "excursions", up: { "phasor-core": "FlexArray（high / low / close）、Error::Invariant", "phasor-model": "TradeDirection、TradeStatus" },
     blurb: "每笔交易的 MAE / MFE 以及 edge_ratio、edge_ratio_by_column。调用方是 phasor-analysis 的 Portfolio::excursions / edge_ratio。" },
   { id: "logs", name: "logs", up: { "phasor-core": "Result", "phasor-model": "OrderSide、OrderStatus、StatusInfo、CashFlowKind", "phasor-exec": "Order、OrderResult（LogEntry 原样持有）" },
-    blurb: "38 字段的订单日志，Journal 把成交和日志放在一起并在合并时重定位 order_id；reasons / reason_counts 把状态翻回文字。" },
+    blurb: "45 个字段（含 id）的订单日志，Journal 把成交和日志放在一起并在合并时重定位 order_id；reasons / reason_counts 把状态翻回文字。" },
 ];
 const UPSTREAM = [
   { id: "phasor-core", role: "math 的容差和 add 只在 trades 里用：判断全平、部分平、反手，计算剩余量，把 PnL 差值吸附成 0。FlexArray 用来读价格（trades 的期末标价，excursions 的 high/low/close）。Matrix 只出现在 mapped 的两个返回值里。Error::Invariant 是这层所有校验失败的出口；find_drawdowns 形状不对返回 Error::Broadcast。" },
-  { id: "phasor-model", role: "记录里存的是 repr(i8) 枚举的判别值：OrderSide（Buy=0, Sell=1）、TradeDirection（Long=0, Short=1）、TradeStatus（Open=0, Closed=1）、CashFlowKind（Deposit=0, Earning=1, Dividend=2）。logs 用 OrderStatus 和 StatusInfo 把判别值翻译回原因文字。判别值写进记录数组，改动它们会破坏数据格式，phasor-model 的测试把它们钉死了。" },
+  { id: "phasor-model", role: "记录里存的是 repr(i8) 枚举的判别值：OrderSide（Buy=0, Sell=1）、TradeDirection（Long=0, Short=1）、TradeStatus（Open=0, Closed=1）、CashFlowKind（Deposit=0, Earning=1, Dividend=2）。logs 用 OrderStatus 和 StatusInfo 把判别值翻译回原因文字。日志的 req_account_type、req_margin_basis 同样存判别值：AccountType（Cash=0, Margin=1）、MarginBasis（Notional=0, Unit=1），它们经 phasor_exec::Order 进来，logs 不直接导入。判别值写进记录数组，改动它们会破坏数据格式，phasor-model 的测试把它们钉死了。" },
   { id: "phasor-exec", role: "只有 logs 用到：LogEntry 持有请求 phasor_exec::Order 和结果 OrderResult，LogRecords::push 把它们的成员展开成 req_* 和 res_* 列。成交记录本身不依赖执行内核的类型。" },
 ];
 const DOWN = [
-  { id: "phasor-sim", uses: ["lib", "cash", "logs"], role: "from_orders、from_signals 的循环对 S: SinkBuffer 泛型：每个组（并行时每个线程）with_capacity 一个缓冲，push_order 写成交，push_cash 写入金、收益、分红，订单要求记日志时 push_log，最后 SinkBuffer::merge 按组序拼回。cash.rs 只依赖 RecordSink::push_cash。" },
+  { id: "phasor-sim", uses: ["lib", "cash", "logs"], role: "from_orders、from_signals 的循环对 S: SinkBuffer 泛型：每个组（并行时每个线程）with_capacity 一个缓冲，push_order 写成交，带杠杆或有保证金列的运行紧跟着 push_balances(debt, locked_cash, margin)，push_cash 写入金、收益、分红，订单要求记日志时 push_log，最后 SinkBuffer::merge 按组序拼回。cash.rs 只依赖 RecordSink::push_cash。" },
   { id: "phasor-analysis", uses: ["lib", "cash", "trades", "mapped", "drawdowns", "excursions"], role: "Portfolio 构造时 sort_by_column，并用 ColMap::build 一次性校验列号。series.rs 只从记录重建现金（add_cash_records；deposits 用 is_deposit 挑出入金）。trades() 按 TradesType 调 entry_trades / exit_trades；Positions 是 exit_trades 再 positions。回撤用 find_drawdowns；trade_stats 用 col_map + mapped 按列归约；stats 读 duration() 和 drawdown()。excursions / edge_ratio 把 trades() 和调用方给的 high、low 交给 excursions，再按账户调 edge_ratio_by_column。" },
   { id: "phasor", uses: ["lib", "trades"], role: "门面：pub use phasor_records as records 整体再导出；prelude 只放 OrderRecords 和 exit_trades。" },
   { id: "phasor-py", uses: ["lib", "cash", "logs", "trades"], role: "Python 边界：共享现金时另存一份 sort_by_column 后的 OrderRecords；把成交、cash_records、LogRecords 转成 NumPy 数组的 dict；暴露 logs.reasons() 和 reason_counts(col)；trades 导出时附带 duration()。Journal 在调用后拆成 orders 和 logs 两半。" },

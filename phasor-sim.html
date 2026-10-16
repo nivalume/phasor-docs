@@ -192,7 +192,7 @@
   <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
   <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
   <div class="grp"><div class="gh">L3 · 记录</div><ul><li><a class="pg" href="phasor-records.html">phasor-records</a></li></ul></div>
-  <div class="grp"><div class="gh">L4 · 模拟</div><ul><li class="cur"><a class="pg" href="phasor-sim.html" aria-current="page">phasor-sim</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|bar:一根 K 线|pipeline:信号管线|stops:止损|orders:from_orders|sharing:共享资金|parallel:并行|defaults:默认值|verify:验证|rules:规则"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#bar">一根 K 线</a></li><li><a href="#pipeline">信号管线</a></li><li><a href="#stops">止损</a></li><li><a href="#orders">from_orders</a></li><li><a href="#sharing">共享资金</a></li><li><a href="#parallel">并行</a></li><li><a href="#defaults">默认值</a></li><li><a href="#verify">验证</a></li><li><a href="#rules">规则</a></li></ol></li></ul></div>
+  <div class="grp"><div class="gh">L4 · 模拟</div><ul><li class="cur"><a class="pg" href="phasor-sim.html" aria-current="page">phasor-sim</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|bar:一根 K 线|pipeline:信号管线|stops:止损|orders:from_orders|sharing:共享资金|margin:保证金列|parallel:并行|defaults:默认值|verify:验证|rules:规则"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#bar">一根 K 线</a></li><li><a href="#pipeline">信号管线</a></li><li><a href="#stops">止损</a></li><li><a href="#orders">from_orders</a></li><li><a href="#sharing">共享资金</a></li><li><a href="#margin">保证金列</a></li><li><a href="#parallel">并行</a></li><li><a href="#defaults">默认值</a></li><li><a href="#verify">验证</a></li><li><a href="#rules">规则</a></li></ol></li></ul></div>
   <div class="grp"><div class="gh">L5 · 分析</div><ul><li><a class="pg" href="phasor-analysis.html">phasor-analysis</a></li></ul></div>
   <div class="grp"><div class="gh">L6 · 门面</div><ul><li><a class="pg" href="phasor-py.html">phasor-py</a></li><li><a class="pg" href="phasor.html">phasor（门面）</a></li></ul></div>
 </aside>
@@ -257,6 +257,13 @@
     分析层只读记录，看不到循环里的负债，所以带杠杆的运行还要在每条成交记录上写下 <code>debt</code> 和 <code>locked_cash</code>。
   </p>
 
+  <h3>8. 保证金列的持仓只算盈亏</h3>
+  <p>
+    期货、永续只押保证金，不付全款：按 10% 保证金开 1000 元的多头，账户押出 100，现金只少了手续费。这个持仓对账户的价值是它相对开仓成本的盈亏，不是 <code>position × price</code>；照现金列那样估值，净值会凭空多出 1000。
+    交易所每天把盈亏划进保证金账户，循环每根 K 线做同样的事：把上一根以来的盈亏结算进现金，把成本移到当前的估值价。这样共享账户里下一笔单能押多少保证金，看的是已经算进所有持仓盈亏的可用现金。
+    结算只在持仓和现金之间挪钱，净值不变，所以它不是现金流，不留记录。
+  </p>
+
   <div class="wrap types">
     <table>
       <thead><tr><th>第一性原理的问题</th><th>phasor-sim 的回答</th><th>小节</th></tr></thead>
@@ -268,16 +275,17 @@
         <tr><td>信号矛盾</td><td><code>signals.rs</code> 的纯函数：from_stop → 进出冲突 → 多空冲突 → 反向进场 → signals_to_size</td><td><a href="#pipeline">信号管线</a></td></tr>
         <tr><td>止损</td><td><code>stop_price</code>（跳空 → 开盘价）、先测试后跟踪、成交后重新布置或清除、<code>StopLimit</code> 不付滑点</td><td><a href="#stops">止损</a></td></tr>
         <tr><td>借款不是净值</td><td><code>any_levered</code> 每次运行判断一次，选带 <code>LEV</code> 的那份 <code>group_loop</code>：多头扣掉 debt 估值，每笔成交 <code>push_balances</code></td><td><a href="#defaults">默认值</a></td></tr>
+        <tr><td>保证金只算盈亏</td><td>保证金列也走 <code>LEV</code> 那份循环：估值价确定后 <code>settle</code>，组净值只计 <code>unsettled</code>，成交记录多一个 <code>margin</code> 标志</td><td><a href="#margin">保证金列</a></td></tr>
       </tbody>
     </table>
   </div>
 
   <!-- ============================================================ -->
   <h2 id="graph">依赖图</h2>
-  <p>上游是 core（FlexArray、容差、错误）、exec（内核）、model（枚举）、records（sink 与记录）。中间六个模块，右边是使用者。点任一节点，只保留相关的线。</p>
+  <p>上游是 core（FlexArray、容差、错误）、exec（内核）、model（枚举）、records（sink 与记录）。中间七个模块，右边是使用者。点任一节点，只保留相关的线。</p>
   <div class="legend" id="legend"></div>
   <div class="panel">
-    <div class="cap">线的颜色 = 被用到的模块。cash 与 random 是私有模块</div>
+    <div class="cap">线的颜色 = 被用到的模块。cash、margin 与 random 是私有模块；margin 只算 f64，不用其他 crate，所以没有连线</div>
     <div class="body"><svg id="dep-graph" width="1040" height="460" viewBox="0 0 1040 460" role="img" aria-label="phasor-sim 依赖图"></svg></div>
     <div class="foot"><p class="small" style="margin:0">来源：Cargo.toml 与 <code>src/</code> 中的 <code>use phasor_sim::…</code>。phasor-signals 和 phasor-indicators 不依赖它：信号和指标经由数组（<code>FromSignals</code> 的字段）接进来。</p></div>
   </div>
@@ -293,7 +301,7 @@
         <g font-size="11" id="bar-g"></g>
       </svg>
     </div>
-    <div class="foot"><p class="small" style="margin:0">入金和分红在开盘、价格确定之前入账，所以同一根 K 线上按目标仓位下的单会把它投进去；收益（利息、费用）在收盘、所有订单之后入账，没有信号的 K 线也入账。三者都写成 <code>CashRecords</code>——分析层只从记录重建，现金流不写成记录就不存在。</p></div>
+    <div class="foot"><p class="small" style="margin:0">入金和分红在开盘、价格确定之前入账，所以同一根 K 线上按目标仓位下的单会把它投进去；收益（利息、费用）在收盘、所有订单之后入账，没有信号的 K 线也入账。三者都写成 <code>CashRecords</code>——分析层只从记录重建，现金流不写成记录就不存在。保证金列的结算在估值价确定之后、组净值之前，没有信号的 K 线也结算；它不改变净值，不是现金流，所以不写记录（见<a href="#margin">保证金列</a>）。</p></div>
   </div>
 
   <!-- ============================================================ -->
@@ -381,6 +389,36 @@
   </div>
 
   <!-- ============================================================ -->
+  <h2 id="margin">保证金列：每根 K 线结算</h2>
+  <p>
+    <code>account_type = Margin</code> 的列由内核的 <code>margin_trade</code> 成交（见 <a href="phasor-exec.html">phasor-exec</a>），只押初始保证金。循环这边多做三件事：每根 K 线结算盈亏，组净值只计未结算的盈亏，<code>update_value</code> 减去成交新增的成本。
+    这些代码都在带 <code>LEV</code> 的那份 <code>group_loop</code> 里：<code>any_levered</code> 也数保证金列，所以有保证金列的运行和带杠杆的运行走同一份循环，两样都没有的运行里没有这段代码。
+    每个组开始时 <code>margin_columns</code> 读一次各列的账户类型，得到一个 <code>Vec&lt;bool&gt;</code>。账户类型决定一列的余额怎么读，所以它是整列、整次运行不变的属性：一列中途从 Cash 变成 Margin 直接报错（<code>account_type changes down column …</code>），而不是只读第一行。
+  </p>
+  <div class="wrap types">
+    <table>
+      <thead><tr><th>LEV 那份循环里</th><th>现金列</th><th>保证金列</th></tr></thead>
+      <tbody>
+        <tr><td><code>debt</code> 是什么</td><td>多头的借款、空头的卖出所得</td><td>持仓成本：<code>|position|</code> × 开仓均价，每次结算后变成 <code>|position|</code> × 估值价</td></tr>
+        <tr><td>估值价确定之后</td><td>—</td><td><code>settle</code>：把 <code>unsettled</code> 加进组的 <code>cash</code> 和 <code>free_cash</code>，<code>debt</code> 改成 <code>|position| × val_price</code>。空仓、或估值价为 NaN 时跳过，盈亏留到下一个有价格的 K 线</td></tr>
+        <tr><td>组净值里计入</td><td><code>position × val_price</code>，再减多头的借款</td><td><code>unsettled = position × val_price − owed</code>；<code>owed</code> 是带符号的成本（多头 +debt、空头 −debt、空仓 0）。刚结算过的列这一项是 0</td></tr>
+        <tr><td><code>update_value</code> 重估之后</td><td>减去这笔成交新增的多头借款</td><td>减去这笔成交新增的 <code>owed</code>：开仓的名义价值算进了持仓，钱却没有付出去（<code>ColumnState::owed</code> 两种列都管）</td></tr>
+        <tr><td>成交之后</td><td colspan="2"><code>push_balances(debt, locked_cash, margin[k])</code>。保证金列的 <code>locked_cash</code> 是已押的初始保证金；现金列和带杠杆的运行里一样记账，现货多头的 <code>locked_cash</code> 是自己出的那部分成本，不是 0</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    两个循环结算的位置相同：这一列的估值价确定之后、算组净值之前。<code>from_orders</code> 在第一遍里逐列结算；<code>from_signals</code> 在每列的 <code>prepare_order</code> 之后结算，<b>这一列这根没有信号也结算</b>，全组都没有订单的 K 线也是先结算再跳过。
+    原因在共享账户：下一笔单能押多少保证金取决于 <code>free_cash</code>，它要包含别的列这根的盈亏。例如两列共享 1000、<code>initial_margin = 0.5</code>：第 0 列在 100 买 20，押出全部 1000；下一根第 0 列涨到 110、没有信号，第 1 列在这根按 100 进场。
+    能押的只有第 0 列结算出的 200，押一半保证金，所以第 1 列买 4（名义 400）。只给有订单的列结算的话，<code>free_cash</code> 是 0，这笔单会因为没有可用现金被拒。
+  </p>
+  <div class="grid3">
+    <article class="card"><h3>结算和路径无关</h3><p>一列里中间结算几次，最后的现金都一样：成本总会被移到最后一次的估值价。所以只看一列测不出漏掉的结算，<code>tests/margin.rs</code> 用共享账户里的两列，让第二列开仓的数量取决于第一列在没有信号的 K 线上结算出的盈亏。</p></article>
+    <article class="card"><h3>结算不写记录</h3><p>结算只在持仓和现金之间挪钱，账户值多少不变，所以不写 <code>CashRecords</code>。分析层把保证金列的成交按全价计现金流，<code>cash + position × close</code> 就是逐根结算累加出的权益；可用现金再用记下的 <code>locked_cash</code> 和 <code>margin</code> 重建。</p></article>
+    <article class="card"><h3>现金列不受影响</h3><p>同一个组可以既有现货列又有保证金列，共享现金：现货多 + 永续空就是一个账户。现金列在这份循环里和带杠杆的运行一样记账，成交和整次运行都是现金列时逐位相同（有测试；测试也检查保证金列确实成交得不同，否则证明不了什么）。</p></article>
+  </div>
+
+  <!-- ============================================================ -->
   <h2 id="parallel">并行：按组切块</h2>
   <p>
     <code>Groups::chunks(n_threads)</code> 按<b>总列数</b>的等分点把连续的组切成块，每个线程一块、自带 sink 和计数器；合并时按块的顺序拼接并重新编号，所以和线程怎么交错无关——串行与多线程逐位相同（有测试）。
@@ -438,6 +476,7 @@
         <tr><td><code>groups</code> / <code>call_seq</code></td><td>每列一组 / Default</td><td>None（每列一组）/ Default</td><td></td></tr>
         <tr><td>现金流</td><td colspan="2">cash_deposits、cash_dividends、cash_earnings 全为 0</td><td>三项全关时循环走 <code>group_loop::&lt;_, false, _&gt;</code>，里面没有现金流的代码；只留着从不触发的分支也会让循环慢 5%–6%</td></tr>
         <tr><td><code>leverage</code> / <code>leverage_mode</code></td><td>1 / Lazy</td><td>1 / Lazy</td><td>任何一格大于 1，整次运行走 <code>group_loop::&lt;_, _, true&gt;</code>：每列都标成 <code>in_levered_account</code>（现金可以为负），多头扣掉借款估值，每笔成交记下 debt 和 locked_cash。判断按整次运行做，不按组：记录要么每笔都带余额，要么都不带。leverage = 1 的列在这份循环里结果逐位不变（有测试）</td></tr>
+        <tr><td><code>account_type</code> / <code>initial_margin</code> / <code>margin_basis</code></td><td>Cash / NaN / Notional</td><td>Cash / NaN / Notional</td><td>任何一列是 Margin，整次运行同样走 <code>group_loop::&lt;_, _, true&gt;</code>（<code>any_levered</code> 也数保证金列）。<code>account_type</code> 按列设，一列中途变化报错；<code>initial_margin</code> 为 NaN 表示名义价值的 1 / leverage，<code>Unit</code> 时必须给出。后两个可以逐行变化，列在 <code>params_vary_by_row</code> 里，交给 <code>build_order</code>；<code>account_type</code> 也交给它，但不在那里，因为它不随行变</td></tr>
       </tbody>
     </table>
   </div>
@@ -453,7 +492,7 @@
     <article class="card"><h3>parity_cash_sharing.rs · cash_sharing.tsv</h3><p>24 个情形 × {布局顺序, 自动顺序}。另有一个测试要求“排序会改变成交”至少在一个情形上成立——否则一个完全忽略 <code>CallSeq::Auto</code> 的实现也能通过整套测试。</p></article>
     <article class="card"><h3>parity_from_signals.rs · from_signals.tsv</h3><p>181 例（120 个随机）：两种信号约定、各种冲突与反向进场模式、累积、止损的跳空 / 触及、止盈、跟踪、四种退出价、四种退出模式、三种更新模式、没有高低价的止损、两列分叉、按列止损。</p></article>
   </div>
-  <p class="small" style="margin-top:8px">另有 <code>order_controls.rs</code>（cash_limit、reject_prob、raise_reject 等参考实现没有或不同的控制），以及 phasor-analysis 的 <code>cash_flows.rs</code>：每条订单日志里的现金和可用现金，必须等于从记录重建出来的余额，独立账户与共享账户都测，线程数不影响结果。参考实现没有杠杆，fixture 只钉住 leverage = 1；<code>leverage.rs</code> 用手算的情形检查借款、开空的保证金、欠款后拒买（<code>NoCashLeverage</code>），以及带杠杆的运行里 leverage = 1 的列逐位不变、串行与并行逐位相同。</p>
+  <p class="small" style="margin-top:8px">另有 <code>order_controls.rs</code>（cash_limit、reject_prob、raise_reject 等参考实现没有或不同的控制），以及 phasor-analysis 的 <code>cash_flows.rs</code>：每条订单日志里的现金和可用现金，必须等于从记录重建出来的余额，独立账户与共享账户都测，线程数不影响结果。参考实现没有杠杆，fixture 只钉住 leverage = 1；<code>leverage.rs</code> 用手算的情形检查借款、开空的保证金、欠款后拒买（<code>NoCashLeverage</code>），以及带杠杆的运行里 leverage = 1 的列逐位不变、串行与并行逐位相同。参考实现也没有保证金账户；<code>margin.rs</code> 的 10 个测试同样是手算的情形：逐根结算进现金、开空押保证金而卖出所得不进现金、亏穿现金后只能平仓、按单位给的保证金、现货多 + 永续空同组、<code>update_value</code> 把保证金成交带进下一列的目标、没有信号的 K 线也结算、账户类型中途变化报错、保证金运行里的现金列逐位不变、串行与并行逐位相同（含带日志的入口）。<code>owed</code>、<code>unsettled</code>、<code>settle</code> 的单元测试在 <code>src/margin.rs</code>。</p>
 
   <!-- ============================================================ -->
   <h2 id="table">谁依赖它，用来做什么</h2>
@@ -462,7 +501,7 @@
   <h2 id="rules">不能绕开的规则</h2>
   <div class="grid2">
     <article class="card"><h3>串行与多线程逐位相同</h3><p>每个组写自己的缓冲区，记录 id 在按组顺序合并之后才分配；随机拒单的随机数是 <code>(seed, row, col)</code> 的函数，只在概率不为 0 时生成。任何依赖线程交错的东西都会破坏这一点。</p></article>
-    <article class="card"><h3>现金的变化必须是记录</h3><p>入金、分红、收益都写成 <code>CashRecords</code>，因为分析层只从记录重建余额。只改了循环里的 cash 而不写记录，净值曲线会悄悄错。借款也一样：带杠杆的运行在每条成交记录上带 debt 和 locked_cash。</p></article>
+    <article class="card"><h3>现金的变化必须是记录</h3><p>入金、分红、收益都写成 <code>CashRecords</code>，因为分析层只从记录重建余额。只改了循环里的 cash 而不写记录，净值曲线会悄悄错。借款也一样：带杠杆的运行在每条成交记录上带 debt 和 locked_cash。保证金列的结算反过来：它只在持仓和现金之间挪钱，净值不变，所以不写记录；分析层按全价记保证金成交，<code>cash + position × close</code> 就是结算后的净值，可用现金则由 locked_cash 和成交记录上的 <code>margin</code> 标志重建。</p></article>
     <article class="card"><h3>阶段的顺序是语义</h3><p>先多头进出冲突、再空头进出冲突、再多空冲突、最后反向进场；先测止损再跟踪；先确定全组价格再执行。换顺序就会换掉留下来的信号或成交，fixture 会抓到。<code>tests/fixtures/*.tsv</code> 不能为了让改动通过而重新生成。</p></article>
     <article class="card"><h3>保持 Send、无全局状态</h3><p>参考的事件驱动引擎把状态放在进程全局的 <code>Rc&lt;RefCell&lt;..&gt;&gt;</code> 后面，只能顺序扫描；这里每个引擎实例都必须 <code>Send</code>，这是代码库的硬约束（ARCHITECTURE §11.5）。</p></article>
   </div>
@@ -472,14 +511,15 @@
     <table>
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
-        <tr><td class="mono">crates/phasor-sim/src/lib.rs</td><td>账户组独立、为什么不用 SIMD；count_where（成交上界）；any_levered（:101，整次运行是否有列能借款）；DEFAULT_MIN_SIZE = 1e-8；再导出入口。</td></tr>
-        <tr><td class="mono">src/from_orders.rs</td><td>FromOrders 与默认值、build_order（:181，杠杆运行里标上 in_levered_account）、updated_value（:276）、simulate_group（:358，按有没有现金流、有没有杠杆选四份 group_loop 之一）、group_loop（:391，两遍、调用顺序、update_value、LEV 时扣掉多头的 debt）、串行 / 并行 / 带日志入口。</td></tr>
-        <tr><td class="mono">src/from_signals.rs</td><td>FromSignals 与默认值、stop_price（:285）、should_update_stop、Stops、read_signals、prepare_order（:535，价格 → 止损 → 信号 → 冲突 → 数量）、simulate_group（:742，同样四份）、group_loop（:771，执行与重新布置止损）。</td></tr>
+        <tr><td class="mono">crates/phasor-sim/src/lib.rs</td><td>账户组独立、为什么不用 SIMD；count_where（成交上界）；any_levered（:104，整次运行是否有列能借款或是保证金列）；margin_columns（:121，每组读一次各列是不是保证金列，一列中途变化报错）；DEFAULT_MIN_SIZE = 1e-8；再导出入口。</td></tr>
+        <tr><td class="mono">src/from_orders.rs</td><td>FromOrders 与默认值、build_order（:196，杠杆运行里标上 in_levered_account）、updated_value（:297）、ColumnState::owed（:351，现金列是多头的 debt，保证金列是带符号的成本）、simulate_group（:390，按有没有现金流、有没有杠杆或保证金列选四份 group_loop 之一）、group_loop（:423，两遍、调用顺序、update_value、LEV 时扣掉 owed、保证金列在估值价之后结算）、串行 / 并行 / 带日志入口。</td></tr>
+        <tr><td class="mono">src/from_signals.rs</td><td>FromSignals 与默认值、stop_price（:297）、should_update_stop、Stops、read_signals、prepare_order（:562，价格 → 止损 → 信号 → 冲突 → 数量）、simulate_group（:769，同样四份）、group_loop（:798，每根 K 线结算保证金列、执行与重新布置止损）。</td></tr>
         <tr><td class="mono">src/signals.rs</td><td>Signals、from_direction_mode、from_stop、resolve_signal_conflict、resolve_dir_conflict、resolve_opposite_entry、signals_to_size。</td></tr>
         <tr><td class="mono">src/groups.rs</td><td>Groups（ungrouped、from_lens、range、chunks）、CallSeq（Default / Auto / Explicit）、approx_order_value、insert_argsort。</td></tr>
+        <tr><td class="mono">src/margin.rs</td><td>owed（:21，带符号的成本：多头 +debt，空头 −debt）、unsettled（:34，<code>position × val_price − owed</code>）、settle（:48，把盈亏记进 cash 和 free_cash，debt 改成 <code>|position| × val_price</code>；空仓或估值价为 NaN 时不动）。</td></tr>
         <tr><td class="mono">src/cash.rs · src/random.rs</td><td>all_off（:47，三项全关时循环走不含现金流代码的那一份）、开盘的入金与分红、收盘的收益（负数封顶于可用现金）；uniform(seed, row, col)：包一层不内联的函数，调 phasor_core::random::uniform。</td></tr>
-        <tr><td class="mono">tests/*.rs · examples/bench.rs · examples/scaling.rs</td><td>四份差分测试、订单控制测试与杠杆测试（leverage.rs）；对比 vectorbt 的基准（<code>--once NAME</code> 只跑一个 workload 一次，供 <code>benchmarks/instructions.py</code> 数指令）与线程扩展。</td></tr>
-        <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §8、§11.2、§15.1</td><td>模拟循环、并行、性能。</td></tr>
+        <tr><td class="mono">tests/*.rs · examples/bench.rs · examples/scaling.rs</td><td>四份差分测试、订单控制测试、杠杆测试（leverage.rs）与保证金测试（margin.rs）；对比 vectorbt 的基准（<code>--once NAME</code> 只跑一个 workload 一次，供 <code>benchmarks/instructions.py</code> 数指令）与线程扩展。</td></tr>
+        <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §7.8、§8、§11.2、§15.1</td><td>保证金账户、模拟循环、并行、性能。</td></tr>
       </tbody>
     </table>
   </div>
@@ -1067,20 +1107,21 @@ const decodeFlex = (t, conv, nr) => { const k = t.slice(0, t.indexOf(":")), vals
 const sideOf = (x) => x;
 
 /* ---------------- dependency graph ---------------- */
-const COLORS = { from_orders: "#3a7afe", from_signals: "#2fbfa8", signals: "#c9a227", groups: "#e07a3d", cash: "#8fbf4a", random: "#9a9a9a" };
+const COLORS = { from_orders: "#3a7afe", from_signals: "#2fbfa8", signals: "#c9a227", groups: "#e07a3d", cash: "#8fbf4a", margin: "#d97ab8", random: "#9a9a9a" };
 const MODULES = [
   { id: "from_orders", sub: "FromOrders · simulate_from_orders*", blurb: "一个元素一笔请求；两遍的 K 线循环、调用顺序、估值价与 update_value；普通 / 带日志 / 串行 / 并行四个入口。" },
   { id: "from_signals", sub: "FromSignals · stop_price", blurb: "信号进、成交出：价格 → 止损 → 信号 → 冲突 → 数量 → 执行 → 重新布置止损。" },
   { id: "signals", sub: "五个纯函数", blurb: "from_stop、三种冲突解决、signals_to_size；单独对参考实现穷举测试。" },
   { id: "groups", sub: "Groups · CallSeq · chunks", blurb: "账户组的布局、组内调用顺序（先卖后买）、按列数均分线程块。" },
   { id: "cash", sub: "入金 · 分红 · 收益（私有）", blurb: "开盘的入金与分红、收盘的收益，写成 CashRecords；负数封顶于可用现金。" },
+  { id: "margin", sub: "owed · unsettled · settle（私有）", blurb: "保证金列的三个小函数：带符号的成本（多头 +debt，空头 −debt）、估值价下未结算的盈亏、把盈亏结算进 cash 与 free_cash 并把成本移到估值价。两个循环只在带 LEV 的那份 group_loop 里调用它们；只算 f64，不用其他 crate。" },
   { id: "random", sub: "uniform(seed,row,col)（私有包装）", blurb: "随机拒单用的数：一层 #[inline(never)] 的包装，调 phasor_core::random::uniform（SplitMix64），是 (seed, row, col) 的纯函数，与线程数无关。自定义循环直接调 phasor-core 的那个，拒掉的单相同。" },
 ];
 const UP = [
   { id: "phasor-core", sub: "FlexArray · math · random · Error", mods: ["from_orders", "from_signals", "signals", "cash", "random"], role: "所有参数都是 FlexArray（count_where 不展开地数单元）；signals_to_size 用 is_less 判断负数量；random.rs 调 random::uniform 给 reject_prob 取数；错误是 Invariant。" },
-  { id: "phasor-exec", sub: "execute_validated · ValidatedOrder", mods: ["from_orders", "from_signals"], role: "每列构建一次 ValidatedOrder（from_signals 另建一个无滑点的给 StopLimit 用），每根 K 线 set_bar 后调用 execute_validated。" },
+  { id: "phasor-exec", sub: "execute_validated · ValidatedOrder", mods: ["from_orders", "from_signals"], role: "每列构建一次 ValidatedOrder（from_signals 另建一个无滑点的给 StopLimit 用），每根 K 线 set_bar 后调用 execute_validated。保证金列由内核的 margin_trade 成交，循环只做每根 K 线的结算；AccountType、MarginBasis 也从这里再导出。" },
   { id: "phasor-model", sub: "撮合与信号枚举", mods: ["from_signals", "signals", "groups"], role: "AccumulationMode、ConflictMode、DirectionConflictMode、OppositeEntryMode、四个 Stop* 枚举、SizeType、Direction、StatusInfo::describe。" },
-  { id: "phasor-records", sub: "RecordSink · LogEntry · Journal", mods: ["from_orders", "from_signals", "cash"], role: "循环对 SinkBuffer 泛型：OrderRecords 丢弃日志，Journal 保留；push_order / push_log / 现金记录。" },
+  { id: "phasor-records", sub: "RecordSink · LogEntry · Journal", mods: ["from_orders", "from_signals", "cash"], role: "循环对 SinkBuffer 泛型：OrderRecords 丢弃日志，Journal 保留；push_order / push_balances（带杠杆或有保证金列时写 debt、locked_cash 和 margin 标志）/ push_log / 现金记录。" },
 ];
 const DOWN = [
   { id: "phasor-analysis", sub: "Portfolio::from_orders/signals", uses: ["from_orders", "from_signals", "groups"], role: "Portfolio 的两个便利构造器直接跑模拟（可选线程数）；Groups 描述共享资金的账户分组。" },
@@ -1094,7 +1135,7 @@ function nodeBox(id) {
   const ui = UP.findIndex((u) => u.id === id);
   if (ui >= 0) return { x: 16, y: 50 + ui * 100, w: 220, h: 56 };
   const mi = MODULES.findIndex((m) => m.id === id);
-  if (mi >= 0) return { x: 320, y: 40 + mi * 66, w: 290, h: 50 };
+  if (mi >= 0) return { x: 320, y: 40 + mi * 58, w: 290, h: 48 };
   const di = DOWN.findIndex((d) => d.id === id);
   return { x: 790, y: 90 + di * 110, w: 234, h: 60 };
 }
@@ -1159,6 +1200,7 @@ function buildBar() {
     ["开盘现金流", "入金（组第一列）\n分红 × 开盘前持仓"],
     ["第一遍：价格", "+inf → 收盘\n−inf → 上一根收盘", true],
     ["第一遍：估值价", "+inf → 订单价\nNaN 时可沿用上一个", true],
+    ["保证金结算", "盈亏记进组的现金\n成本移到估值价"],
     ["开盘净值", "cash + Σ 持仓 × 估值价\n每根只算一次"],
     ["调用顺序", "Default：布局\nAuto：按金额，先卖", true],
     ["第二遍：执行", "execute_validated\n写成交 / 日志"],
@@ -1171,10 +1213,11 @@ function buildBar() {
     ["信号", "触发 → from_stop 替换\n否则读四个数组"],
     ["冲突", "多 / 空进出冲突\n→ 多空 → 反向进场", true],
     ["数量", "signals_to_size\n0 → 没有订单"],
+    ["保证金结算", "每根都结算\n没有信号的 K 线也算"],
     ["执行与重新布置", "开仓 / 反手：重新锚定\n加仓：按 update 模式"],
   ], "#2fbfa8");
   const n = svgEl("text", { x: 16, y: 300, "font-size": 11, fill: "#b8b8b8" }); n.textContent = "一根 K 线里全组共用一个开盘净值：每笔单按它下，成交只在 update_value 打开时才改变它（按成交价重估），不会在执行之间重新求和。"; g.appendChild(n);
-  const n2 = svgEl("text", { x: 16, y: 318, "font-size": 11, fill: "#909090" }); n2.textContent = "from_signals 在一根 K 线上没有任何列要下单时直接跳过（只处理收盘现金流）；没有信号也没有布置止损的 K 线不做数量计算。"; g.appendChild(n2);
+  const n2 = svgEl("text", { x: 16, y: 318, "font-size": 11, fill: "#909090" }); n2.textContent = "from_signals 在一根 K 线上没有任何列要下单时直接跳过（只结算保证金列、处理收盘现金流）；没有信号也没有布置止损的 K 线不做数量计算。"; g.appendChild(n2);
 }
 
 /* ---------------- signal pipeline lab ---------------- */

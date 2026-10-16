@@ -764,7 +764,7 @@ const DOWN = [
   { id: "phasor-records", sub: "记录与交易", uses: ["math", "flex", "matrix", "error"],
     role: "trades.rs 用 add / is_close / is_close_or_less / is_less 做成交到交易的 FIFO 分配；excursions、logs、trades 用 FlexArray 读价格；mapped.rs 把 mapped array 展回 Matrix。" },
   { id: "phasor-analysis", sub: "分析", uses: ["columns", "flex", "matrix", "math", "error"],
-    role: "aggregate.rs 用 Columns / Level / Label 和 group_indices 做“每个参数一行”的汇总，层名不存在时返回 UnknownLevel；portfolio、series、stats 用 FlexArray 读价格、返回 Matrix；series.rs 用 add 重建余额。" },
+    role: "aggregate.rs 用 Columns / Level / Label 和 group_indices 做“每个参数一行”的汇总，层名不存在时返回 UnknownLevel；portfolio、series、stats 用 FlexArray 读价格、返回 Matrix；series.rs 用 add 重建余额，portfolio.rs 的 free_cash 也用它把保证金列的持仓市值加回账户。" },
   { id: "phasor-signals", sub: "信号", uses: ["random", "error"],
     role: "Error / Result：形状不符返回 Broadcast（clean.rs），参数非法返回 Invariant。random.rs 的三个随机信号函数用 random::uniform 取数。不用容差：输入是布尔。" },
   { id: "phasor-generic", sub: "数组层", uses: ["matrix", "random", "error"],

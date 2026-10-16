@@ -218,6 +218,11 @@
     杠杆也守这条规则。重建时每笔成交按<b>全价</b>扣现金，借来的那部分让 <code>cash</code> 变成负数；于是 <code>value = cash + 资产值</code> 正好是扣掉借款后的权益，不需要另一条负债序列。
     推不出来的只有一件事：空头占用了多少自有资金，这要看成交时的杠杆。所以带杠杆的运行在每笔成交上多记 <code>debt</code>、<code>locked_cash</code> 两列，分析层从这两列读，而不是去问模拟状态。
   </p>
+  <p>
+    保证金列（期货、永续、差价合约，<code>account_type="margin"</code>）看起来破了这条规则：模拟每根 K 线把持仓盈亏结算进现金，这一步不写记录。但重建不需要它。保证金列的成交照样按全价扣现金，
+    <code>cash</code> 于是等于权益减去持仓市值，<code>value = cash + 持仓 × 收盘价</code> 仍然是模拟结算出来的权益，<code>value()</code> 一行没改。代价是重建出的 <code>cash</code> 不是模拟里的现金：模拟的现金逐根结算过盈亏，只有一列保证金列时就等于权益。
+    要另外推的是 free_cash：保证金列的成交多记一列 <code>margin = true</code>，它押出去的初始保证金在 <code>locked_cash</code> 里，多空都算占用；再加上 <code>持仓 × 收盘价</code>（空头是负数），抵掉全价记账里那份并没有真的付出或收到的合约价值，就是权益减去保证金。
+  </p>
 
   <h3>2. 收益序列要诚实</h3>
   <p>
@@ -296,9 +301,35 @@
   </div>
   <div class="grid3">
     <article class="card"><h3>累加用 math::add</h3><p>同一根 K 线上可能有多笔成交，所以 asset_flow / cash_flow 是累加而不是赋值；用容差加法，一根 K 线里的一来一回留下的是精确的 0，而不是 1e-16 的“仓位”。</p></article>
-    <article class="card"><h3>free_cash 也能从记录重放</h3><p><code>free_cash_flow</code> 从成交序列重放内核的 debt 账本（开空冻结 2 × 空头价值、平空按均价释放），所以总敞口 <code>|资产值| / (|资产值| + free_cash)</code> 也不需要从模拟里带出状态。多头列上 cash 与 free_cash 完全相同，所以这个差别要靠做空的 fixture 才能抓住。带杠杆的运行换一条路：空头占用读成交上记下的 <code>debt + locked_cash</code>（<code>levered_free_cash_flow</code>），杠杆多头不占用，它的 free_cash 就是可能为负的 cash。</p></article>
+    <article class="card"><h3>free_cash 也能从记录重放</h3><p><code>free_cash_flow</code> 从成交序列重放内核的 debt 账本（开空冻结 2 × 空头价值、平空按均价释放），所以总敞口 <code>|资产值| / (|资产值| + free_cash)</code> 也不需要从模拟里带出状态。多头列上 cash 与 free_cash 完全相同，所以这个差别要靠做空的 fixture 才能抓住。带杠杆的运行换一条路：空头占用读成交上记下的 <code>debt + locked_cash</code>（<code>levered_free_cash_flow</code>），杠杆多头不占用，它的 free_cash 就是可能为负的 cash。保证金列的成交两边都只占 <code>locked_cash</code>，判断用 <code>orders.margin.get(r) == Some(&amp;true)</code>：手工拼的、没有 margin 列的记录读到 <code>None</code>，按现金列算。<code>Portfolio::free_cash</code> 最后调 <code>add_margin_positions</code>，把保证金列的 <code>持仓 × 收盘价</code> 加回它所在的账户组。</p></article>
     <article class="card"><h3>多空分开计</h3><p>一次穿过零的反手不是一步，而是两步：旧方向平掉、新方向开出。<code>long_size / short_size</code> 把它拆开，所以“多头敞口变了多少”在反手的 K 线上也有答案。</p></article>
   </div>
+
+  <p>
+    保证金列手算一遍（<code>tests/margin.rs</code>）：两个 1000 的账户、四根 K 线、无费用。第 0 列按 20% 保证金买 10 张 @100，第 3 根在 95 卖出；第 1 列按 25% 保证金卖空 10 张 @100，第 3 根在 80 买回。
+    成交上记的 <code>locked_cash</code> 是 200 和 250，按成交价定下，之后不随收盘价变。模拟日志里的 <code>cash</code> 就是下表的 value，重建出的 <code>cash</code> 差了一份持仓市值。
+  </p>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>列</th><th>序列</th><th style="text-align:right">K 线 0</th><th style="text-align:right">1</th><th style="text-align:right">2</th><th style="text-align:right">3</th></tr></thead>
+      <tbody>
+        <tr><td rowspan="5">0：做多</td><td>收盘价</td><td class="num">100</td><td class="num">110</td><td class="num">90</td><td class="num">95</td></tr>
+        <tr><td><code>value</code></td><td class="num">1000</td><td class="num">1100</td><td class="num">900</td><td class="num">950</td></tr>
+        <tr><td><code>cash</code>（全价扣）</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">950</td></tr>
+        <tr><td><code>free_cash</code></td><td class="num">800</td><td class="num">900</td><td class="num">700</td><td class="num">950</td></tr>
+        <tr><td>总敞口</td><td class="num">1000 / 1800</td><td class="num">1100 / 2000</td><td class="num">900 / 1600</td><td class="num">0</td></tr>
+        <tr><td rowspan="5">1：做空</td><td>收盘价</td><td class="num">100</td><td class="num">80</td><td class="num">90</td><td class="num">80</td></tr>
+        <tr><td><code>value</code></td><td class="num">1000</td><td class="num">1200</td><td class="num">1100</td><td class="num">1200</td></tr>
+        <tr><td><code>cash</code>（全价扣）</td><td class="num">2000</td><td class="num">2000</td><td class="num">2000</td><td class="num">1200</td></tr>
+        <tr><td><code>free_cash</code></td><td class="num">750</td><td class="num">950</td><td class="num">850</td><td class="num">1200</td></tr>
+        <tr><td>总敞口</td><td class="num">1000 / 1750</td><td class="num">800 / 1750</td><td class="num">900 / 1750</td><td class="num">0</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">
+    总敞口的分子是整张合约的市值，不是押出去的保证金：20% 保证金的多头在第 0 根是 1000 / (1000 + 800)，而不是 200 / 1000。
+    同一个账户里一笔现货多头配一笔永续空头（各 5 张，永续 10% 保证金），价格从 100 涨到 120，value 两根都是 1000，free_cash 从 450 变成 350：现货占 500，永续押 50，再扣空头亏的 100。
+  </p>
 
   <!-- ============================================================ -->
   <h2 id="metrics">指标计算器</h2>
@@ -405,7 +436,7 @@
   <h2 id="portfolio">Portfolio：只存四样东西</h2>
   <div class="grid2">
     <article class="card"><h3>存什么</h3><p>成交记录（含 <code>CashRecords</code>）、收盘价（<b>借用</b>，扫描的价格矩阵是系统里最大的东西）、初始资金、形状，以及可选的基准。<code>from_records</code>、<code>from_grouped_records</code>（共享资金分组）、<code>from_borrowed</code>（Python 层借入一份 <code>Cache</code>），另有直接跑模拟的 <code>from_orders / from_signals</code>。</p></article>
-    <article class="card"><h3>算什么</h3><p>assets、cash、free_cash、asset_value、value、returns、deposits、gross_exposure、trades、drawdowns……每个都在第一次被问到时算一次，存进 <code>Cache</code> 里对应的 <code>OnceLock</code>。allocations、long / short / net exposure、gross_long_short、position_coverage 不进缓存，每次从缓存里的 asset_value 和 value 现算；excursions、edge_ratio 要调用方传 high、low，也不缓存。不是 <code>RefCell</code>，所以多个线程可以从同一个 Portfolio 并行算不同列的指标。</p></article>
+    <article class="card"><h3>算什么</h3><p>assets、cash、free_cash、asset_value、value、returns、deposits、gross_exposure、trades、drawdowns……每个都在第一次被问到时算一次，存进 <code>Cache</code> 里对应的 <code>OnceLock</code>。free_cash 存的是加回保证金列持仓市值之后的结果。allocations、long / short / net exposure、gross_long_short、position_coverage 不进缓存，每次从缓存里的 asset_value 和 value 现算；excursions、edge_ratio 要调用方传 high、low，也不缓存。不是 <code>RefCell</code>，所以多个线程可以从同一个 Portfolio 并行算不同列的指标。</p></article>
     <article class="card"><h3>账户分组</h3><p>仓位和交易始终按标的；现金、净值和收益类指标按共享资金分组，初始资金每组只算一次。独立列就是大小为 1 的组。</p></article>
     <article class="card"><h3>Scoring</h3><p><code>ann_factor = 365</code>、<code>risk_free = 0</code>、<code>trades_type = ExitTrades</code>、<code>incl_open = false</code>。改评分方式用 <code>with_scoring</code>，缓存的重建结果仍然有效，不需要重跑模拟。</p></article>
   </div>
@@ -419,7 +450,7 @@
     <article class="card"><h3>tests/parity_metrics.rs · metrics.tsv</h3><p>2,047 行：18 个标量指标的各种参数（年化因子、无风险利率、要求收益、截断、ddof），以及每个指标的滚动形式（各 20 行）。空序列、单根、含 NaN、含无穷、全正、全负、常数……这个页面的移植 5,287 个值逐位相同。</p></article>
     <article class="card"><h3>tests/parity_analysis.rs · analysis.tsv</h3><p>37 个端到端情形：买入持有、做空往返、带成本、目标百分比、两列一列空闲、24 个随机扫描。检查净值、收益、8 个收益指标和交易统计（交易数、胜率、盈亏比、期望、总盈亏）。本页复现前三项；交易统计需要 phasor-records 的交易视图，本页没有移植。</p></article>
     <article class="card"><h3>tests/parity_stats.rs · stats.tsv</h3><p>9 种情形 × 8 个参数组合的整张 stats 表（标题和数值），包括 “never traded”、“flat price”、“still holding”。</p></article>
-    <article class="card"><h3>其他测试</h3><p><code>cash_flows.rs</code>（入金不是收益、出金封顶于可用现金）、<code>exposure.rs</code>（空头的总敞口）、<code>shared_accounts.rs</code>（共享资金分组）、<code>leverage.rs</code>（手算的杠杆账户：2 倍买 15 股后 cash −500、净值 1000 → 1300 → 1150，空头的 free_cash 和总敞口）。变异矩阵记录 analysis 43/47，存活的几个在各自的模块注释里论证为等价（例如 Sharpe 的 len &lt; 2 护栏）。</p></article>
+    <article class="card"><h3>其他测试</h3><p><code>cash_flows.rs</code>（入金不是收益、出金封顶于可用现金）、<code>exposure.rs</code>（空头的总敞口）、<code>shared_accounts.rs</code>（共享资金分组）、<code>leverage.rs</code>（手算的杠杆账户：2 倍买 15 股后 cash −500、净值 1000 → 1300 → 1150，空头的 free_cash 和总敞口）、<code>margin.rs</code>（上面那张保证金表的五个测试，加上现货与永续对冲的一对）。<code>series.rs</code> 里的单元测试 <code>recorded_balances_without_margin_flags_read_as_cash_columns</code> 固定了没有 margin 列的记录按现金列读。变异矩阵记录 analysis 43/47，存活的几个在各自的模块注释里论证为等价（例如 Sharpe 的 len &lt; 2 护栏）。</p></article>
   </div>
 
   <!-- ============================================================ -->
@@ -440,12 +471,12 @@
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
         <tr><td class="mono">crates/phasor-analysis/src/lib.rs</td><td>“与层无关”“按层汇总是主要功能”“惰性重建”；Status 一节（已过时，见上）。</td></tr>
-        <tr><td class="mono">src/series.rs</td><td>asset_flow（:74）、assets、cash_flow、deposits、free_cash_flow（:199）、levered_free_cash_flow（:262）、gross_exposure、cash、asset_value、value、period_return（:362）、returns、returns_with_deposits、compounded_value、returns_from_orders。</td></tr>
+        <tr><td class="mono">src/series.rs</td><td>asset_flow（:74）、assets、cash_flow、deposits、free_cash_flow（:205）、levered_free_cash_flow（:269）、gross_exposure、cash、asset_value、value、period_return（:372）、returns、returns_with_deposits、compounded_value、returns_from_orders。</td></tr>
         <tr><td class="mono">src/metrics.rs · benchmark.rs · percentile.rs · rolling.rs</td><td>标量收益指标（DAILY = 365、VAR_CUTOFF = 0.05）；相对基准的指标；Numba 拼写的百分位；每个指标的滚动形式（经 rolling_apply_1d）。</td></tr>
         <tr><td class="mono">src/robust.rs</td><td>erfc、norm_cdf、norm_ppf（Acklam + 一步 Halley）、probabilistic_sharpe、expected_max_sharpe、deflated_sharpe、pbo_cscv（MAX_PBO_SPLITS = 16）。</td></tr>
         <tr><td class="mono">src/aggregate.rs · trade_stats.rs · events.rs</td><td>Reduce、group_by、best_column、argmax / argmin；按列的交易统计（持平的交易既不算赢也不算输）；事件研究（读未来，只用于决定要不要模拟）。</td></tr>
-        <tr><td class="mono">src/stats.rs · portfolio.rs</td><td>Value、Tag、StatsInput、Metric、Select、stats、默认与基准注册表；Scoring、Cache、Portfolio。</td></tr>
-        <tr><td class="mono">tests/*.rs · tests/fixtures/{metrics,analysis,stats}.tsv</td><td>三份差分测试，以及现金流、敞口、共享账户测试。</td></tr>
+        <tr><td class="mono">src/stats.rs · portfolio.rs</td><td>Value、Tag、StatsInput、Metric、Select、stats、默认与基准注册表；Scoring、Cache、Portfolio（free_cash :570，add_margin_positions :585）。</td></tr>
+        <tr><td class="mono">tests/*.rs · tests/fixtures/{metrics,analysis,stats}.tsv</td><td>三份差分测试，以及现金流、敞口、共享账户、杠杆、保证金测试。</td></tr>
         <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §10</td><td>Portfolio、重建链、指标、统计注册表、扫描结果汇总。</td></tr>
       </tbody>
     </table>
@@ -1005,7 +1036,7 @@ function gauss(r) { return Math.sqrt(-2 * Math.log(r() + 1e-12)) * Math.cos(2 * 
 const COLORS = { series: "#3a7afe", metrics: "#2fbfa8", benchmark: "#8fbf4a", rolling: "#5ea0ff", robust: "#d35d5d", percentile: "#9a9a9a", events: "#b07cd8", trade_stats: "#e07a3d", aggregate: "#c9a227", stats: "#e6c35c", portfolio: "#f0f0f0" };
 const MODULES = [
   { id: "portfolio", sub: "Portfolio · Cache · Scoring", blurb: "结果对象：只存记录、价格、初始资金、形状，其余按需重建并缓存；按账户分组。excursions / edge_ratio 收调用方的 high、low，转给 phasor-records 的 excursions。" },
-  { id: "series", sub: "重建链", blurb: "records → asset_flow / cash_flow → assets / cash → value → returns；free_cash 重放 debt 账本；总敞口。" },
+  { id: "series", sub: "重建链", blurb: "records → asset_flow / cash_flow → assets / cash → value → returns；free_cash 重放 debt 账本，带余额的运行读 debt / locked_cash，保证金列只读 locked_cash；总敞口。" },
   { id: "metrics", sub: "18 个收益指标", blurb: "total / annualized return、volatility、drawdown、Sharpe、Sortino、Calmar、Omega、tail ratio、VaR、CVaR。" },
   { id: "benchmark", sub: "beta · alpha · capture", blurb: "相对基准：information ratio、beta（按收益缺失对齐）、alpha、capture / up / down capture。" },
   { id: "rolling", sub: "每个指标的滚动形式", blurb: "经 phasor-generic 的 rolling_apply_1d 逐窗重算；成对的版本取同一窗口的基准。" },
@@ -1025,7 +1056,7 @@ const UP = [
 ];
 const DOWN = [
   { id: "phasor", sub: "门面 · prelude", uses: ["portfolio", "aggregate", "metrics", "stats"], role: "pub use phasor_analysis as analysis；prelude 放 DAILY、sharpe_ratio、total_return、Select、Tag、Value、Portfolio、Reduce、Scoring、best_column、group_by。tests/sweep.rs 固定“没交易的列会赢”的两种结果。" },
-  { id: "phasor-py", sub: "phasor.Portfolio · events · robust", uses: ["portfolio", "stats", "events", "robust"], role: "lib.rs：Python 的 Portfolio 拥有价格，每次调用用 Portfolio::from_borrowed 借一份长期存在的 Cache，所以上一次算过的净值下一次还在；stats 用 Select / Value；敞口方法整张矩阵返回，excursions / edge_ratio 收 Python 传来的 high、low。research.rs：phasor.events 包装 forward_paths 和 EventPaths 的三个方法，phasor.robust 包装 robust.rs 的四个函数。" },
+  { id: "phasor-py", sub: "phasor.Portfolio · events · robust", uses: ["portfolio", "stats", "events", "robust"], role: "lib.rs：Python 的 Portfolio 拥有价格，每次调用用 Portfolio::from_borrowed 借一份长期存在的 Cache，所以上一次算过的净值下一次还在；stats 用 Select / Value；free_cash 和 value、cash 一样按 col / group 返回一个账户的一维序列；敞口方法整张矩阵返回，excursions / edge_ratio 收 Python 传来的 high、low。research.rs：phasor.events 包装 forward_paths 和 EventPaths 的三个方法，phasor.robust 包装 robust.rs 的四个函数。" },
 ];
 const depSvg = document.getElementById("dep-graph"), detail = document.getElementById("detail");
 let pinned = null;

@@ -184,7 +184,7 @@
     一个标的叫什么、一根 K 线长什么样、钱用什么类型存。它没有任何算法，只有类型；但这些类型的<b>判别值</b>被写进记录数组，是磁盘格式的一部分。
   </p>
   <div class="stats">
-    <div class="stat"><b>18 个 repr(i8) 枚举</b><span>判别值由测试固定：它们以整数写进订单记录和日志，被 Python 层和差分测试读回</span></div>
+    <div class="stat"><b>20 个 repr(i8) 枚举</b><span>判别值由测试固定：它们以整数写进订单记录和日志，被 Python 层和差分测试读回</span></div>
     <div class="stat"><b>8 个 crate 直接依赖</b><span>exec、sim、records、analysis、data、expr、py 和门面 phasor；向量化热路径只用到枚举和 <code>OhlcvPanel</code></span></div>
     <div class="stat"><b>两条血统</b><span>撮合枚举跟随 vectorbt（逐笔对齐是验收标准）；数值与标识类型跟随 NautilusTrader（阶段 2 的策略 API）</span></div>
   </div>
@@ -237,10 +237,10 @@
           <text x="111" y="194" text-anchor="middle" font-size="10" fill="#909090">值类型与标识 · 阶段 2 策略 API</text>
 
           <rect x="270" y="22" width="300" height="80" rx="6" fill="#33200f" stroke="#e07a3d"/>
-          <text x="420" y="44" text-anchor="middle" font-weight="600" fill="#f0f0f0">enums.rs — 18 个 repr(i8) 枚举</text>
+          <text x="420" y="44" text-anchor="middle" font-weight="600" fill="#f0f0f0">enums.rs — 20 个 repr(i8) 枚举</text>
           <text x="420" y="62" text-anchor="middle" font-size="10" fill="#f0b088">SizeType · Direction · LeverageMode · StatusInfo</text>
           <text x="420" y="76" text-anchor="middle" font-size="10" fill="#f0b088">ConflictMode · Stop* · TradesType · CashFlowKind …</text>
-          <text x="420" y="92" text-anchor="middle" font-size="10" fill="#909090">CashFlowKind、LeverageMode 是 phasor 自己加的</text>
+          <text x="420" y="92" text-anchor="middle" font-size="10" fill="#909090">CashFlowKind 和杠杆、保证金的三个枚举是 phasor 加的</text>
 
           <rect x="270" y="122" width="145" height="50" rx="6" fill="#143430" stroke="#2fbfa8"/>
           <text x="342" y="142" text-anchor="middle" font-weight="600" fill="#f0f0f0">ids.rs</text>
@@ -303,9 +303,9 @@
   </div>
 
   <!-- ============================================================ -->
-  <h2 id="enums">18 个枚举，按它们在流水线里的位置</h2>
+  <h2 id="enums">20 个枚举，按它们在流水线里的位置</h2>
   <p>
-    所有枚举都是 <code>#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)] #[repr(i8)]</code>，判别值从 0 起显式写出。
+    所有枚举都是 <code>#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)] #[repr(i8)]</code>，判别值从 0 起显式写出。<code>LeverageMode</code>、<code>AccountType</code>、<code>MarginBasis</code> 另外 derive 了 <code>Default</code>，<code>#[default]</code> 分别标在 <code>Lazy</code>、<code>Cash</code>、<code>Notional</code> 上。
     选一组，再点一个枚举，看它的变体、判别值和谁在读它。
   </p>
   <div class="panel">
@@ -419,7 +419,7 @@
   <div class="panel">
     <div class="cap">phasor-model 的公开类型；虚线框为阶段 2 预留</div>
     <div class="body">
-      <svg width="1040" height="462" viewBox="0 0 1040 462" role="img" aria-label="phasor-model 类图">
+      <svg width="1040" height="494" viewBox="0 0 1040 494" role="img" aria-label="phasor-model 类图">
         <defs>
           <marker id="kdia" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="10" markerHeight="10" orient="auto">
             <path d="M1,5 L5,1 L9,5 L5,9 z" fill="#1e1e1e" stroke="#8a8a8a" />
@@ -507,7 +507,7 @@
           <text x="574" y="332" fill="#666666">无符号：方向在 OrderSide</text>
 
           <!-- enums -->
-          <rect x="808" y="16" width="216" height="430" rx="6" fill="#262626" stroke="#e07a3d"/>
+          <rect x="808" y="16" width="216" height="462" rx="6" fill="#262626" stroke="#e07a3d"/>
           <rect x="808" y="16" width="216" height="24" rx="6" fill="#33200f"/>
           <text x="916" y="33" text-anchor="middle" fill="#f0f0f0" font-weight="600">mod enums（repr i8）</text>
           <text x="818" y="56" fill="#f0b088">SizeType</text>
@@ -516,25 +516,27 @@
           <text x="818" y="102" fill="#909090"> LongOnly · ShortOnly · Both</text>
           <text x="818" y="120" fill="#f0b088">LeverageMode</text>
           <text x="818" y="134" fill="#909090"> Lazy · Eager</text>
-          <text x="818" y="152" fill="#f0b088">OrderSide · OrderStatus</text>
-          <text x="818" y="166" fill="#909090"> Filled · Ignored · Rejected</text>
-          <text x="818" y="184" fill="#f0b088">StatusInfo（15 种）</text>
-          <text x="818" y="198" fill="#909090"> from_discriminant(i64)</text>
-          <text x="818" y="212" fill="#909090"> describe() → &amp;str</text>
-          <text x="818" y="230" fill="#f0b088">AccumulationMode</text>
-          <text x="818" y="246" fill="#f0b088">ConflictMode</text>
-          <text x="818" y="262" fill="#f0b088">DirectionConflictMode</text>
-          <text x="818" y="278" fill="#f0b088">OppositeEntryMode</text>
-          <text x="818" y="296" fill="#f0b088">StopEntryPrice · StopExitPrice</text>
-          <text x="818" y="312" fill="#f0b088">StopExitMode · StopUpdateMode</text>
-          <text x="818" y="330" fill="#f0b088">TradeDirection · TradeStatus</text>
-          <text x="818" y="348" fill="#f0b088">TradesType</text>
-          <text x="818" y="362" fill="#909090"> EntryTrades · ExitTrades · Positions</text>
-          <text x="818" y="380" fill="#f0b088">CashFlowKind</text>
-          <text x="818" y="394" fill="#909090"> Deposit · Earning · Dividend</text>
-          <line x1="808" y1="406" x2="1024" y2="406" stroke="#3d3d3d"/>
-          <text x="818" y="424" fill="#909090">全部 Copy + Eq + Hash</text>
-          <text x="818" y="438" fill="#909090">判别值由测试固定</text>
+          <text x="818" y="152" fill="#f0b088">AccountType · MarginBasis</text>
+          <text x="818" y="166" fill="#909090"> Cash · Margin ｜ Notional · Unit</text>
+          <text x="818" y="184" fill="#f0b088">OrderSide · OrderStatus</text>
+          <text x="818" y="198" fill="#909090"> Filled · Ignored · Rejected</text>
+          <text x="818" y="216" fill="#f0b088">StatusInfo（15 种）</text>
+          <text x="818" y="230" fill="#909090"> from_discriminant(i64)</text>
+          <text x="818" y="244" fill="#909090"> describe() → &amp;str</text>
+          <text x="818" y="262" fill="#f0b088">AccumulationMode</text>
+          <text x="818" y="278" fill="#f0b088">ConflictMode</text>
+          <text x="818" y="294" fill="#f0b088">DirectionConflictMode</text>
+          <text x="818" y="310" fill="#f0b088">OppositeEntryMode</text>
+          <text x="818" y="328" fill="#f0b088">StopEntryPrice · StopExitPrice</text>
+          <text x="818" y="344" fill="#f0b088">StopExitMode · StopUpdateMode</text>
+          <text x="818" y="362" fill="#f0b088">TradeDirection · TradeStatus</text>
+          <text x="818" y="380" fill="#f0b088">TradesType</text>
+          <text x="818" y="394" fill="#909090"> EntryTrades · ExitTrades · Positions</text>
+          <text x="818" y="412" fill="#f0b088">CashFlowKind</text>
+          <text x="818" y="426" fill="#909090"> Deposit · Earning · Dividend</text>
+          <line x1="808" y1="438" x2="1024" y2="438" stroke="#3d3d3d"/>
+          <text x="818" y="456" fill="#909090">全部 Copy + Eq + Hash</text>
+          <text x="818" y="470" fill="#909090">判别值由测试固定</text>
         </g>
         <path d="M70 120 V150" stroke="#8a8a8a" marker-start="url(#kdia)"/>
         <path d="M192 120 V150" stroke="#8a8a8a" marker-start="url(#kdia)"/>
@@ -558,8 +560,8 @@
 
   <h2 id="rules">不能绕开的规则</h2>
   <div class="grid2">
-    <article class="card"><h3>判别值是磁盘格式</h3><p>枚举以整数写进 <code>OrderRecords</code>、日志和 <code>CashRecords</code>，被 Python 层和差分测试读回。测试 <code>discriminants_are_pinned</code> 固定了其中几个；新增变体只能追加在末尾，不能重排。</p></article>
-    <article class="card"><h3>撮合枚举的语义跟参考实现走</h3><p>除了 <code>CashFlowKind</code>，每个撮合枚举的变体和含义都对应 vectorbt。想“改进”某个模式的语义，等于让 <code>tests/fixtures/*.tsv</code> 对不上——那些夹具不能为了让改动通过而重新生成。</p></article>
+    <article class="card"><h3>判别值是磁盘格式</h3><p>枚举以整数写进 <code>OrderRecords</code>、日志和 <code>CashRecords</code>，被 Python 层和差分测试读回。测试 <code>discriminants_are_pinned</code> 固定了其中几个，包括 <code>AccountType::Margin = 1</code> 和 <code>MarginBasis::Unit = 1</code>：日志的 <code>req_account_type</code>、<code>req_margin_basis</code> 两列就是这两个整数。新增变体只能追加在末尾，不能重排。</p></article>
+    <article class="card"><h3>撮合枚举的语义跟参考实现走</h3><p>除了 <code>CashFlowKind</code> 和杠杆、保证金的三个枚举（<code>LeverageMode</code>、<code>AccountType</code>、<code>MarginBasis</code>），每个撮合枚举的变体和含义都对应 vectorbt。想“改进”某个模式的语义，等于让 <code>tests/fixtures/*.tsv</code> 对不上——那些夹具不能为了让改动通过而重新生成。</p></article>
     <article class="card"><h3>解析从右边切</h3><p><code>InstrumentId</code> 用 <code>rsplit_once('.')</code>，<code>BarType</code> 用 <code>rsplitn(5, '-')</code>：标的名可以含 <code>.</code> 和 <code>-</code>，交易所名不能含 <code>.</code>（<code>from_parts</code> 显式拒绝）。改成从左边切会让 <code>BTC-USDT</code> 这类标的全部解析错。</p></article>
     <article class="card"><h3>定点类型先别拿来算</h3><p>阶段 1 没有任何地方构造 <code>Price</code> / <code>Quantity</code>，也没有对齐精度的运算。要用它们之前，先补上“按精度对齐”的比较与算术，否则 derive 出的 <code>Ord</code> 会在精度不同时给出错误的大小关系。</p></article>
   </div>
@@ -570,7 +572,7 @@
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
         <tr><td class="mono">crates/phasor-model/src/lib.rs</td><td>两条血统的说明；把 Bar、BarType、OhlcvPanel 和全部枚举再导出到 crate 根。</td></tr>
-        <tr><td class="mono">src/enums.rs</td><td>18 个枚举：SizeType（:14）、LeverageMode（:50）… StatusInfo（:90，from_discriminant :132，describe :155）… TradesType（:319）、CashFlowKind（:336）；判别值测试。</td></tr>
+        <tr><td class="mono">src/enums.rs</td><td>20 个枚举：SizeType（:14）、LeverageMode（:50）、AccountType（:64）、MarginBasis（:78）… StatusInfo（:120，from_discriminant :162，describe :185）… TradesType（:349）、CashFlowKind（:366）；判别值测试（:381）。</td></tr>
         <tr><td class="mono">src/ids.rs</td><td>Symbol（:17）、Venue（:34）、InstrumentId（:54，from_parts :63）、Display 与 FromStr。</td></tr>
         <tr><td class="mono">src/bar.rs</td><td>UnixNanos（:16）、Bar（:24）、OhlcvPanel（:48）、BarType（:67）及其 FromStr / Display。</td></tr>
         <tr><td class="mono">src/types.rs</td><td>PriceRaw / QuantityRaw 别名、PRECISION、SCALAR、Price（:42，UNDEF / ERROR 哨兵）、Quantity（:87）。</td></tr>
@@ -608,18 +610,18 @@ const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 /* ---------------- dependency graph ---------------- */
 const COLORS = { enums: "#e07a3d", ids: "#2fbfa8", bar: "#3a7afe", types: "#c9a227" };
 const MODULES = [
-  { id: "enums", sub: "18 个 repr(i8) 枚举", blurb: "撮合状态机的全部选项和结果。每个下游的模拟、记录、分析都按它们分支，并把判别值写进记录。" },
+  { id: "enums", sub: "20 个 repr(i8) 枚举", blurb: "撮合状态机的全部选项和结果。每个下游的模拟、记录、分析都按它们分支，并把判别值写进记录。" },
   { id: "ids", sub: "InstrumentId · Symbol · Venue", blurb: "标的标识。phasor-data 用它做 catalog 的目录键和按标的对齐；Python 层把字符串解析成它。" },
   { id: "bar", sub: "OhlcvPanel · BarType · Bar", blurb: "行情。OhlcvPanel 是因子求值和数据加载之间的接口；BarType 是 K 线序列的身份。Bar 结构体还没有使用者。" },
   { id: "types", sub: "Price · Quantity（定点）", blurb: "定点数值类型，为阶段 2 的事件驱动层预留。工作区里没有任何地方构造它们，只有门面的 prelude 再导出。" },
 ];
 const DOWN = [
   { id: "phasor-exec", sub: "撮合内核", uses: ["enums"],
-    role: "kernel.rs、types.rs：Order 带 SizeType / Direction / LeverageMode，OrderResult 带 OrderSide / OrderStatus / StatusInfo；lib.rs 把这六个枚举再导出给调用方。" },
+    role: "kernel.rs、types.rs：Order 带 SizeType / Direction / LeverageMode / AccountType / MarginBasis，OrderResult 带 OrderSide / OrderStatus / StatusInfo；AccountType::Margin 的订单走 margin_trade 分支，MarginBasis 决定 initial_margin 按名义价值的比例还是每单位现金算；lib.rs 把这八个枚举再导出给调用方。" },
   { id: "phasor-sim", sub: "模拟循环", uses: ["enums"],
-    role: "from_signals.rs、signals.rs 用 AccumulationMode、ConflictMode、DirectionConflictMode、OppositeEntryMode 和四个 Stop* 枚举；from_orders.rs 用 OrderStatus::Filled 与 StatusInfo::describe 报原因，两个循环的参数里有 LeverageMode；cash.rs 用 CashFlowKind。" },
+    role: "from_signals.rs、signals.rs 用 AccumulationMode、ConflictMode、DirectionConflictMode、OppositeEntryMode 和四个 Stop* 枚举；from_orders.rs 用 OrderStatus::Filled 与 StatusInfo::describe 报原因，两个循环的参数里有 LeverageMode、AccountType、MarginBasis；lib.rs 的 any_levered 看有没有 Margin 列，margin_columns 拒绝在一列里中途改账户类型；cash.rs 用 CashFlowKind。" },
   { id: "phasor-records", sub: "记录与交易", uses: ["enums"],
-    role: "logs.rs 把 SizeType、Direction、LeverageMode、OrderStatus、StatusInfo 存成整数，并用 from_discriminant 读回原因；trades.rs、excursions.rs 用 TradeDirection / TradeStatus；cash.rs 的 CashRecords 存 CashFlowKind。" },
+    role: "logs.rs 把 SizeType、Direction、LeverageMode、AccountType、MarginBasis、OrderStatus、StatusInfo 存成整数，并用 from_discriminant 读回原因；trades.rs、excursions.rs 用 TradeDirection / TradeStatus；cash.rs 的 CashRecords 存 CashFlowKind。" },
   { id: "phasor-analysis", sub: "分析", uses: ["enums"],
     role: "portfolio.rs 用 TradesType 选交易视图（默认 ExitTrades），series.rs 用 Direction / OrderSide 重建仓位，stats.rs 用 TradeStatus 区分已平仓交易。" },
   { id: "phasor-data", sub: "数据加载", uses: ["ids", "bar"],
@@ -627,7 +629,7 @@ const DOWN = [
   { id: "phasor-expr", sub: "因子 DSL", uses: ["bar"],
     role: "eval.rs 的 FactorInputs::from_ohlcv(&OhlcvPanel) 把面板借成因子的输入；alpha360.rs、polars_backend.rs 同样从 OhlcvPanel 取列。" },
   { id: "phasor-py", sub: "Python 绑定", uses: ["enums", "ids", "bar"],
-    role: "parse.rs 把 Python 传来的字符串解析成 SizeType、Direction、LeverageMode、AccumulationMode、TradesType 和 from_signals 的四个止损枚举（StopEntryPrice、StopExitPrice、StopExitMode、StopUpdateMode）；data.rs 用 BarType 和 InstrumentId 暴露 catalog。" },
+    role: "parse.rs 把 Python 传来的字符串解析成 SizeType、Direction、LeverageMode、AccountType、MarginBasis、AccumulationMode、TradesType 和 from_signals 的四个止损枚举（StopEntryPrice、StopExitPrice、StopExitMode、StopUpdateMode）；lib.rs 的 account_types 把 account_type 的一个字符串或每列一个字符串变成 AccountType；data.rs 用 BarType 和 InstrumentId 暴露 catalog。" },
   { id: "phasor", sub: "门面 · prelude", uses: ["enums", "ids", "types", "bar"],
     role: "pub use phasor_model as model；prelude 放 enums::*、InstrumentId / Symbol / Venue、Price / Quantity。examples/factor_sweep.rs 和 tests/factor_path.rs 构造 OhlcvPanel。" },
 ];
@@ -731,44 +733,48 @@ const ENUMS = {
     v: [["Amount", "单位数"], ["Value", "现金金额，除以估值价得到单位数"], ["Percent", "可用现金的比例，[0, 1]"], ["TargetAmount", "目标单位数；与当前仓位求差"], ["TargetValue", "目标现金价值"], ["TargetPercent", "目标占组合价值的比例"]] },
   Direction: { group: "order", line: 32, doc: "一列能做哪一边。", users: ["phasor-exec", "phasor-sim", "phasor-records", "phasor-analysis", "phasor-py"],
     v: [["LongOnly", "只做多；做空被拒"], ["ShortOnly", "只做空"], ["Both", "多空都可以，包括穿过零反手"]] },
-  LeverageMode: { group: "order", line: 50, doc: "带杠杆的买入怎么筹钱。两种模式能买的上限相同（自有现金付 1/leverage 加手续费），只差借多少；开空不受影响，保证金总是市值 / leverage。参考实现没有杠杆，是 phasor 自己加的。", users: ["phasor-exec", "phasor-sim", "phasor-records", "phasor-py"],
+  LeverageMode: { group: "order", line: 50, doc: "带杠杆的买入怎么筹钱。两种模式能买的上限相同（自有现金付 1/leverage 加手续费），只差借多少；开空不受影响，保证金总是市值 / leverage。保证金列（AccountType::Margin）不看它。参考实现没有杠杆，是 phasor 自己加的。", users: ["phasor-exec", "phasor-sim", "phasor-records", "phasor-py"],
     v: [["Lazy", "先花自有现金，只借不够的部分（默认）"], ["Eager", "每笔都借 1 − 1/leverage，不管现金还剩多少"]] },
-  OrderSide: { group: "order", line: 61, doc: "订单在哪一边成交。数量是无符号的，方向只在这里。", users: ["phasor-exec", "phasor-records", "phasor-analysis"],
+  AccountType: { group: "order", line: 64, doc: "一列的交易怎么付钱。按列设，所以同一个账户组里可以有现货列，也可以有期货、永续列，共用一份现金；一列在整次运行里只能是一种。参考实现没有，是 phasor 自己加的。", users: ["phasor-exec", "phasor-sim", "phasor-records", "phasor-py"],
+    v: [["Cash", "多头全额付价，空头押住卖出所得和保证金；leverage 借多头价款的一部分（默认）"], ["Margin", "多空都只从可用现金里押初始保证金，持仓盈亏每根 K 线结算进现金：期货、永续、差价合约"]] },
+  MarginBasis: { group: "order", line: 78, doc: "保证金列的 initial_margin 用什么单位。参考实现没有，是 phasor 自己加的。", users: ["phasor-exec", "phasor-sim", "phasor-records", "phasor-py"],
+    v: [["Notional", "成交价名义价值的比例，永续、外汇、差价合约这样报；留 NaN 时取 1/leverage（默认）"], ["Unit", "每单位数量押固定现金，期货交易所按合约这样公布；必须给 initial_margin"]] },
+  OrderSide: { group: "order", line: 91, doc: "订单在哪一边成交。数量是无符号的，方向只在这里。", users: ["phasor-exec", "phasor-records", "phasor-analysis"],
     v: [["Buy", "买入"], ["Sell", "卖出"]] },
-  OrderStatus: { group: "result", line: 75, doc: "一次下单请求的结果。Rejected 是普通的返回值，不是 Err。", users: ["phasor-exec", "phasor-sim", "phasor-records"],
+  OrderStatus: { group: "result", line: 105, doc: "一次下单请求的结果。Rejected 是普通的返回值，不是 Err。", users: ["phasor-exec", "phasor-sim", "phasor-records"],
     v: [["Filled", "全部或部分成交"], ["Ignored", "无事可做（没有信号、数量为零）"], ["Rejected", "无法执行；原因在 StatusInfo"]] },
-  StatusInfo: { group: "result", line: 90, doc: "为什么被忽略或拒绝。15 种原因分开放，因为“这次扫描为什么不交易”是用户最常问的问题。", users: ["phasor-exec", "phasor-sim", "phasor-records"],
+  StatusInfo: { group: "result", line: 120, doc: "为什么被忽略或拒绝。15 种原因分开放，因为“这次扫描为什么不交易”是用户最常问的问题。", users: ["phasor-exec", "phasor-sim", "phasor-records"],
     v: [["SizeNaN", "size is NaN"], ["PriceNaN", "price is NaN"], ["ValPriceNaN", "valuation price is NaN"], ["ValueNaN", "portfolio value is NaN"], ["ValueZeroNeg", "portfolio value is zero or negative"], ["SizeZero", "size is zero"], ["NoCashShort", "not enough cash to short"], ["NoCashLong", "not enough cash to go long"], ["NoOpenPosition", "no open position to close"], ["MaxSizeExceeded", "size exceeds the maximum"], ["RandomEvent", "randomly rejected"], ["CantCoverFees", "proceeds do not cover fees"], ["MinSizeNotReached", "size is below the minimum"], ["PartialFill", "partial fill required but not allowed"], ["NoCashLeverage", "no own cash to put up for a leveraged buy"]] },
-  AccumulationMode: { group: "signal", line: 179, doc: "同方向的信号是加仓还是被忽略。", users: ["phasor-sim", "phasor-py"],
+  AccumulationMode: { group: "signal", line: 209, doc: "同方向的信号是加仓还是被忽略。", users: ["phasor-sim", "phasor-py"],
     v: [["Disabled", "信号从不改变已有仓位的大小"], ["Both", "信号既能加也能减"], ["AddOnly", "只加"], ["RemoveOnly", "只减"]] },
-  ConflictMode: { group: "signal", line: 193, doc: "同一根 K 线上进场和出场同时触发时怎么办。", users: ["phasor-sim"],
+  ConflictMode: { group: "signal", line: 223, doc: "同一根 K 线上进场和出场同时触发时怎么办。", users: ["phasor-sim"],
     v: [["Ignore", "什么都不做"], ["Entry", "进场优先"], ["Exit", "出场优先"], ["Adjacent", "与当前仓位相邻的一方优先"], ["Opposite", "与当前仓位相反的一方优先"]] },
-  DirectionConflictMode: { group: "signal", line: 209, doc: "同一根 K 线上做多和做空信号同时触发时怎么办。", users: ["phasor-sim"],
+  DirectionConflictMode: { group: "signal", line: 239, doc: "同一根 K 线上做多和做空信号同时触发时怎么办。", users: ["phasor-sim"],
     v: [["Ignore", "什么都不做"], ["Long", "做多优先"], ["Short", "做空优先"], ["Adjacent", "与当前仓位同向的一方优先"], ["Opposite", "与当前仓位反向的一方优先"]] },
-  OppositeEntryMode: { group: "signal", line: 225, doc: "与持仓方向相反的进场信号该做什么。", users: ["phasor-sim"],
+  OppositeEntryMode: { group: "signal", line: 255, doc: "与持仓方向相反的进场信号该做什么。", users: ["phasor-sim"],
     v: [["Ignore", "什么都不做"], ["Close", "平仓"], ["CloseReduce", "平仓，再套用加减仓规则"], ["Reverse", "平仓并反向开仓"], ["ReverseReduce", "反手，再套用加减仓规则"]] },
-  StopEntryPrice: { group: "stop", line: 241, doc: "开仓时止损锚定在哪个价格上。", users: ["phasor-sim", "phasor-py"],
+  StopEntryPrice: { group: "stop", line: 271, doc: "开仓时止损锚定在哪个价格上。", users: ["phasor-sim", "phasor-py"],
     v: [["ValPrice", "估值价"], ["Price", "订单请求的价格"], ["FillPrice", "实际成交价"], ["Close", "当根 K 线收盘价"]] },
-  StopExitPrice: { group: "stop", line: 255, doc: "止损触发后按哪个价格成交。", users: ["phasor-sim", "phasor-py"],
+  StopExitPrice: { group: "stop", line: 285, doc: "止损触发后按哪个价格成交。", users: ["phasor-sim", "phasor-py"],
     v: [["StopLimit", "止损价本身，无滑点"], ["StopMarket", "止损价加滑点"], ["Price", "配置的订单价格"], ["Close", "当根 K 线收盘价"]] },
-  StopExitMode: { group: "stop", line: 269, doc: "止损触发后对仓位做什么。", users: ["phasor-sim", "phasor-py"],
+  StopExitMode: { group: "stop", line: 299, doc: "止损触发后对仓位做什么。", users: ["phasor-sim", "phasor-py"],
     v: [["Close", "平仓"], ["CloseReduce", "平仓，再套用加减仓规则"], ["Reverse", "反手"], ["ReverseReduce", "反手，再套用加减仓规则"]] },
-  StopUpdateMode: { group: "stop", line: 283, doc: "新的止损值是否替换正在生效的那个。", users: ["phasor-sim", "phasor-py"],
+  StopUpdateMode: { group: "stop", line: 313, doc: "新的止损值是否替换正在生效的那个。", users: ["phasor-sim", "phasor-py"],
     v: [["Keep", "保留现有止损"], ["Override", "替换，除非新值是 NaN"], ["OverrideNaN", "替换，即使是 NaN（等于清除止损）"]] },
-  TradeDirection: { group: "record", line: 295, doc: "一笔交易在哪一边。", users: ["phasor-records"],
+  TradeDirection: { group: "record", line: 325, doc: "一笔交易在哪一边。", users: ["phasor-records"],
     v: [["Long", "多头"], ["Short", "空头"]] },
-  TradeStatus: { group: "record", line: 305, doc: "模拟结束时交易是否还开着。", users: ["phasor-records", "phasor-analysis"],
+  TradeStatus: { group: "record", line: 335, doc: "模拟结束时交易是否还开着。", users: ["phasor-records", "phasor-analysis"],
     v: [["Open", "仍未平仓"], ["Closed", "已平仓"]] },
-  TradesType: { group: "record", line: 319, doc: "交易记录的哪种视图。三者共用一个 schema，只是成交归属的方式不同（§9.5）。", users: ["phasor-analysis", "phasor-py"],
+  TradesType: { group: "record", line: 349, doc: "交易记录的哪种视图。三者共用一个 schema，只是成交归属的方式不同（§9.5）。", users: ["phasor-analysis", "phasor-py"],
     v: [["EntryTrades", "每笔进场成交一条；出场按 FIFO 分配回去"], ["ExitTrades", "每笔出场成交一条；进场平均进来"], ["Positions", "同一父仓位的交易聚合成一个仓位"]] },
-  CashFlowKind: { group: "record", line: 336, doc: "现金为什么在没有成交的情况下变动。分析层据此区分“带进来的钱”和“赚到的钱”：入金改变净值但不是收益，其余都算收益。phasor 自己加的，不来自 vectorbt。", users: ["phasor-records", "phasor-sim"],
+  CashFlowKind: { group: "record", line: 366, doc: "现金为什么在没有成交的情况下变动。分析层据此区分“带进来的钱”和“赚到的钱”：入金改变净值但不是收益，其余都算收益。phasor 自己加的，不来自 vectorbt。", users: ["phasor-records", "phasor-sim"],
     v: [["Deposit", "在 K 线开盘时入金或出金"], ["Earning", "利息、费用等收支，在收盘时记入"], ["Dividend", "每股分红 × 开盘时的持仓；空头要支付"]] },
 };
 const GROUPS = [
   { id: "order", name: "下单请求" }, { id: "result", name: "撮合结果" }, { id: "signal", name: "信号冲突" },
   { id: "stop", name: "止损" }, { id: "record", name: "记录与分析" },
 ];
-const PINNED = { SizeType: [5], Direction: [2], OrderStatus: [2], StatusInfo: [13], TradesType: [2], CashFlowKind: [0, 1, 2] };
+const PINNED = { SizeType: [5], Direction: [2], AccountType: [1], MarginBasis: [1], OrderStatus: [2], StatusInfo: [13], TradesType: [2], CashFlowKind: [0, 1, 2] };
 let enumSeg = null;
 function renderEnum(name) {
   const e = ENUMS[name];
