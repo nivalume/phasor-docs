@@ -184,7 +184,7 @@
     一个标的叫什么、一根 K 线长什么样、钱用什么类型存。它没有任何算法，只有类型；但这些类型的<b>判别值</b>被写进记录数组，是磁盘格式的一部分。
   </p>
   <div class="stats">
-    <div class="stat"><b>21 个 repr(i8) 枚举</b><span>判别值由测试固定：它们以整数写进订单记录和日志，被 Python 层和差分测试读回</span></div>
+    <div class="stat"><b>25 个 repr(i8) 枚举</b><span>判别值由测试固定：它们以整数写进订单记录和日志，被 Python 层和差分测试读回</span></div>
     <div class="stat"><b>8 个 crate 直接依赖</b><span>exec、sim、records、analysis、data、expr、py 和门面 phasor；向量化热路径只用到枚举和 <code>OhlcvPanel</code></span></div>
     <div class="stat"><b>两条血统</b><span>撮合枚举跟随 vectorbt（逐笔对齐是验收标准）；数值与标识类型跟随 NautilusTrader（阶段 2 的策略 API）</span></div>
   </div>
@@ -237,7 +237,7 @@
           <text x="111" y="194" text-anchor="middle" font-size="10" fill="#909090">值类型与标识 · 阶段 2 策略 API</text>
 
           <rect x="270" y="22" width="300" height="80" rx="6" fill="#33200f" stroke="#e07a3d"/>
-          <text x="420" y="44" text-anchor="middle" font-weight="600" fill="#f0f0f0">enums.rs — 21 个 repr(i8) 枚举</text>
+          <text x="420" y="44" text-anchor="middle" font-weight="600" fill="#f0f0f0">enums.rs — 25 个 repr(i8) 枚举</text>
           <text x="420" y="62" text-anchor="middle" font-size="10" fill="#f0b088">SizeType · Direction · OrderStatus · StatusInfo</text>
           <text x="420" y="76" text-anchor="middle" font-size="10" fill="#f0b088">ConflictMode · Stop* · TradesType · CashFlowKind …</text>
           <text x="420" y="92" text-anchor="middle" font-size="10" fill="#909090">杠杆、保证金三个和 CashFlowKind 是 phasor 自己加的</text>
@@ -303,7 +303,7 @@
   </div>
 
   <!-- ============================================================ -->
-  <h2 id="enums">21 个枚举，按它们在流水线里的位置</h2>
+  <h2 id="enums">25 个枚举，按它们在流水线里的位置</h2>
   <p>
     所有枚举都是 <code>#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)] #[repr(i8)]</code>，判别值从 0 起显式写出。
     选一组，再点一个枚举，看它的变体、判别值和谁在读它。
@@ -567,9 +567,9 @@
     <table>
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
-        <tr><td colspan="2" class="small">行号对应 e4b3b02。</td></tr>
+        <tr><td colspan="2" class="small">行号对应 8d09d8f。</td></tr>
         <tr><td class="mono">crates/phasor-model/src/lib.rs</td><td>两条血统的说明；把 Bar、BarType、OhlcvPanel 和全部枚举再导出到 crate 根。</td></tr>
-        <tr><td class="mono">src/enums.rs</td><td>21 个枚举：SizeType（:14）、Direction（:32）、LeverageMode（:50）、AccountType（:64）、MarginBasis（:78）、MarginMode（:94）… StatusInfo（:138，from_discriminant :180，describe :203）… TradesType（:367）、CashFlowKind（:384）；判别值测试。</td></tr>
+        <tr><td class="mono">src/enums.rs</td><td>25 个枚举：SizeType（:14）、Direction（:32）、LeverageMode（:50）、AccountType（:64）、MarginBasis（:78）、MarginMode（:94）… StatusInfo（:138，from_discriminant :180，describe :203）… OrderType（:343）、LimitOrderPrice（:354）、DeltaFormat（:366）、PendingConflictMode（:380）、TradeDirection（:394）… TradesType（:418）、CashFlowKind（:435）；判别值测试。</td></tr>
         <tr><td class="mono">src/ids.rs</td><td>Symbol（:17）、Venue（:34）、InstrumentId（:54，from_parts :63）、Display 与 FromStr。</td></tr>
         <tr><td class="mono">src/bar.rs</td><td>UnixNanos（:16）、Bar（:24）、OhlcvPanel（:48）、BarType（:67）及其 FromStr / Display。</td></tr>
         <tr><td class="mono">src/types.rs</td><td>PriceRaw / QuantityRaw 别名、PRECISION、SCALAR、Price（:42，UNDEF / ERROR 哨兵）、Quantity（:87）。</td></tr>
@@ -607,7 +607,7 @@ const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 /* ---------------- dependency graph ---------------- */
 const COLORS = { enums: "#e07a3d", ids: "#2fbfa8", bar: "#3a7afe", types: "#c9a227" };
 const MODULES = [
-  { id: "enums", sub: "21 个 repr(i8) 枚举", blurb: "撮合状态机的全部选项和结果。每个下游的模拟、记录、分析都按它们分支，并把判别值写进记录。" },
+  { id: "enums", sub: "25 个 repr(i8) 枚举", blurb: "撮合状态机的全部选项和结果。每个下游的模拟、记录、分析都按它们分支，并把判别值写进记录。" },
   { id: "ids", sub: "InstrumentId · Symbol · Venue", blurb: "标的标识。phasor-data 用它做 catalog 的目录键和按标的对齐；Python 层把字符串解析成它。" },
   { id: "bar", sub: "OhlcvPanel · BarType · Bar", blurb: "行情。OhlcvPanel 是因子求值和数据加载之间的接口；BarType 是 K 线序列的身份。Bar 结构体还没有使用者。" },
   { id: "types", sub: "Price · Quantity（定点）", blurb: "定点数值类型，为阶段 2 的事件驱动层预留。工作区里没有任何地方构造它们，只有门面的 prelude 再导出。" },
@@ -760,18 +760,26 @@ const ENUMS = {
     v: [["Close", "平仓"], ["CloseReduce", "平仓，再套用加减仓规则"], ["Reverse", "反手"], ["ReverseReduce", "反手，再套用加减仓规则"]] },
   StopUpdateMode: { group: "stop", line: 331, doc: "新的止损值是否替换正在生效的那个。", users: ["phasor-sim"],
     v: [["Keep", "保留现有止损"], ["Override", "替换，除非新值是 NaN"], ["OverrideNaN", "替换，即使是 NaN（等于清除止损）"]] },
-  TradeDirection: { group: "record", line: 343, doc: "一笔交易在哪一边。", users: ["phasor-records"],
+  OrderType: { group: "limit", line: 343, doc: "from_signals 里信号的订单立即执行还是作为限价单挂出（D2）。止损出场总是市价单。", users: ["phasor-sim", "phasor-py"],
+    v: [["Market", "按订单价成交，加滑点"], ["Limit", "挂在限价上，直到市价够到、到期，或本列有其他成交；不加滑点"]] },
+  LimitOrderPrice: { group: "limit", line: 354, doc: "限价单被够到时按什么价成交（D2）。", users: ["phasor-sim", "phasor-py"],
+    v: [["Limit", "限价；开盘就越过限价时按开盘价"], ["HardLimit", "总是限价，跳空也一样"], ["Close", "当根收盘价"]] },
+  DeltaFormat: { group: "limit", line: 366, doc: "limit_delta 怎么相对订单价解读（D2）。买单向下、卖单向上，limit_reverse 反过来。", users: ["phasor-sim", "phasor-py"],
+    v: [["Percent", "订单价的比例"], ["Absolute", "价格差"], ["Target", "直接就是限价"]] },
+  PendingConflictMode: { group: "limit", line: 380, doc: "当根信号遇到本列挂着的单（挂单，或当根触发的止损）时怎么办（D3）。前半是挂着的单保留还是撤掉，后半是信号执行还是忽略；同为买或同为卖用 upon_adj_*，否则 upon_opp_*。", users: ["phasor-sim", "phasor-py"],
+    v: [["KeepIgnore", "保留挂着的单，忽略信号"], ["KeepExecute", "保留，信号也执行；止损时先止损再按新持仓执行信号"], ["CancelIgnore", "撤掉挂着的单，忽略信号"], ["CancelExecute", "撤掉，执行信号"]] },
+  TradeDirection: { group: "record", line: 394, doc: "一笔交易在哪一边。", users: ["phasor-records"],
     v: [["Long", "多头"], ["Short", "空头"]] },
-  TradeStatus: { group: "record", line: 353, doc: "模拟结束时交易是否还开着。", users: ["phasor-records", "phasor-analysis"],
+  TradeStatus: { group: "record", line: 404, doc: "模拟结束时交易是否还开着。", users: ["phasor-records", "phasor-analysis"],
     v: [["Open", "仍未平仓"], ["Closed", "已平仓"]] },
-  TradesType: { group: "record", line: 367, doc: "交易记录的哪种视图。三者共用一个 schema，只是成交归属的方式不同（§9.5）。", users: ["phasor-analysis", "phasor-py"],
+  TradesType: { group: "record", line: 418, doc: "交易记录的哪种视图。三者共用一个 schema，只是成交归属的方式不同（§9.5）。", users: ["phasor-analysis", "phasor-py"],
     v: [["EntryTrades", "每笔进场成交一条；出场按 FIFO 分配回去"], ["ExitTrades", "每笔出场成交一条；进场平均进来"], ["Positions", "同一父仓位的交易聚合成一个仓位"]] },
-  CashFlowKind: { group: "record", line: 384, doc: "现金为什么在没有成交的情况下变动。分析层据此区分“带进来的钱”和“赚到的钱”：入金改变净值但不是收益，其余都算收益。phasor 自己加的，不来自 vectorbt。", users: ["phasor-records", "phasor-sim"],
+  CashFlowKind: { group: "record", line: 435, doc: "现金为什么在没有成交的情况下变动。分析层据此区分“带进来的钱”和“赚到的钱”：入金改变净值但不是收益，其余都算收益。phasor 自己加的，不来自 vectorbt。", users: ["phasor-records", "phasor-sim"],
     v: [["Deposit", "在 K 线开盘时入金或出金"], ["Earning", "利息、费用等收支，在收盘时记入"], ["Dividend", "每股分红 × 开盘时的持仓；空头要支付"], ["Funding", "永续资金费：收盘按持仓 × 标记价格 × 费率，费率为正时多头付"], ["Financing", "隔夜融资：收盘按 |持仓| × 标记价格 × 该方向的费率"], ["Interest", "带杠杆多头借款的利息"], ["BorrowFee", "现金列空头的借券费"], ["Liquidation", "强平后账户付不起的亏损，作为正数核销"]] },
 };
 const GROUPS = [
   { id: "order", name: "下单请求" }, { id: "result", name: "撮合结果" }, { id: "signal", name: "信号冲突" },
-  { id: "stop", name: "止损" }, { id: "record", name: "记录与分析" },
+  { id: "stop", name: "止损" }, { id: "limit", name: "限价单与挂单" }, { id: "record", name: "记录与分析" },
 ];
 const PINNED = { SizeType: [5], Direction: [2], OrderStatus: [2], StatusInfo: [13], TradesType: [2], CashFlowKind: [0, 1, 2] };
 let enumSeg = null;
