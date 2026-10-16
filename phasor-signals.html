@@ -339,7 +339,7 @@
 
   <h2 id="graph">依赖图</h2>
   <p>
-    左边只有一个上游：phasor-core，只用到 <code>Error</code> / <code>Result</code>（<code>Broadcast</code> 报形状错，<code>Invariant</code> 报参数错）。
+    左边只有一个上游：phasor-core，用到 <code>Error</code> / <code>Result</code>（<code>Broadcast</code> 报形状错，<code>Invariant</code> 报参数错），random 模块另外用到 <code>random::uniform</code>。
     中间是六个模块，右边是用到它的地方。点任一节点，只保留相关的线，图下面写出它用来做什么。
   </p>
   <div class="legend" id="legend"></div>
@@ -543,7 +543,7 @@
 
   <h2 id="random">随机信号：键控，而不是流</h2>
   <p>
-    流式生成器让每次抽样依赖之前的所有抽样，于是答案会随列的访问顺序、线程数、前面插入一列而改变。这里每次抽样都是 <code>(seed, row, col)</code> 的纯函数：
+    流式生成器让每次抽样依赖之前的所有抽样，于是答案会随列的访问顺序、线程数、前面插入一列而改变。这里每次抽样都是 <code>(seed, row, col)</code> 的纯函数，即 phasor-core 的 <a href="phasor-core.html#random"><code>random::uniform</code></a>：
     SplitMix64 的输出混合函数套三层，<code>mix(mix(mix(seed) ^ row) ^ col)</code>，取高 53 位得到 <code>[0, 1)</code> 内可精确表示的浮点数。
     所以一列的信号不管是单独生成还是作为扫描中的第一千列都一样，一个种子命名一个答案，也满足 AGENTS.md 里“串行和并行逐位相同”的规则。
   </p>
@@ -645,7 +645,7 @@
         <tr><td class="mono">nth_index</td><td class="mono">(a, n: i64)</td><td>每列一个行号或 −1。<code>rank.rs:148</code></td></tr>
         <tr><td class="mono">normalized_average_index</td><td class="mono">(a)</td><td>每列一个 [−1, 1] 的值或 NaN。<code>rank.rs:187</code></td></tr>
         <tr><td class="mono">partition_ranges · between_ranges · between_partition_ranges</td><td class="mono">(a)</td><td><code>Result&lt;RangeRecords&gt;</code>。<code>ranges.rs:132 / 167 / 189</code></td></tr>
-        <tr><td class="mono">random_by_prob · random_n · random_entries_exits</td><td class="mono">(prob | n, seed)</td><td>布尔数组；最后一个返回一对。<code>random.rs:66 / 87 / 114</code></td></tr>
+        <tr><td class="mono">random_by_prob · random_n · random_entries_exits</td><td class="mono">(prob | n, seed)</td><td>布尔数组；最后一个返回一对。<code>random.rs:51 / 72 / 99</code></td></tr>
         <tr><td class="mono">fixed_horizon_returns · trend_labels · triple_barrier · pivot_labels</td><td class="mono">(close, …)</td><td><code>Vec&lt;f64&gt;</code> / <code>Vec&lt;i8&gt;</code> / <code>(Vec&lt;i8&gt;, Vec&lt;i64&gt;)</code> / <code>Vec&lt;i8&gt;</code>。<code>labels.rs:48 / 89 / 146 / 234</code></td></tr>
       </tbody>
     </table>
@@ -704,7 +704,7 @@ labels 读未来                                // 永远不能当信号、出�
         <tr><td class="mono">src/generate.rs</td><td>ExitChoice、ExitWindow、generate_exits、exit_after、exit_on、generate_alternating。</td></tr>
         <tr><td class="mono">src/rank.rs</td><td>Gaps、LeadingRun、共享的 rank_columns、signal_rank、partition_rank、nth_index、normalized_average_index。</td></tr>
         <tr><td class="mono">src/ranges.rs</td><td>RangeStatus、RangeRecords、三种区间读法。</td></tr>
-        <tr><td class="mono">src/random.rs</td><td>SplitMix64 混合、uniform、below、部分 Fisher-Yates、三个随机函数。</td></tr>
+        <tr><td class="mono">src/random.rs</td><td>below（:23）、部分 Fisher-Yates 的 pick_rows（:33）、三个随机函数；随机数本身是 phasor_core::random::uniform。含按位固定输出的测试。</td></tr>
         <tr><td class="mono">src/labels.rs</td><td>四种标签及其前瞻说明。</td></tr>
         <tr><td class="mono">tests/parity_signals_gen.rs</td><td>与 vectorbt 的差分测试。</td></tr>
       </tbody>
@@ -770,7 +770,7 @@ const MODULES = [
   { id: "labels", sub: "triple_barrier · pivot_labels", blurb: "机器学习的训练目标 y，全部读未来，永远不能喂给模拟。每个函数写明往前看多远。" },
 ];
 const UPSTREAM = [
-  { id: "phasor-core", sub: "error::{Error, Result}", role: "只用到错误类型：形状与 n_rows × n_cols 不符返回 Error::Broadcast，参数不合法（prob 越界、n 超过行数、horizon 为 0、阈值为负、选择越界）返回 Error::Invariant。这个 crate 不用 math 的容差：输入是布尔，labels 里的阈值比较是精确的、并且有专门测试钉住边界。" },
+  { id: "phasor-core", sub: "error::{Error, Result} · random::uniform", role: "错误类型：形状与 n_rows × n_cols 不符返回 Error::Broadcast，参数不合法（prob 越界、n 超过行数、horizon 为 0、阈值为负、选择越界）返回 Error::Invariant。random.rs 的随机数是 random::uniform(seed, row, col)，和 phasor-sim 的随机拒单用同一个函数。这个 crate 不用 math 的容差：输入是布尔，labels 里的阈值比较是精确的、并且有专门测试钉住边界。" },
 ];
 const DOWN = [
   { id: "phasor", sub: "门面 · prelude", uses: ["clean", "generate", "ranges", "random", "rank", "labels"], dashed: false,
@@ -859,7 +859,7 @@ function showDetail(focus) {
   if (focus.kind === "mod") {
     const m = MODULES.find((x) => x.id === focus.id);
     const users = DOWN.filter((d) => d.uses.includes(m.id)).map((d) => d.id);
-    detail.innerHTML = `<h3>${m.id}</h3><p class="muted" style="margin:0 0 6px">${m.blurb}</p><p class="small" style="margin:0">上游：phasor-core 的 Error / Result。下游：${users.join("、")}</p>`;
+    detail.innerHTML = `<h3>${m.id}</h3><p class="muted" style="margin:0 0 6px">${m.blurb}</p><p class="small" style="margin:0">上游：phasor-core 的 Error / Result${m.id === "random" ? " 和 random::uniform" : ""}。下游：${users.join("、")}</p>`;
     return;
   }
   if (focus.kind === "up") { const u = UPSTREAM[0]; detail.innerHTML = `<h3>${u.id}</h3><p class="muted" style="margin:0">${u.role}</p><div class="uses">${MODULES.map((m) => chip(m.id)).join("")}</div>`; return; }
@@ -1155,7 +1155,7 @@ function buildRanges() {
   seg("rg-presets", RG_PRESETS, (p) => { rgA = parseBits(p.a); renderRanges(); }).select(0);
 }
 
-/* ---------------- random.rs, ported with BigInt ---------------- */
+/* ---------------- random.rs and phasor-core's uniform, ported with BigInt ---------------- */
 const M64 = (1n << 64n) - 1n;
 function mix(z) {
   z = (z + 0x9E3779B97F4A7C15n) & M64;

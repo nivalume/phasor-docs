@@ -195,7 +195,7 @@
     这一层的算术都很简单，难的是<b>边界</b>：窗口没满时报不报数、遇到 NaN 怎么办、哪些函数会偷看未来、浮点累加的最后几位是否和参考实现一致。
   </p>
   <div class="stats">
-    <div class="stat"><b>只依赖 phasor-core</b><span>用 <code>Matrix</code> 和 <code>Error</code>；每个函数先写一维 <code>_1d</code> 版本，矩阵版本逐列调用它</span></div>
+    <div class="stat"><b>只依赖 phasor-core</b><span>用 <code>Matrix</code>、<code>Error</code> 和 <code>random</code>；每个函数先写一维 <code>_1d</code> 版本，矩阵版本逐列调用它</span></div>
     <div class="stat"><b>1,650 条 fixture</b><span>13 条“故意别扭”的序列（前后缺口、全 NaN、常数、跨 16 个数量级……）× 18 个函数 × 参数组合，对照 vectorbt</span></div>
     <div class="stat"><b>3 个模块</b><span>rolling 和 elementwise 被 indicators、expr、analysis、py 调用；synthetic 的三个生成器只有 Python 绑定在用（<code>phasor.synthetic</code>）</span></div>
   </div>
@@ -259,7 +259,7 @@
   <!-- ============================================================ -->
   <h2 id="graph">依赖图</h2>
   <p>
-    左边是唯一的上游 phasor-core（<code>Matrix</code>、<code>Error</code>）。中间三个模块，右边是 <code>src/</code> 里直接调用它的 crate。点任一节点，只保留相关的线。
+    左边是唯一的上游 phasor-core（<code>Matrix</code>、<code>Error</code>，synthetic 另外用 <code>random</code>）。中间三个模块，右边是 <code>src/</code> 里直接调用它的 crate。点任一节点，只保留相关的线。
   </p>
   <div class="legend" id="legend"></div>
   <div class="panel">
@@ -394,8 +394,8 @@
   <h2 id="synthetic">合成路径：没有优势的对照组</h2>
   <p>
     <code>gbm</code> 用一步的<b>精确解</b> <code>S·exp((μ − σ²/2)dt + σ√dt·Z)</code>，不是欧拉近似，所以对数收益严格服从均值 <code>(μ − σ²/2)dt</code>、标准差 <code>σ√dt</code> 的正态分布；
-    <code>μ = 0</code> 时价格期望不变。每个正态随机数由 Box–Muller 从两个均匀数得到，均匀数来自 SplitMix64 对 <code>(seed ⊕ salt, row, col)</code> 的三次链式混合——链式而不是异或，
-    所以 <code>(row, col)</code> 和 <code>(col, row)</code> 不会撞。
+    <code>μ = 0</code> 时价格期望不变。每个正态随机数由 Box–Muller 从两个均匀数得到，均匀数来自 phasor-core 的 <a href="phasor-core.html#random"><code>random::bits</code></a>，即 SplitMix64 对 <code>(seed ⊕ salt, row, col)</code> 的三次链式混合——链式而不是异或，
+    所以 <code>(row, col)</code> 和 <code>(col, row)</code> 不会撞。再用 <code>to_unit_nonzero</code> 映射到 <code>(0, 1]</code>：永远不是 0，<code>ln</code> 有限。
   </p>
   <div class="panel">
     <div class="cap">gbm / random_walk，JS 移植（SplitMix64 用 BigInt 精确实现；Math.log / cos / exp 与 Rust 的 libm 可能差一个 ulp）</div>
@@ -471,7 +471,7 @@
         <tr><td class="mono">crates/phasor-generic/src/lib.rs</td><td>三个贯穿全局的决定（minp、NaN 缩小窗口、前瞻要标注）；再导出常用函数。</td></tr>
         <tr><td class="mono">src/rolling.rs</td><td>resolve_minp（:34）、rolling_apply_1d（:71）、rolling_mean_1d（:107）、rolling_std_1d（:151）、rolling_extremum_1d（:221）、expanding_*、ewm_mean_1d（:329）、ewm_std_1d（:395）、矩阵包装宏；含不融合乘加的位级测试。</td></tr>
         <tr><td class="mono">src/elementwise.rs</td><td>fshift / bshift / diff / pct_change / ffill / bfill / fillna、crossed_above_1d / crossed_below_1d 与矩阵版本。</td></tr>
-        <tr><td class="mono">src/synthetic.rs</td><td>SplitMix64、bits、uniform、Box–Muller normal、random_walk、gbm、ohlc_from_close 与性质测试。</td></tr>
+        <tr><td class="mono">src/synthetic.rs</td><td>四个 salt（:33–36）、uniform（:42，调 phasor_core::random 的 bits 和 to_unit_nonzero）、Box–Muller normal（:47）、random_walk（:94）、gbm（:131）、ohlc_from_close（:184），性质测试和按位固定输出的测试。</td></tr>
         <tr><td class="mono">tests/parity_generic.rs · tests/fixtures/generic.tsv</td><td>与 vectorbt 的差分测试；fixture 由 tests/parity/generate_generic.py 生成。</td></tr>
         <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §2.3、§5.5、§14.3–14.4</td><td>crate 职责、因子计算核心如何复用滚动窗口、一致性与变异测试。</td></tr>
       </tbody>
@@ -655,7 +655,7 @@ function crossedAbove(a, b, wait, trace) {
   return out;
 }
 
-/* ---------------- synthetic.rs (ported) ---------------- */
+/* ---------------- synthetic.rs and phasor-core's random.rs (ported) ---------------- */
 const M64 = 0xFFFFFFFFFFFFFFFFn;
 function splitmix64(x) {
   let z = (x + 0x9E3779B97F4A7C15n) & M64;
@@ -773,7 +773,7 @@ function buildGraph() {
     depSvg.appendChild(g);
     gnodes.push({ id, kind, rect });
   };
-  addNode("phasor-core", "up", "phasor-core", "matrix::Matrix · error");
+  addNode("phasor-core", "up", "phasor-core", "Matrix · error · random");
   for (const m of MODULES) addNode(m.id, "mod", m.id, m.sub);
   for (const d of DOWN) addNode(d.id, "down", d.id, d.sub);
   depSvg.addEventListener("mouseleave", () => { if (pinned) return; showDetail(null); applyFocus(null); });
@@ -788,7 +788,7 @@ function showDetail(focus) {
     detail.innerHTML = `<h3>${m.id}</h3><p class="muted" style="margin:0 0 6px">${m.blurb}</p><p class="small" style="margin:0">调用它的 crate（不计门面的再导出）：${users.join("、") || "无"}</p>`;
     return;
   }
-  if (focus.kind === "up") { detail.innerHTML = `<h3>phasor-core</h3><p class="muted" style="margin:0">rolling.rs 与 elementwise.rs 的矩阵版本输入输出都是 Matrix（逐列调用一维版本）；所有参数错误是 Error::Invariant，crossed_above 形状不符时返回 Error::Broadcast。不用容差函数：窗口算术要和参考实现逐位一致，比较都是精确的。</p>`; return; }
+  if (focus.kind === "up") { detail.innerHTML = `<h3>phasor-core</h3><p class="muted" style="margin:0">rolling.rs 与 elementwise.rs 的矩阵版本输入输出都是 Matrix（逐列调用一维版本）；所有参数错误是 Error::Invariant，crossed_above 形状不符时返回 Error::Broadcast。synthetic.rs 的随机数来自 random::bits 和 to_unit_nonzero。不用容差函数：窗口算术要和参考实现逐位一致，比较都是精确的。</p>`; return; }
   const d = DOWN.find((x) => x.id === focus.id);
   detail.innerHTML = `<h3>${d.id}</h3><p class="muted" style="margin:0">${d.role}</p><div class="uses">${d.uses.map(chip).join("")}</div>`;
 }

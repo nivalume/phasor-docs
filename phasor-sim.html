@@ -468,7 +468,7 @@
         <tr><td class="mono">src/from_signals.rs</td><td>FromSignals 与默认值、stop_price（:276）、should_update_stop、Stops、read_signals、prepare_order（:502，价格 → 止损 → 信号 → 冲突 → 数量）、simulate_group（:707，按有没有现金流选一份 group_loop）、group_loop（:731，执行与重新布置止损）。</td></tr>
         <tr><td class="mono">src/signals.rs</td><td>Signals、from_direction_mode、from_stop、resolve_signal_conflict、resolve_dir_conflict、resolve_opposite_entry、signals_to_size。</td></tr>
         <tr><td class="mono">src/groups.rs</td><td>Groups（ungrouped、from_lens、range、chunks）、CallSeq（Default / Auto / Explicit）、approx_order_value、insert_argsort。</td></tr>
-        <tr><td class="mono">src/cash.rs · src/random.rs</td><td>all_off（:47，三项全关时循环走不含现金流代码的那一份）、开盘的入金与分红、收盘的收益（负数封顶于可用现金）；SplitMix64 的 uniform(seed, row, col)。</td></tr>
+        <tr><td class="mono">src/cash.rs · src/random.rs</td><td>all_off（:47，三项全关时循环走不含现金流代码的那一份）、开盘的入金与分红、收盘的收益（负数封顶于可用现金）；uniform(seed, row, col)：包一层不内联的函数，调 phasor_core::random::uniform。</td></tr>
         <tr><td class="mono">tests/*.rs · examples/bench.rs · examples/scaling.rs</td><td>四份差分测试与订单控制测试；对比 vectorbt 的基准（<code>--once NAME</code> 只跑一个 workload 一次，供 <code>benchmarks/instructions.py</code> 数指令）与线程扩展。</td></tr>
         <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §8、§11.2、§15.1</td><td>模拟循环、并行、性能。</td></tr>
       </tbody>
@@ -1065,10 +1065,10 @@ const MODULES = [
   { id: "signals", sub: "五个纯函数", blurb: "from_stop、三种冲突解决、signals_to_size；单独对参考实现穷举测试。" },
   { id: "groups", sub: "Groups · CallSeq · chunks", blurb: "账户组的布局、组内调用顺序（先卖后买）、按列数均分线程块。" },
   { id: "cash", sub: "入金 · 分红 · 收益（私有）", blurb: "开盘的入金与分红、收盘的收益，写成 CashRecords；负数封顶于可用现金。" },
-  { id: "random", sub: "uniform(seed,row,col)（私有）", blurb: "随机拒单用的 SplitMix64 抽样，是 (seed, row, col) 的纯函数，与线程数无关。" },
+  { id: "random", sub: "uniform(seed,row,col)（私有包装）", blurb: "随机拒单用的数：一层 #[inline(never)] 的包装，调 phasor_core::random::uniform（SplitMix64），是 (seed, row, col) 的纯函数，与线程数无关。自定义循环直接调 phasor-core 的那个，拒掉的单相同。" },
 ];
 const UP = [
-  { id: "phasor-core", sub: "FlexArray · math · Error", mods: ["from_orders", "from_signals", "signals", "cash"], role: "所有参数都是 FlexArray（count_where 不展开地数单元）；signals_to_size 用 is_less 判断负数量；错误是 Invariant。" },
+  { id: "phasor-core", sub: "FlexArray · math · random · Error", mods: ["from_orders", "from_signals", "signals", "cash", "random"], role: "所有参数都是 FlexArray（count_where 不展开地数单元）；signals_to_size 用 is_less 判断负数量；random.rs 调 random::uniform 给 reject_prob 取数；错误是 Invariant。" },
   { id: "phasor-exec", sub: "execute_validated · ValidatedOrder", mods: ["from_orders", "from_signals"], role: "每列构建一次 ValidatedOrder（from_signals 另建一个无滑点的给 StopLimit 用），每根 K 线 set_bar 后调用 execute_validated。" },
   { id: "phasor-model", sub: "撮合与信号枚举", mods: ["from_signals", "signals", "groups"], role: "AccumulationMode、ConflictMode、DirectionConflictMode、OppositeEntryMode、四个 Stop* 枚举、SizeType、Direction、StatusInfo::describe。" },
   { id: "phasor-records", sub: "RecordSink · LogEntry · Journal", mods: ["from_orders", "from_signals", "cash"], role: "循环对 SinkBuffer 泛型：OrderRecords 丢弃日志，Journal 保留；push_order / push_log / 现金记录。" },
