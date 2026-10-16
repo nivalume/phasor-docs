@@ -291,7 +291,7 @@
     <li><b>先定状态和结果的形状。</b>状态 = 现金、有符号仓位、负债、可用现金；结果 = 成交量、成交价、手续费、方向、状态、原因。拒绝时原样返回状态。</li>
     <li><b>先置零，再比较。</b>进入内核的每个余额先用容差吸附到精确的 0，否则平掉的仓位“还开着”，可负担判断会抖动。</li>
     <li><b>忽略先于校验。</b>NaN 数量 / 价格表示“这根没有信号”，即使状态非法也应当被忽略——这是参考实现的行为，也决定了后面能不能把校验提到循环外。</li>
-    <li><b>校验只报不变量。</b>负现金、非有限仓位、非正价格、参数越界 → 错误；其余一律走正常结果。</li>
+    <li><b>校验只报不变量。</b>负现金、非有限仓位、非正价格（没有 <code>allow_negative_price</code> 时）、参数越界 → 错误；其余一律走正常结果。</li>
     <li><b>换算链归一数量。</b>TargetPercent → TargetValue → TargetAmount / Amount，−∞ → Percent(−1)，Percent → ±∞ 加比例；按符号分派。</li>
     <li><b>买和卖各写一次，手续费包含在上限内。</b>买不起时反解名义金额，有交易单位时<b>再取整一次</b>；做空时同步更新负债和保证金。</li>
     <li><b>随机拒单把随机数当参数。</b>调用方用 <code>(seed, row, col)</code> 生成；概率为 0 时根本不生成。</li>
@@ -339,7 +339,7 @@
     随机拒单在买卖之前（被拒的订单不会碰到只有无穷大请求才会触发的两个错误）。
   </p>
   <div class="panel">
-    <div class="cap">kernel.rs:559–701。灰色出口 = Ignored，红色 = Rejected，紫色 = Err</div>
+    <div class="cap">kernel.rs:1194–1356。灰色出口 = Ignored，红色 = Rejected，紫色 = Err</div>
     <div class="body">
       <svg width="1040" height="300" viewBox="0 0 1040 300" role="img" aria-label="execute_validated 流程">
         <defs>
@@ -350,8 +350,24 @@
         <g font-size="11" id="flow-g"></g>
       </svg>
     </div>
-    <div class="foot"><p class="small" style="margin:0">买卖两条腿内部还会产生拒绝：买入的 NoCashLong、CantCoverFees、MaxSizeExceeded、MinSizeNotReached、PartialFill，卖出另有 NoCashShort、NoOpenPosition；两条腿各有一个“无限做多 / 无限做空”的错误。</p></div>
+    <div class="foot"><p class="small" style="margin:0">买卖两条腿内部还会产生拒绝：买入的 NoCashLong、CantCoverFees、MaxSizeExceeded、MinSizeNotReached、PartialFill，卖出另有 NoCashShort、NoOpenPosition；两条腿各有一个“无限做多 / 无限做空”的错误。分派先看账户类型：保证金列进 <code>margin_trade</code>，现金列价格 ≤ 0 进 <code>signed_price_trade</code>（见下），其余 size &gt; 0 买、否则卖。</p></div>
   </div>
+
+  <h3 id="negative">价格 ≤ 0：allow_negative_price</h3>
+  <p>
+    期货的价格可以跌到 0 以下（2020 年 4 月的 WTI）。<code>Order.allow_negative_price</code> 默认关，这时 <code>validate_bar</code> 照参考实现把不是正有限数的价格当作坏输入（<code>Err</code>）。
+    打开后，有限的 0 和负价格也是价格。分派在换算链和随机拒单之后：保证金列照常进 <code>margin_trade</code>，现金列价格 ≤ 0 进 <code>signed_price_trade</code>，其余仍是 buy / sell，所以价格为正的订单逐位不变。
+  </p>
+  <div class="wrap types">
+    <table>
+      <thead><tr><th>腿</th><th>价格 ≤ 0 时怎么算</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">signed_price_trade</td><td>现金列，<code>#[cold]</code>、不内联。只按单位下单：百分比或无穷大的数量、杠杆大于 1 都是 <code>Err</code>。可以买入，可以卖出持有的部分（LongOnly 卖得比持仓多时只卖持仓）；会开空或平空的订单是 <code>Err</code>，ShortOnly 或没有多头时的卖出被拒（NoOpenPosition）。max_size、size_granularity、min_size 照常。成交价是 <code>against(price, buying, slippage)</code>：价格 ± |价格| × 滑点，总是对交易不利；手续费 = 数量 × |成交价| × fees + fixed_fees。买入的成本或卖出的负所得加上手续费，大于 0 时不能超过 min(free_cash, cash_limit)，否则买入拒为 NoCashLong、卖出拒为 CantCoverFees。现金和可用现金一起变，debt、locked_cash 不变。</td></tr>
+        <tr><td class="mono">margin_trade</td><td>保证金列多空都可以。价格为正时成交价的算法不变；价格 ≤ 0 时用 <code>against</code>。手续费和保证金按成交价的绝对值算。持仓成本（debt）可以小于 0，所以 <code>balance_violation</code> 对允许负价格的保证金列接受负的 debt。</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small">phasor-sim 把运行的 <code>allow_negative_price</code> 抄进每个订单，结束时写进 <code>OrderRecords</code>；交易视图只在这个标志打开时接受 ≤ 0 的成交价，收益按入场价值的绝对值算（见 <a href="phasor-records.html#views">phasor-records</a>）。百分比止损距离、持仓费和强平仍按正价格设计。</p>
 
   <!-- ============================================================ -->
   <h2 id="cascade">数量换算链</h2>
@@ -360,7 +376,7 @@
     负无穷的 Amount 有特殊含义——“用 100% 的资源做空”——被改写成 <code>Percent(−1)</code>；Percent 最终变成“带比例的 ±∞”，由买卖腿按现金或可卖数量截断。
   </p>
   <div class="panel">
-    <div class="cap">kernel.rs:610–677。在下面的模拟器里改 size_type，可以在执行轨迹里看到每一步的改写</div>
+    <div class="cap">kernel.rs:1249–1326。在下面的模拟器里改 size_type，可以在执行轨迹里看到每一步的改写</div>
     <div class="body">
       <svg width="1040" height="220" viewBox="0 0 1040 220" role="img" aria-label="数量换算链">
         <defs>
@@ -595,6 +611,7 @@
           <text x="330" y="262" fill="#909090">→ Result&lt;(ExecuteOrderState, OrderResult)&gt;</text>
           <text x="330" y="292" fill="#666666">私有：buy  sell  validate_bar  param_violation</text>
           <text x="330" y="308" fill="#666666">      sign（numpy 语义）  floor_to</text>
+          <text x="330" y="324" fill="#666666">      margin_trade  signed_price_trade  against</text>
 
           <!-- states -->
           <rect x="756" y="16" width="268" height="118" rx="6" fill="#262626" stroke="#3a7afe"/>
@@ -683,8 +700,9 @@
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
         <tr><td class="mono">crates/phasor-exec/src/lib.rs</td><td>两种失败、确定性、两套 fixture 的说明；再导出内核函数、四个类型和五个 phasor-model 枚举。</td></tr>
-        <tr><td class="mono">src/types.rs</td><td>ExecuteOrderState（debt / free_cash 的含义）、ProcessOrderState（flat）、Order 及其 Default、OrderResult。</td></tr>
-        <tr><td class="mono">src/kernel.rs</td><td>sign / floor_to；buy（:48）、sell（:228）；validate_bar（:388）、param_violation（:427）；ValidatedOrder（:476）；execute_order（:542）、execute_validated（:559，换算链 :610–677）；单元测试。之后：percent_spelling，不内联的冷函数，换算链在 TargetPercent 之前用一次比较把 ValuePercent 和三种 *100 写法交给它。</td></tr>
+        <tr><td colspan="2" class="small">行号对应 6aa71f9。</td></tr>
+        <tr><td class="mono">src/types.rs</td><td>ExecuteOrderState（debt / free_cash 的含义）、ProcessOrderState（flat）、Order 及其 Default（含 allow_negative_price，默认 false）、OrderResult。</td></tr>
+        <tr><td class="mono">src/kernel.rs</td><td>sign / floor_to；locked_cash_limit（:49）、buy（:93）、levered_buy_cost（:290）；sell_size_limit（:352）、repay_long（:414）、sell（:433）；unit_margin（:578）、margin_trade（:613）；against（:796）、signed_price_trade（:813）；validate_bar（:924）、balance_violation（:968）、param_violation（:996）；ValidatedOrder（:1058，in_levered_account :1087）；execute_order（:1143）；percent_spelling（:1156，不内联的冷函数，换算链在 TargetPercent 之前用一次比较把 ValuePercent 和三种 *100 写法交给它）；execute_validated（:1194，换算链 :1249–1326）；单元测试。</td></tr>
         <tr><td class="mono">tests/parity.rs · tests/parity_sequence.rs</td><td>单次与链式的差分测试；tests/common/mod.rs 是 fixture 读取与 agree。</td></tr>
         <tr><td class="mono">tests/fixtures/execute_order.tsv · order_sequence.tsv</td><td>参考实现的输出，由 tests/parity/generate_execute_order.py、generate_order_sequence.py 生成。</td></tr>
         <tr><td class="mono">docs/plan.md 2.2</td><td>订单与仓位：已有和还缺的功能。</td></tr>
@@ -1075,7 +1093,7 @@ function buildFlow() {
     ["draw 检查", "reject_prob > 0 却没给 draw"],
     ["换算链", "→ Amount / ±∞ + percent"],
     ["随机拒单", "draw < reject_prob"],
-    ["分派", "size > 0 买，否则卖"],
+    ["分派", "保证金 · 价格≤0 · 买 / 卖"],
   ];
   const exits = [null, ["Ignored", "SizeNaN · PriceNaN", "#8a8a8a"], ["Err", "Invariant(...)", "#b07cd8"], ["Err", "Invariant(...)", "#b07cd8"], ["Err", "Invariant(...)", "#b07cd8"], ["Ignored / Rejected / Err", "Value* · ValPriceNaN", "#d35d5d"], ["Rejected", "RandomEvent", "#d35d5d"], null];
   const w = 118, gap = 10;

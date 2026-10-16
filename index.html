@@ -516,7 +516,7 @@
     </a>
     <a class="card" href="phasor-sim.html">
       <span class="lvl">L3 · 第 4 层</span><strong>phasor-sim</strong>
-      <span class="d">两条模拟循环。时间方向不能并行、共享资金把列变成组、先卖后买、止损替换信号；可以设定持仓和各种模式的信号管线、用 fixture 情形逐根重放的止损与 from_orders 实验台、两种调用顺序对照、按组切线程块。</span>
+      <span class="d">两条模拟循环。时间方向不能并行、共享资金把列变成组、先卖后买、止损替换信号；可以设定持仓和各种模式的信号管线、用 fixture 情形逐根重放的止损与 from_orders 实验台、两种调用顺序对照、按组切线程块；回调在一根 K 线里的位置和 row_wise。</span>
     </a>
     <a class="card" href="phasor-analysis.html">
       <span class="lvl">L3 · 第 5 层</span><strong>phasor-analysis</strong>
@@ -524,7 +524,7 @@
     </a>
     <a class="card" href="phasor-py.html">
       <span class="lvl">L3 · 第 6 层</span><strong>phasor-py</strong>
-      <span class="d">Python 包。内存序为什么要靠 stride 拒绝、借用怎么跨过 FFI；110 格实测的参数路由表（10 类参数 × 11 种传法 × 两层）、调用生命周期与 GIL、扫描布局与 signal_delay、字符串枚举、交叉验证切分器。</span>
+      <span class="d">Python 包。内存序为什么要靠 stride 拒绝、借用怎么跨过 FFI；110 格实测的参数路由表（10 类参数 × 11 种传法 × 两层）、调用生命周期与 GIL、Python 回调（from_order_func、signal_func）、扫描布局与 signal_delay、字符串枚举、交叉验证切分器、期货与外汇的辅助模块。</span>
     </a>
     <a class="card" href="phasor.html">
       <span class="lvl">L3 · 第 6 层</span><strong>phasor（门面）</strong>
@@ -545,10 +545,10 @@ const CRATES = {
   "phasor-expr": { layer: 2, x: 660, loc: 4089, deps: ["phasor-core", "phasor-generic", "phasor-model"], desc: "表达式解析、图编译、原生与 Polars 后端、Alpha158/360", arch: "2.10", page: "phasor-expr.html" },
   "phasor-indicators": { layer: 2, x: 890, loc: 1188, deps: ["phasor-core", "phasor-generic"], desc: "MA、MSTD、BBANDS、RSI、STOCH、MACD、ATR、OBV 及参数扫描", arch: "2.10", page: "phasor-indicators.html" },
   "phasor-records": { layer: 3, x: 400, loc: 4032, deps: ["phasor-core", "phasor-exec", "phasor-model"], desc: "记录格式、sink、成交、回撤、mapped array", arch: "2.12", page: "phasor-records.html" },
-  "phasor-sim": { layer: 4, x: 470, loc: 4258, deps: ["phasor-core", "phasor-exec", "phasor-model", "phasor-records"], desc: "from_orders / from_signals 循环、止损止盈、分组、并行执行", arch: "2.1–2.7", page: "phasor-sim.html" },
+  "phasor-sim": { layer: 4, x: 470, loc: 4258, deps: ["phasor-core", "phasor-exec", "phasor-model", "phasor-records"], desc: "from_orders / from_signals 循环、回调、止损止盈、分组、并行执行", arch: "2.1–2.7", page: "phasor-sim.html" },
   "phasor-analysis": { layer: 5, x: 610, loc: 5584, deps: ["phasor-core", "phasor-generic", "phasor-model", "phasor-records", "phasor-sim"], desc: "Portfolio、净值 / 收益链、指标、统计、汇总", arch: "2.12", page: "phasor-analysis.html" },
   "phasor": { layer: 6, x: 470, loc: 364, deps: ["phasor-data", "phasor-analysis", "phasor-core", "phasor-exec", "phasor-generic", "phasor-indicators", "phasor-expr", "phasor-model", "phasor-records", "phasor-signals", "phasor-sim"], optional: ["phasor-data"], desc: "门面、prelude、SignalSweep；data feature 引入 phasor-data", arch: "—", page: "phasor.html" },
-  "phasor-py": { layer: 6, x: 770, loc: 2369, deps: ["phasor-data", "phasor-analysis", "phasor-core", "phasor-expr", "phasor-generic", "phasor-model", "phasor-records", "phasor-sim"], desc: "PyO3 扩展 phasor._phasor + Python 包 phasor", arch: "全部", page: "phasor-py.html" },
+  "phasor-py": { layer: 6, x: 770, loc: 2369, deps: ["phasor-data", "phasor-analysis", "phasor-core", "phasor-exec", "phasor-expr", "phasor-generic", "phasor-model", "phasor-records", "phasor-sim"], desc: "PyO3 扩展 phasor._phasor + Python 包 phasor", arch: "全部", page: "phasor-py.html" },
 };
 const LAYER_NAMES = ["地基", "领域与数组", "内核与数据", "记录", "模拟", "分析", "门面"];
 const LAYER_COLORS = ["#5ea0ff", "#2fbfa8", "#e07a3d", "#c9a227", "#d35d5d", "#b07cd8", "#8a8a8a"];

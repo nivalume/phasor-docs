@@ -292,7 +292,7 @@
   </div>
   <div class="grid3">
     <article class="card"><h3>累加用 math::add</h3><p>同一根 K 线上可能有多笔成交，所以 asset_flow / cash_flow 是累加而不是赋值；用容差加法，一根 K 线里的一来一回留下的是精确的 0，而不是 1e-16 的“仓位”。</p></article>
-    <article class="card"><h3>free_cash 也能从记录重放</h3><p><code>free_cash_flow</code> 从成交序列重放内核的 debt 账本（开空冻结 2 × 空头价值、平空按均价释放），所以总敞口 <code>|资产值| / (|资产值| + free_cash)</code> 也不需要从模拟里带出状态。多头列上 cash 与 free_cash 完全相同，所以这个差别要靠做空的 fixture 才能抓住。</p></article>
+    <article class="card"><h3>free_cash 也能从记录重放</h3><p><code>free_cash_flow</code> 从成交序列重放内核的 debt 账本（开空冻结 2 × 空头价值、平空按均价释放），所以总敞口 <code>|资产值| / (|资产值| + free_cash)</code> 也不需要从模拟里带出状态。多头列上 cash 与 free_cash 完全相同，所以这个差别要靠做空的 fixture 才能抓住。逐仓列的资金费和隔夜融资从它自己的保证金付，不动可用现金：<code>isolated_charges</code> 按行收集这些记录，重放时从占用里扣，入账时跳过。</p></article>
     <article class="card"><h3>多空分开计</h3><p>一次穿过零的反手不是一步，而是两步：旧方向平掉、新方向开出。<code>long_size / short_size</code> 把它拆开，所以“多头敞口变了多少”在反手的 K 线上也有答案。</p></article>
   </div>
 
@@ -415,7 +415,8 @@
     <article class="card"><h3>tests/parity_metrics.rs · metrics.tsv</h3><p>2,047 行：18 个标量指标的各种参数（年化因子、无风险利率、要求收益、截断、ddof），以及每个指标的滚动形式（各 20 行）。空序列、单根、含 NaN、含无穷、全正、全负、常数……这个页面的移植 5,287 个值逐位相同。</p></article>
     <article class="card"><h3>tests/parity_analysis.rs · analysis.tsv</h3><p>37 个端到端情形：买入持有、做空往返、带成本、目标百分比、两列一列空闲、24 个随机扫描。检查净值、收益、8 个收益指标和交易统计（交易数、胜率、盈亏比、期望、总盈亏）。本页复现前三项；交易统计需要 phasor-records 的交易视图，本页没有移植。</p></article>
     <article class="card"><h3>tests/parity_stats.rs · stats.tsv</h3><p>9 种情形 × 8 个参数组合的整张 stats 表（标题和数值），包括 “never traded”、“flat price”、“still holding”。</p></article>
-    <article class="card"><h3>其他测试</h3><p><code>cash_flows.rs</code>（入金不是收益、出金封顶于可用现金）、<code>exposure.rs</code>（空头的总敞口）、<code>shared_accounts.rs</code>（共享资金分组）、<code>leverage.rs</code> 和 <code>margin.rs</code>（借钱的多头、保证金列的权益和可用现金）、<code>holding.rs</code> 和 <code>liquidation.rs</code>（持仓费、强平、穿仓核销、逐仓的可用现金；两份各有一个性质测试，逐根检查重建出的权益等于模拟循环里的权益）、<code>multiplier.rs</code>（乘数为 k 的运行等于数量放大 k 倍的运行，两个循环都测）。变异矩阵记录 analysis 43/47，存活的几个在各自的模块注释里论证为等价（例如 Sharpe 的 len &lt; 2 护栏）。</p></article>
+    <article class="card"><h3>tests/parity_nautilus.rs · nautilus_margin.tsv</h3><p>vectorbt 没有保证金账户，所以保证金列对照 NautilusTrader 1.231.0 的 <code>MarginAccount</code>：线性永续（测试套件里的 BTCUSDT-PERP，taker 费率 0.018%），按随机计划下市价单（含反手），4 组共 500 根 K 线、176 笔成交。fixture 里每根是那根的成交（Nautilus 在 on_bar 之后按收盘价撮合）和下单前的权益。phasor 在一个保证金列上按同样的数量、价格和费率重放：每笔手续费一致，每根重建出的净值加上那根的手续费等于 Nautilus 的权益（Nautilus 把金额舍入到 8 位小数，所以净值容差 1e-6、手续费 1e-7）。生成器 <code>tests/parity/generate_nautilus_margin.py</code>，不能为了让改动通过而重新生成。</p></article>
+    <article class="card"><h3>其他测试</h3><p><code>cash_flows.rs</code>（入金不是收益、出金封顶于可用现金）、<code>exposure.rs</code>（空头的总敞口）、<code>shared_accounts.rs</code>（共享资金分组）、<code>leverage.rs</code> 和 <code>margin.rs</code>（借钱的多头、保证金列的权益和可用现金）、<code>holding.rs</code> 和 <code>liquidation.rs</code>（持仓费、强平、穿仓核销、逐仓的可用现金；两份各有一个性质测试，逐根检查重建出的权益等于模拟循环里的权益；liquidation.rs 还覆盖部分、分档和现金列的强平，并对照循环的日志检查逐仓列重建出的可用现金）、<code>multiplier.rs</code>（乘数为 k 的运行等于数量放大 k 倍的运行，两个循环都测）。变异矩阵记录 analysis 43/47，存活的几个在各自的模块注释里论证为等价（例如 Sharpe 的 len &lt; 2 护栏）。</p></article>
   </div>
 
   <!-- ============================================================ -->
@@ -424,7 +425,7 @@
 
   <h2 id="rules">不能绕开的规则</h2>
   <div class="grid2">
-    <article class="card"><h3>改变现金或仓位的必须是记录</h3><p>分析层只从记录重建。一个只改了模拟状态、没有写记录的现金流（利息、分红、资金费），在这里就不存在——净值会悄悄错。入金、收益、分红、四种持仓费和强平核销都走 <code>CashRecords</code>，强平本身是一笔成交；所以这一层不用为它们改代码，<code>cash_flow_by_kind</code> 只是按种类把它们摆成矩阵。除了入金，每种都算收益。</p></article>
+    <article class="card"><h3>改变现金或仓位的必须是记录</h3><p>分析层只从记录重建。一个只改了模拟状态、没有写记录的现金流（利息、分红、资金费），在这里就不存在——净值会悄悄错。入金、收益、分红、四种持仓费、强平核销和初始持仓的成本都走 <code>CashRecords</code>，强平本身是一笔成交；所以这一层不用为它们改代码，<code>cash_flow_by_kind</code> 只是按种类把它们摆成矩阵。除了入金和初始持仓的成本（<code>is_deposit</code>，<code>deposits</code> 按它取），每种都算收益。</p></article>
     <article class="card"><h3>排名之前先屏蔽</h3><p>从未交易的列夏普是 +∞，会成为 <code>best_column</code>。这一层故意不替你丢掉它；调用方要说清楚在排什么：把不满足前提（例如 0 笔交易）的列设成 NaN。<code>examples/sweep.py</code> 和 <code>crates/phasor/tests/sweep.rs</code> 固定了两种结果。</p></article>
     <article class="card"><h3>拼写也是语义</h3><p>百分位必须写成 <code>lower·(1 − m) + upper·m</code>（Numba 的写法），不是教科书的 <code>lower + m·(upper − lower)</code>；最后一位的差别正是 fixture 抓到的。冗余的护栏（Sharpe 的 len &lt; 2）也保留，因为参考实现有，而且读者看不出哪个有用——注释说明了哪个有用。</p></article>
     <article class="card"><h3>基准按列，不按扫描</h3><p>列 c 的基准是“该列标的”的买入持有收益，基准数组要和标的一样 tile。把一个标的的基准用于所有列是这一层检测不到的错误。<code>fixtures/*.tsv</code> 不能为了让改动通过而重新生成。</p></article>
@@ -435,14 +436,14 @@
     <table>
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
-        <tr><td colspan="2" class="small">行号对应 2d3df32（知识库迁出时的提交）；之后新增的条目只写符号名。</td></tr>
+        <tr><td colspan="2" class="small">行号对应 6aa71f9；其余条目只写符号名。</td></tr>
         <tr><td class="mono">crates/phasor-analysis/src/lib.rs</td><td>“与层无关”“按层汇总是主要功能”“惰性重建”；Status 一节（已过时，见上）。</td></tr>
-        <tr><td class="mono">src/series.rs</td><td>asset_flow（:74）、assets、cash_flow、deposits、free_cash_flow（:191）、gross_exposure、cash、asset_value、value、period_return（:323）、returns、returns_with_deposits、compounded_value、returns_from_orders；之后加了 levered_free_cash_flow（带余额的运行按记录里的 debt、locked_cash 算占用）和 cash_flow_by_kind（某一种现金流的矩阵）；再后来加了 multipliers（每列的合约乘数，从成交记录读，全为 1 时是 None），cash_flow 和 asset_value 按它乘。</td></tr>
+        <tr><td class="mono">src/series.rs</td><td>asset_flow（:74）、assets、multipliers（:132，每列的合约乘数，从成交记录读，全为 1 时是 None；cash_flow 和 asset_value 按它乘）、cash_flow、deposits、cash_flow_by_kind（:202，某一种现金流的矩阵）、free_cash_flow（:251）、is_holding_charge 与 isolated_charges（:327，逐仓列的资金费和隔夜融资）、levered_free_cash_flow（:354，带余额的运行按记录里的 debt、locked_cash 算占用）、gross_exposure、cash、asset_value、value、period_return（:481）、returns、returns_with_deposits、compounded_value、returns_from_orders。</td></tr>
         <tr><td class="mono">src/metrics.rs · benchmark.rs · percentile.rs · rolling.rs</td><td>标量收益指标（DAILY = 365、VAR_CUTOFF = 0.05）；相对基准的指标；Numba 拼写的百分位；每个指标的滚动形式（经 rolling_apply_1d）。</td></tr>
         <tr><td class="mono">src/robust.rs</td><td>erfc、norm_cdf、norm_ppf（Acklam + 一步 Halley）、probabilistic_sharpe、expected_max_sharpe、deflated_sharpe、pbo_cscv（MAX_PBO_SPLITS = 16）。</td></tr>
         <tr><td class="mono">src/aggregate.rs · trade_stats.rs · events.rs</td><td>Reduce、group_by、best_column、argmax / argmin；按列的交易统计（持平的交易既不算赢也不算输）；事件研究（读未来，只用于决定要不要模拟）。</td></tr>
         <tr><td class="mono">src/stats.rs · portfolio.rs</td><td>Value、Tag、StatsInput、Metric、Select、stats、默认与基准注册表；Scoring、Cache、Portfolio。Portfolio::free_cash 对全仓保证金列加回 position × close × 合约乘数，对逐仓列加回最后一笔成交记下的成本（盈亏不算可用现金）；cash_flow_by_kind。</td></tr>
-        <tr><td class="mono">tests/*.rs · tests/fixtures/{metrics,analysis,stats}.tsv</td><td>三份差分测试，以及现金流、敞口、共享账户测试。</td></tr>
+        <tr><td class="mono">tests/*.rs · tests/fixtures/{metrics,analysis,stats,nautilus_margin}.tsv</td><td>三份对 vectorbt 的差分测试和一份对 NautilusTrader 的保证金对照（parity_nautilus.rs），以及现金流、敞口、共享账户、强平等测试。</td></tr>
         <tr><td class="mono">docs/plan.md 2.12</td><td>组合分析：已有和还缺的功能。</td></tr>
       </tbody>
     </table>

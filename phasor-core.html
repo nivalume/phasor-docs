@@ -361,7 +361,7 @@
     把鼠标移到左边任一格，右边高亮被读到的那个元素，并给出下标公式。
   </p>
   <div class="panel">
-    <div class="cap">FlexArray&lt;'a, T&gt;::get，JS 移植。get 是一次内联的 match，Scalar 不访问内存</div>
+    <div class="cap">FlexArray&lt;'a, T&gt;::get，JS 移植。get 是 <code>#[inline(always)]</code>：Scalar 在调用处直接返回，不访问内存；其余四种交给 get_array 的 match</div>
     <div class="body">
       <div class="seg" id="fx-kind"><span class="lbl">形状</span></div>
       <div class="flexrow">
@@ -386,6 +386,10 @@
       <div id="mem-bars"></div>
     </div>
     <div class="foot"><p class="small" style="margin:0">MappedColumns 就是 Python 里的 <code>column_map</code>：50 组参数 × 100 个标的是 5,000 个逻辑价格列，内存里只有 100 列价格加一个 5,000 长的 <code>usize</code> 映射表。</p></div>
+  </div>
+  <div class="note">
+    <b>为什么 Scalar 单独提前返回：</b>大多数运行的大多数参数是标量，模拟循环每根 K 线每列要读五个以上，函数调用本身比读值还贵。所以 <code>get</code> 标成 <code>#[inline(always)]</code>，
+    在调用处先判断 Scalar 直接返回，其余四种形状才调用 <code>get_array</code>（<code>#[inline]</code> 的 match）。它让 from_orders 功能全关时的指令数省回约 5%，抵掉了 phasor-sim 回调重构的开销（<code>docs/plan.md</code> 的性能记录）。
   </div>
   <div class="note">
     <b>为什么还要 <code>varies_by_row()</code>：</b>Scalar 和 PerColumn 沿行不变，调用方可以在进入一列的内循环之前读一次，然后在循环里复用；
@@ -650,12 +654,14 @@
     <table>
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
+        <tr><td colspan="2" class="small">行号对应 6aa71f9。</td></tr>
         <tr><td class="mono">crates/phasor-core/src/lib.rs</td><td>三个“承重”模块的说明；再导出 <code>Error</code>、<code>Result</code>。</td></tr>
-        <tr><td class="mono">src/math.rs</td><td>REL_TOL / ABS_TOL（:25、:32），is_close（:40），is_close_tol（:52），is_close_or_less（:72），is_less（:82），is_addition_zero（:94），add（:109），私有 sign；13 个测试。</td></tr>
-        <tr><td class="mono">src/flex.rs</td><td>FlexArray 五个变体（:29），get（:61），varies_by_row（:80），mapped / scalar / per_column / per_row / full 构造函数。</td></tr>
+        <tr><td class="mono">src/math.rs</td><td>REL_TOL / ABS_TOL（:25、:32），is_close（:40），is_close_tol（:52），is_close_or_less（:72），is_less（:82），is_addition_zero（:99），add（:114），私有 sign（:130）；13 个测试。</td></tr>
+        <tr><td class="mono">src/flex.rs</td><td>FlexArray 五个变体（:28），get（:60，<code>#[inline(always)]</code>，Scalar 直接返回），get_array（:72，其余四种的 match），varies_by_row（:91），mapped / scalar / per_column / per_row / full 构造函数。</td></tr>
         <tr><td class="mono">src/matrix.rs</td><td>Matrix（:18）与它的构造、按列访问、map_columns。</td></tr>
-        <tr><td class="mono">src/columns.rs</td><td>布局约定的说明；Label（:36）按位比较的 Eq / Hash；Level::repeat（:151）/ tile（:168）；Columns（:208）、group_indices（:305）、describe（:333）。</td></tr>
+        <tr><td class="mono">src/columns.rs</td><td>布局约定的说明；Label（:35）按位比较的 Eq / Hash；Level::repeat（:150）/ tile（:167）；Columns（:207）、group_indices（:304）、describe（:332）。</td></tr>
         <tr><td class="mono">src/error.rs</td><td>Result 别名、Error 五个变体与手写 Display。</td></tr>
+        <tr><td class="mono">src/random.rs</td><td>按键计算的随机数：mix（SplitMix64）、bits(seed, row, col, salt)、to_unit、to_unit_nonzero、uniform(seed, row, col)。phasor-sim 的 reject_prob 和 phasor-signals 的随机信号用 uniform，phasor-generic 的合成路径用 to_unit_nonzero。</td></tr>
       </tbody>
     </table>
   </div>

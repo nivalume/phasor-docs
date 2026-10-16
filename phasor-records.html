@@ -476,7 +476,7 @@
   <div class="grid2">
     <article class="card">
       <h3><span class="dot" style="background:var(--lib)"></span> lib.rs：成交记录与写入口</h3>
-      <p><code>OrderRecords</code> 是结构数组：<code>col、idx、size、price、fees、side</code> 六列，加一个内嵌的 <code>cash</code>。<code>id</code> 不存储，就是记录在合并后数组里的位置。<code>RecordSink</code> 是模拟循环写成交和现金流的接口，<code>SinkBuffer</code> 再加上 <code>with_capacity</code> 和 <code>merge</code>，让同一份线程代码同时服务普通运行和带日志的运行。</p>
+      <p><code>OrderRecords</code> 是结构数组：<code>col、idx、size、price、fees、side</code> 六列，加一个内嵌的 <code>cash</code>。<code>id</code> 不存储，就是记录在合并后数组里的位置。<code>RecordSink</code> 是模拟循环写成交和现金流的接口，<code>SinkBuffer</code> 再加上 <code>with_capacity</code> 和 <code>merge</code>，让同一份线程代码同时服务普通运行和带日志的运行；<code>records_mut</code> 让循环在结束时把运行的 <code>allow_negative_price</code> 写进成交记录。这个标志是整份记录一个，不是一列，<code>extend</code> 和 <code>concat</code> 取“或”。</p>
     </article>
     <article class="card">
       <h3><span class="dot" style="background:var(--cash)"></span> cash：不是成交的现金流</h3>
@@ -634,7 +634,7 @@
       <tr><td class="mono">multiplier</td><td colspan="2">这列的合约乘数：成交的现金流是 size × price × multiplier，price 仍是价格。<code>Balances::default()</code> 里是 1，这一列为空时 <code>multiplier_of(i)</code> 也返回 1</td></tr>
     </tbody>
   </table></div>
-  <p class="small">没有这些标记的手工记录按现金列、非强平处理，旧的记录不会出错。<code>CashRecords</code> 的 <code>kind</code> 现在有八种：入金、收益、分红、资金费、隔夜融资、利息、借券费、强平核销。</p>
+  <p class="small">没有这些标记的手工记录按现金列、非强平处理，旧的记录不会出错。<code>CashRecords</code> 的 <code>kind</code> 现在有九种：入金、收益、分红、资金费、隔夜融资、利息、借券费、强平核销、初始持仓。初始持仓（判别值 8）是现金列 <code>init_position</code> 按 <code>init_price</code> 的成本，记在第一根，抵掉开仓的那笔成交；<code>is_deposit</code> 把它和入金一样当作投入的资本，不算收益。</p>
 
   <h3>并行合并：每段拷进互不相交的区间</h3>
   <p>
@@ -694,7 +694,7 @@
     </div>
     <div class="foot">
       <p class="small" style="margin:0">
-        PnL = (出场价值 − 入场价值，空头取反) − 入场手续费 − 出场手续费；ret = PnL / 入场价值。差值用 <code>add</code> 而不是 <code>-</code>，所以同价往返恰好是 0。
+        PnL = (出场价值 − 入场价值，空头取反) − 入场手续费 − 出场手续费；ret = PnL / |入场价值|（入场价可以 ≤ 0 时，收益仍是相对成本的大小）。差值用 <code>add</code> 而不是 <code>-</code>，所以同价往返恰好是 0。
         持有长度：<b>已平仓按开区间</b> <code>exit − entry</code>，<b>未平仓按闭区间</b> <code>exit − entry + 1</code>。已平仓的出场那根 K 线属于下一段，未平仓的最后一根它仍然持有。
         “胜率”这里只是 <code>pnl &gt; 0</code> 的比例，用来演示三种视图的分歧，不是分析层的统计定义。
       </p>
@@ -921,8 +921,9 @@ journal.logs.reason_counts(col, n_cols)?
           <rect x="724" y="16" width="300" height="92" rx="6" fill="#262626" stroke="#3a7afe"/>
           <rect x="724" y="16" width="300" height="30" rx="6" fill="#1a2744"/><rect x="724" y="34" width="300" height="12" fill="#1a2744"/>
           <text x="736" y="36" fill="#9ec1ff">«trait» SinkBuffer: RecordSink + LogSink + Send</text>
-          <text x="736" y="66" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ with_capacity(capacity) -&gt; Self</text>
-          <text x="736" y="86" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ merge(parts: Vec&lt;Self&gt;) -&gt; Self</text>
+          <text x="736" y="62" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ with_capacity(capacity) -&gt; Self</text>
+          <text x="736" y="80" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ merge(parts: Vec&lt;Self&gt;) -&gt; Self</text>
+          <text x="736" y="98" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ records_mut() -&gt; &amp;mut OrderRecords</text>
 
           <!-- OrderRecords -->
           <rect x="16" y="176" width="300" height="196" rx="6" fill="#262626" stroke="#3a7afe"/>
@@ -932,8 +933,8 @@ journal.logs.reason_counts(col, n_cols)?
           <text x="28" y="242" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ size, price, fees: Vec&lt;f64&gt;</text>
           <text x="28" y="260" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ side: Vec&lt;i8&gt;</text>
           <text x="28" y="278" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ cash: CashRecords</text>
-          <text x="28" y="300" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ len / ids / extend</text>
-          <text x="28" y="318" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ sort_by_column()</text>
+          <text x="28" y="296" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ allow_negative_price: bool</text>
+          <text x="28" y="318" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ len / ids / extend · sort_by_column()</text>
           <text x="28" y="336" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ concat(&amp;[Self]) · PARALLEL_CONCAT</text>
           <text x="28" y="358" fill="#909090">impl RecordSink · LogSink（空）· SinkBuffer</text>
 
@@ -1002,7 +1003,7 @@ journal.logs.reason_counts(col, n_cols)?
         <text x="882" y="404" font-size="10" fill="#b8b8b8">push(&amp;LogEntry)</text>
       </svg>
     </div>
-    <div class="foot"><p class="small" style="margin:0">来源：<code>lib.rs:55</code>（RecordSink）、<code>lib.rs:83</code>（SinkBuffer）、<code>lib.rs:136</code>（OrderRecords）、<code>cash.rs:25</code>、<code>logs.rs:60</code>（LogEntry）、<code>logs.rs:113</code>（LogRecords）、<code>logs.rs:436</code>（Journal）。</p></div>
+    <div class="foot"><p class="small" style="margin:0">来源：<code>lib.rs:55</code>（RecordSink）、<code>lib.rs:128</code>（SinkBuffer）、<code>lib.rs:192</code>（OrderRecords）、<code>cash.rs:24</code>、<code>logs.rs:60</code>（LogEntry）、<code>logs.rs:126</code>（LogRecords）、<code>logs.rs:494</code>（Journal）。</p></div>
   </div>
 
   <div class="panel">
@@ -1076,9 +1077,9 @@ journal.logs.reason_counts(col, n_cols)?
     <table>
       <thead><tr><th>函数</th><th>签名</th><th>行为</th></tr></thead>
       <tbody>
-        <tr><td class="mono">entry_trades</td><td class="mono">(&amp;OrderRecords, &amp;FlexArray&lt;f64&gt; close, n_rows, n_cols) -&gt; Result&lt;TradeRecords&gt;</td><td>每笔入场一条。close 只读最后一行，用来给期末未平仓位标价。size 或 price ≤ 0、记录不按列分组时返回 Invariant。<code>trades.rs:368</code></td></tr>
-        <tr><td class="mono">exit_trades</td><td class="mono">同上</td><td>每笔出场一条；差不多全平（<code>is_close</code>）时把记录的 size 吸附成仓位大小，避免留下灰尘仓位。期末未平仓追加一条 Open，出场手续费为 0。<code>trades.rs:502</code></td></tr>
-        <tr><td class="mono">positions</td><td class="mono">(&amp;TradeRecords, n_cols) -&gt; Result&lt;TradeRecords&gt;</td><td>按 parent_id 聚合连续记录：size 求和，价格按 size 加权，手续费求和，exit_idx、方向、状态取最后一条。只有一条时原样拷贝。<code>trades.rs:639</code></td></tr>
+        <tr><td class="mono">entry_trades</td><td class="mono">(&amp;OrderRecords, &amp;FlexArray&lt;f64&gt; close, n_rows, n_cols) -&gt; Result&lt;TradeRecords&gt;</td><td>每笔入场一条。close 只读最后一行，用来给期末未平仓位标价。size ≤ 0、price 不是有限数（记录的 <code>allow_negative_price</code> 没打开时 ≤ 0 也算）、记录不按列分组时返回 Invariant。<code>trades.rs:385</code></td></tr>
+        <tr><td class="mono">exit_trades</td><td class="mono">同上</td><td>每笔出场一条；差不多全平（<code>is_close</code>）时把记录的 size 吸附成仓位大小，避免留下灰尘仓位。期末未平仓追加一条 Open，出场手续费为 0。<code>trades.rs:519</code></td></tr>
+        <tr><td class="mono">positions</td><td class="mono">(&amp;TradeRecords, n_cols) -&gt; Result&lt;TradeRecords&gt;</td><td>按 parent_id 聚合连续记录：size 求和，价格按 size 加权，手续费求和，exit_idx、方向、状态取最后一条。只有一条时原样拷贝。<code>trades.rs:659</code></td></tr>
         <tr><td class="mono">find_drawdowns</td><td class="mono">(ts: &amp;[f64], n_rows, n_cols) -&gt; Result&lt;DrawdownRecords&gt;</td><td>列主序序列，长度不是 <code>n_rows × n_cols</code> 时返回 <code>Error::Broadcast</code>。NaN 跳过。<code>drawdowns.rs:247</code></td></tr>
         <tr><td class="mono">excursions</td><td class="mono">(&amp;TradeRecords, high, low, close, n_rows) -&gt; Result&lt;Excursions&gt;</td><td>入场/出场越界、出场早于入场、入场价 ≤ 0 或 NaN 时返回 Invariant。high/low 缺失用 close 代替。<code>excursions.rs:67</code></td></tr>
         <tr><td class="mono">edge_ratio</td><td class="mono">(&amp;Excursions) -&gt; f64</td><td>mean(mfe_ret) / mean(|mae_ret|)。没有交易或从没逆向走过时为 NaN。<code>excursions.rs:135</code></td></tr>
@@ -1173,9 +1174,10 @@ Journal::extend: order_id += offset      // -1 保持 -1</pre>
     <table>
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
-        <tr><td class="mono">crates/phasor-records/src/lib.rs</td><td>契约说明（两层统一输出）、RecordSink、SinkBuffer、OrderRecords、并行 concat。</td></tr>
-        <tr><td class="mono">src/cash.rs</td><td>CashRecords：入金、收益、分红。</td></tr>
-        <tr><td class="mono">src/trades.rs</td><td>TradeRecords、trade_stats、entry_trades、exit_trades、positions、duration。</td></tr>
+        <tr><td colspan="2" class="small">本页引用的行号对应 6aa71f9。</td></tr>
+        <tr><td class="mono">crates/phasor-records/src/lib.rs</td><td>契约说明（两层统一输出）、RecordSink、SinkBuffer（含 records_mut）、OrderRecords（含 allow_negative_price 标志）、并行 concat。</td></tr>
+        <tr><td class="mono">src/cash.rs</td><td>CashRecords：九种不是成交的现金流；is_deposit 把入金和初始持仓的成本算作投入的资本。</td></tr>
+        <tr><td class="mono">src/trades.rs</td><td>TradeRecords、trade_stats、entry_trades、exit_trades、positions、duration。价格检查读记录的 allow_negative_price；ret 除以入场价值的绝对值。</td></tr>
         <tr><td class="mono">src/mapped.rs</td><td>ColMap、MappedArray、各命名归约、top/bottom_n_mask、arg_extreme。</td></tr>
         <tr><td class="mono">src/drawdowns.rs</td><td>DrawdownStatus、DrawdownRecords 及其派生量、find_drawdowns。</td></tr>
         <tr><td class="mono">src/excursions.rs</td><td>Excursions、excursions、edge_ratio。</td></tr>
@@ -1195,7 +1197,7 @@ const COLORS = {
 const MODULES = [
   { id: "lib", name: "lib.rs", up: { "phasor-model": "OrderSide、CashFlowKind；把 StatusInfo 再导出为 StatusInfoLookup" },
     blurb: "OrderRecords 与写入口。RecordSink 是模拟循环写成交和现金流的接口；SinkBuffer 增加 with_capacity 和 merge，让一份线程代码同时服务 OrderRecords 和 Journal。" },
-  { id: "cash", name: "cash", up: { "phasor-model": "CashFlowKind（Deposit / Earning / Dividend）" },
+  { id: "cash", name: "cash", up: { "phasor-model": "CashFlowKind（九种，Deposit 到 InitialPosition）" },
     blurb: "不是成交的现金流。实际入账额和路径有关，事后无法重算，所以记成记录，放在 OrderRecords.cash 里跟着成交走。" },
   { id: "trades", name: "trades", up: { "phasor-core": "math::{add, is_close, is_close_or_less, is_less}、FlexArray（收盘价）、Error::Invariant", "phasor-model": "OrderSide、TradeDirection、TradeStatus" },
     blurb: "成交 → 交易的三种视图：entry_trades、exit_trades、positions。总 PnL 相同，笔数和单笔收益不同。" },
@@ -1210,7 +1212,7 @@ const MODULES = [
 ];
 const UPSTREAM = [
   { id: "phasor-core", role: "math 的容差和 add 只在 trades 里用：判断全平、部分平、反手，计算剩余量，把 PnL 差值吸附成 0。FlexArray 用来读价格（trades 的期末标价，excursions 的 high/low/close）。Matrix 只出现在 mapped 的两个返回值里。Error::Invariant 是这层所有校验失败的出口；find_drawdowns 形状不对返回 Error::Broadcast。" },
-  { id: "phasor-model", role: "记录里存的是 repr(i8) 枚举的判别值：OrderSide（Buy=0, Sell=1）、TradeDirection（Long=0, Short=1）、TradeStatus（Open=0, Closed=1）、CashFlowKind（Deposit=0, Earning=1, Dividend=2）。logs 用 OrderStatus 和 StatusInfo 把判别值翻译回原因文字。判别值写进记录数组，改动它们会破坏数据格式，phasor-model 的测试把它们钉死了。" },
+  { id: "phasor-model", role: "记录里存的是 repr(i8) 枚举的判别值：OrderSide（Buy=0, Sell=1）、TradeDirection（Long=0, Short=1）、TradeStatus（Open=0, Closed=1）、CashFlowKind（Deposit=0, Earning=1, Dividend=2 … InitialPosition=8）。logs 用 OrderStatus 和 StatusInfo 把判别值翻译回原因文字。判别值写进记录数组，改动它们会破坏数据格式，phasor-model 的测试把它们钉死了。" },
   { id: "phasor-exec", role: "只有 logs 用到：LogEntry 持有请求 phasor_exec::Order 和结果 OrderResult，LogRecords::push 把它们的成员展开成 req_* 和 res_* 列。成交记录本身不依赖执行内核的类型。" },
 ];
 const DOWN = [
@@ -1400,7 +1402,7 @@ function tradeStats(size, ep, ef, xp, xf, dir) {
   let d = add(xv, -ev);
   if (d !== 0 && dir === "Short") d = -d;
   const pnl = d - ef - xf;
-  return [pnl, pnl / ev];
+  return [pnl, pnl / Math.abs(ev)];
 }
 function rec(size, ei, ep, ef, xi, xp, xf, dir, status, parent) {
   const [pnl, ret] = tradeStats(size, ep, ef, xp, xf, dir);
@@ -1542,7 +1544,7 @@ function parseOrders(text) {
     if (row < lastRow) throw new Error(`第 ${k + 1} 行：列内行号必须递增（排序契约）`);
     if (side !== "B" && side !== "S") throw new Error(`第 ${k + 1} 行：方向是 B 或 S`);
     if (!(size > 0)) throw new Error(`第 ${k + 1} 行：found an order record with size 0 or less`);
-    if (!(price > 0)) throw new Error(`第 ${k + 1} 行：found an order record with price 0 or less`);
+    if (!Number.isFinite(price) || price <= 0) throw new Error(`第 ${k + 1} 行：found an order record with a price that is not finite, or 0 or less in a run without allow_negative_price`);
     if (!Number.isFinite(fees)) throw new Error(`第 ${k + 1} 行：手续费不是数字`);
     lastRow = row;
     orders.push({ row, side, size, price, fees });
