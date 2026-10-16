@@ -134,7 +134,7 @@
   <span class="crumb">总览 · <b>wiki 首页</b></span>
 </header>
 <aside class="toc" id="toc" aria-label="目录">
-  <div class="grp"><div class="gh">总览</div><ul><li class="cur"><a class="pg" href="index.html" aria-current="page">wiki 首页</a><ol class="sec" data-sec="arch:总体架构|crates:模块关系|docs:文档层次|pages:页面"><li><a href="#arch">总体架构</a></li><li><a href="#crates">模块关系</a></li><li><a href="#docs">文档层次</a></li><li><a href="#pages">页面</a></li></ol></li><li><a class="pg" href="architecture.html">设计与架构</a></li></ul></div>
+  <div class="grp"><div class="gh">总览</div><ul><li class="cur"><a class="pg" href="index.html" aria-current="page">wiki 首页</a><ol class="sec" data-sec="arch:总体架构|crates:模块关系|docs:文档层次|pages:页面"><li><a href="#arch">总体架构</a></li><li><a href="#crates">模块关系</a></li><li><a href="#docs">文档层次</a></li><li><a href="#pages">页面</a></li></ol></li></ul></div>
   <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
   <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
   <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
@@ -153,8 +153,8 @@
   <div class="stats">
     <div class="stat"><b>13 个 crate</b><span>7 层：地基 → 领域与数组 → 内核与数据 → 记录 → 模拟 → 分析 → 门面</span></div>
     <div class="stat"><b>约 2.9 万行 Rust</b><span>各 crate <code>src/</code> 合计；最大的是 phasor-analysis（5,584 行）</span></div>
-    <div class="stat"><b>2 层执行</b><span>向量化层（阶段 1）与事件驱动层（阶段 2，计划中）共享同一个撮合内核和记录格式</span></div>
-    <div class="stat"><b>12 / 13 有页面</b><span>只有 phasor-data 还没有独立的 crate 页；它见 ARCHITECTURE §4</span></div>
+    <div class="stat"><b>向量化执行</b><span>逐列逐根 K 线的模拟循环，账户组之间并行；README 里的事件驱动层只是设想，不在 docs/plan.md 里</span></div>
+    <div class="stat"><b>12 / 13 有页面</b><span>只有 phasor-data 还没有独立的 crate 页</span></div>
   </div>
 
   <!-- ============================================================ -->
@@ -316,7 +316,7 @@
         <path d="M808 442 V412" stroke="#5ea0ff" stroke-opacity="0.35" stroke-dasharray="2 4"/>
       </svg>
     </div>
-    <div class="foot"><p class="small" style="margin:0">对应 ARCHITECTURE §2.1 流水线、§2.2 两层执行、§11 并行。更细的自顶向下讲解在 <a href="architecture.html">架构页</a>。</p></div>
+    <div class="foot"><p class="small" style="margin:0">橙色虚线的事件驱动层只是设想，没有实现，也不在 docs/plan.md 里。</p></div>
   </div>
 
   <!-- ============================================================ -->
@@ -338,7 +338,7 @@
   <!-- ============================================================ -->
   <h2 id="docs">文档的层次结构</h2>
   <p>
-    文档按“离代码多远”分层：越往上越讲<b>为什么</b>，越往下越讲<b>在哪一行</b>。ARCHITECTURE 是设计的唯一事实来源；wiki 把它拆成可交互的页面；
+    文档按“离代码多远”分层：越往上越讲<b>为什么</b>，越往下越讲<b>在哪一行</b>。设计说明写在代码的模块注释（<code>//!</code>）里，功能清单在 <code>docs/plan.md</code>；wiki 按 crate 把它们拆成可交互的页面；
     外部知识库 nivalume/phasor-docs 逐行带读代码，并把每一处引用钉在同一个 commit 上。
   </p>
   <div class="panel">
@@ -351,7 +351,7 @@
         <g font-size="11">
           <!-- level labels -->
           <text x="16" y="44" fill="#909090" font-weight="600">L0 入口</text>
-          <text x="16" y="124" fill="#909090" font-weight="600">L1 设计</text>
+          <text x="16" y="124" fill="#909090" font-weight="600">L1 计划</text>
           <text x="16" y="204" fill="#909090" font-weight="600">L2 wiki</text>
           <text x="16" y="284" fill="#909090" font-weight="600">L3 crate 页</text>
           <text x="16" y="384" fill="#909090" font-weight="600">L4 代码</text>
@@ -370,25 +370,14 @@
 
           <!-- L1 -->
           <rect x="120" y="94" width="300" height="52" rx="6" fill="#262626" stroke="#c9a227"/>
-          <text x="270" y="115" text-anchor="middle" font-weight="600" fill="#f0f0f0">docs/ARCHITECTURE.md · .zh-CN.md</text>
-          <text x="270" y="132" text-anchor="middle" font-size="10" fill="#e6c35c">§0–§17 + 附录：设计的唯一事实来源</text>
-          <rect x="440" y="94" width="160" height="52" rx="6" fill="#262626" stroke="#3d3d3d"/>
-          <text x="520" y="115" text-anchor="middle" font-weight="600" fill="#f0f0f0">docs/plan.md</text>
-          <text x="520" y="132" text-anchor="middle" font-size="10" fill="#909090">任务清单（对齐 VBT PRO）</text>
-          <rect x="620" y="94" width="170" height="52" rx="6" fill="#262626" stroke="#3d3d3d"/>
-          <text x="705" y="115" text-anchor="middle" font-weight="600" fill="#f0f0f0">docs/img/*.svg</text>
-          <text x="705" y="132" text-anchor="middle" font-size="10" fill="#909090">generate.py 生成的架构图</text>
+          <text x="270" y="115" text-anchor="middle" font-weight="600" fill="#f0f0f0">docs/plan.md</text>
+          <text x="270" y="132" text-anchor="middle" font-size="10" fill="#e6c35c">对齐 VBT PRO 的功能清单：做完了什么，还剩什么</text>
 
           <!-- L2 -->
           <a href="index.html">
             <rect x="120" y="174" width="220" height="52" rx="6" fill="#182238" stroke="#5ea0ff"/>
             <text x="230" y="195" text-anchor="middle" font-weight="600" fill="#f0f0f0">wiki/index.html（本页）</text>
             <text x="230" y="212" text-anchor="middle" font-size="10" fill="#9ec1ff">总体架构 · 模块关系 · 文档层次</text>
-          </a>
-          <a href="architecture.html">
-            <rect x="360" y="174" width="240" height="52" rx="6" fill="#182238" stroke="#5ea0ff"/>
-            <text x="480" y="195" text-anchor="middle" font-weight="600" fill="#f0f0f0">wiki/architecture.html</text>
-            <text x="480" y="212" text-anchor="middle" font-size="10" fill="#9ec1ff">自顶向下的交互式架构讲解</text>
           </a>
 
           <!-- L3 -->
@@ -427,27 +416,24 @@
         <path d="M220 66 V94" stroke="#8a8a8a" marker-end="url(#d)"/>
         <path d="M450 66 C 450 80, 300 80, 290 94" fill="none" stroke="#8a8a8a" stroke-dasharray="3 3" marker-end="url(#d)"/>
         <path d="M230 146 V174" stroke="#8a8a8a" marker-end="url(#d)"/>
-        <path d="M705 146 C 705 160, 520 164, 500 174" fill="none" stroke="#8a8a8a" stroke-dasharray="3 3" marker-end="url(#d)"/>
-        <path d="M340 200 H360" stroke="#8a8a8a" marker-end="url(#d)"/>
         <path d="M135 226 V252" stroke="#8a8a8a" marker-end="url(#d)"/>
         <path d="M230 226 C 230 240, 208 240, 208 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
-        <path d="M480 226 C 480 240, 281 240, 281 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
-        <path d="M480 226 C 480 240, 354 240, 354 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
-        <path d="M480 226 C 480 240, 427 240, 427 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
-        <path d="M480 226 C 480 240, 500 240, 500 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
-        <path d="M480 226 C 480 240, 573 240, 573 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
-        <path d="M480 226 C 480 240, 646 240, 646 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
-        <path d="M480 226 C 480 240, 719 240, 719 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
-        <path d="M480 226 C 480 240, 792 240, 792 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
-        <path d="M480 226 C 480 240, 865 240, 865 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
-        <path d="M480 226 C 480 240, 938 240, 938 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 281 240, 281 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 354 240, 354 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 427 240, 427 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 500 240, 500 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 573 240, 573 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 646 240, 646 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 719 240, 719 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 792 240, 792 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 865 240, 865 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 938 240, 938 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
         <path d="M270 330 V356" stroke="#8a8a8a" marker-end="url(#d)"/>
         <path d="M760 382 H700" stroke="#2fbfa8" stroke-dasharray="3 3" marker-end="url(#d)"/>
-        <path d="M420 120 C 1023 120, 1023 240, 1023 252" fill="none" stroke="#c9a227" stroke-opacity="0.5" stroke-dasharray="3 3"/>
         <path d="M912 356 C 912 340, 420 360, 420 380" fill="none" stroke="#2fbfa8" stroke-opacity="0.4" stroke-dasharray="3 3"/>
       </svg>
     </div>
-    <div class="foot"><p class="small" style="margin:0">黄色虚线：没有 crate 页的 crate，看 ARCHITECTURE 的对应章节。绿色虚线：知识库直接引用代码行。</p></div>
+    <div class="foot"><p class="small" style="margin:0">绿色虚线：知识库直接引用代码行。</p></div>
   </div>
 
   <div class="grid2">
@@ -455,9 +441,8 @@
       <h3>推荐阅读顺序</h3>
       <ol class="path">
         <li><b>README</b>：引擎是什么，怎么跑起来。</li>
-        <li><b>ARCHITECTURE §1–§2</b>：动机、流水线、两层执行、crate 划分。</li>
         <li><b>本页</b>：一张总图，一张依赖图。</li>
-        <li><b>架构页</b>：自顶向下把 §2–§15 走一遍。</li>
+        <li><b>docs/plan.md</b>：对齐 VBT PRO 的功能清单，哪些做完、哪些没做。</li>
         <li><b>crate 页，按依赖顺序</b>：<a href="phasor-core.html">core</a> → <a href="phasor-model.html">model</a> → <a href="phasor-generic.html">generic</a> → <a href="phasor-expr.html">expr</a> → <a href="phasor-indicators.html">indicators</a> → <a href="phasor-signals.html">signals</a> → <a href="phasor-exec.html">exec</a> → <a href="phasor-records.html">records</a> → <a href="phasor-sim.html">sim</a> → <a href="phasor-analysis.html">analysis</a> → <a href="phasor-py.html">py</a> → <a href="phasor.html">门面</a>。</li>
         <li><b>知识库</b>：要改代码时，逐文件逐行读。</li>
       </ol>
@@ -489,7 +474,7 @@
   <h3>每个 crate 的文档覆盖</h3>
   <div class="wrap">
     <table>
-      <thead><tr><th>crate</th><th>层</th><th>职责</th><th>ARCHITECTURE</th><th>wiki 页面</th><th style="text-align:right">src 行数</th></tr></thead>
+      <thead><tr><th>crate</th><th>层</th><th>职责</th><th>docs/plan.md</th><th>wiki 页面</th><th style="text-align:right">src 行数</th></tr></thead>
       <tbody id="cov"></tbody>
     </table>
   </div>
@@ -497,10 +482,6 @@
   <!-- ============================================================ -->
   <h2 id="pages">页面</h2>
   <div class="cards">
-    <a class="card" href="architecture.html">
-      <span class="lvl">L2</span><strong>设计与架构</strong>
-      <span class="d">自顶向下：流水线、双执行层、crate 分层、因子图、模拟循环、记录与分析、并行、验证和性能。</span>
-    </a>
     <a class="card" href="phasor-core.html">
       <span class="lvl">L3 · 第 0 层</span><strong>phasor-core</strong>
       <span class="d">地基。从“列是工作单位”推出列主序、广播和列标签；可以改参数的列轴、FlexArray、容差计算器和残差演示；类图与 11 个下游的用法。</span>
@@ -555,19 +536,19 @@
 <script>
 /* ---------------- crate data (Cargo.toml) ---------------- */
 const CRATES = {
-  "phasor-core": { layer: 0, x: 610, loc: 1258, deps: [], desc: "Matrix、FlexArray、列标签、浮点容差、Error；无外部依赖", arch: "§3.1–3.5", page: "phasor-core.html" },
-  "phasor-model": { layer: 1, x: 400, loc: 793, deps: ["phasor-core"], desc: "撮合枚举、id、BarType、OhlcvPanel、定点 Price / Quantity", arch: "§3.6", page: "phasor-model.html" },
-  "phasor-generic": { layer: 1, x: 690, loc: 1533, deps: ["phasor-core"], desc: "滚动 / 扩展 / EWM 窗口、平移、填充、交叉；带种子的合成价格", arch: "§2.3", page: "phasor-generic.html" },
-  "phasor-signals": { layer: 1, x: 950, loc: 2021, deps: ["phasor-core"], desc: "信号清洗、生成出场、排名、区间、随机信号、标签", arch: "§6.2", page: "phasor-signals.html" },
-  "phasor-data": { layer: 2, x: 180, loc: 560, deps: ["phasor-model"], desc: "CSV / Parquet / catalog → Arrow → 面板，按时点对齐", arch: "§4", page: null },
-  "phasor-exec": { layer: 2, x: 400, loc: 1152, deps: ["phasor-core", "phasor-model"], desc: "下单撮合内核，向量化层与事件驱动层共用", arch: "§7", page: "phasor-exec.html" },
-  "phasor-expr": { layer: 2, x: 660, loc: 4089, deps: ["phasor-core", "phasor-generic", "phasor-model"], desc: "表达式解析、图编译、原生与 Polars 后端、Alpha158/360", arch: "§5", page: "phasor-expr.html" },
-  "phasor-indicators": { layer: 2, x: 890, loc: 1188, deps: ["phasor-core", "phasor-generic"], desc: "MA、MSTD、BBANDS、RSI、STOCH、MACD、ATR、OBV 及参数扫描", arch: "§6.4", page: "phasor-indicators.html" },
-  "phasor-records": { layer: 3, x: 400, loc: 4032, deps: ["phasor-core", "phasor-exec", "phasor-model"], desc: "记录格式、sink、成交、回撤、mapped array", arch: "§9", page: "phasor-records.html" },
-  "phasor-sim": { layer: 4, x: 470, loc: 4258, deps: ["phasor-core", "phasor-exec", "phasor-model", "phasor-records"], desc: "from_orders / from_signals 循环、止损止盈、分组、并行执行", arch: "§8", page: "phasor-sim.html" },
-  "phasor-analysis": { layer: 5, x: 610, loc: 5584, deps: ["phasor-core", "phasor-generic", "phasor-model", "phasor-records", "phasor-sim"], desc: "Portfolio、净值 / 收益链、指标、统计、汇总", arch: "§10", page: "phasor-analysis.html" },
-  "phasor": { layer: 6, x: 470, loc: 364, deps: ["phasor-data", "phasor-analysis", "phasor-core", "phasor-exec", "phasor-generic", "phasor-indicators", "phasor-expr", "phasor-model", "phasor-records", "phasor-signals", "phasor-sim"], optional: ["phasor-data"], desc: "门面、prelude、SignalSweep；data feature 引入 phasor-data", arch: "§6.1", page: "phasor.html" },
-  "phasor-py": { layer: 6, x: 770, loc: 2369, deps: ["phasor-data", "phasor-analysis", "phasor-core", "phasor-expr", "phasor-generic", "phasor-model", "phasor-records", "phasor-sim"], desc: "PyO3 扩展 phasor._phasor + Python 包 phasor", arch: "§12", page: "phasor-py.html" },
+  "phasor-core": { layer: 0, x: 610, loc: 1258, deps: [], desc: "Matrix、FlexArray、列标签、浮点容差、Error；无外部依赖", arch: "—", page: "phasor-core.html" },
+  "phasor-model": { layer: 1, x: 400, loc: 793, deps: ["phasor-core"], desc: "撮合枚举、id、BarType、OhlcvPanel、定点 Price / Quantity", arch: "—", page: "phasor-model.html" },
+  "phasor-generic": { layer: 1, x: 690, loc: 1533, deps: ["phasor-core"], desc: "滚动 / 扩展 / EWM 窗口、平移、填充、交叉；带种子的合成价格", arch: "2.9", page: "phasor-generic.html" },
+  "phasor-signals": { layer: 1, x: 950, loc: 2021, deps: ["phasor-core"], desc: "信号清洗、生成出场、排名、区间、随机信号、标签", arch: "2.11", page: "phasor-signals.html" },
+  "phasor-data": { layer: 2, x: 180, loc: 560, deps: ["phasor-model"], desc: "CSV / Parquet / catalog → Arrow → 面板，按时点对齐", arch: "2.9", page: null },
+  "phasor-exec": { layer: 2, x: 400, loc: 1152, deps: ["phasor-core", "phasor-model"], desc: "下单撮合内核，向量化层与事件驱动层共用", arch: "2.2", page: "phasor-exec.html" },
+  "phasor-expr": { layer: 2, x: 660, loc: 4089, deps: ["phasor-core", "phasor-generic", "phasor-model"], desc: "表达式解析、图编译、原生与 Polars 后端、Alpha158/360", arch: "2.10", page: "phasor-expr.html" },
+  "phasor-indicators": { layer: 2, x: 890, loc: 1188, deps: ["phasor-core", "phasor-generic"], desc: "MA、MSTD、BBANDS、RSI、STOCH、MACD、ATR、OBV 及参数扫描", arch: "2.10", page: "phasor-indicators.html" },
+  "phasor-records": { layer: 3, x: 400, loc: 4032, deps: ["phasor-core", "phasor-exec", "phasor-model"], desc: "记录格式、sink、成交、回撤、mapped array", arch: "2.12", page: "phasor-records.html" },
+  "phasor-sim": { layer: 4, x: 470, loc: 4258, deps: ["phasor-core", "phasor-exec", "phasor-model", "phasor-records"], desc: "from_orders / from_signals 循环、止损止盈、分组、并行执行", arch: "2.1–2.7", page: "phasor-sim.html" },
+  "phasor-analysis": { layer: 5, x: 610, loc: 5584, deps: ["phasor-core", "phasor-generic", "phasor-model", "phasor-records", "phasor-sim"], desc: "Portfolio、净值 / 收益链、指标、统计、汇总", arch: "2.12", page: "phasor-analysis.html" },
+  "phasor": { layer: 6, x: 470, loc: 364, deps: ["phasor-data", "phasor-analysis", "phasor-core", "phasor-exec", "phasor-generic", "phasor-indicators", "phasor-expr", "phasor-model", "phasor-records", "phasor-signals", "phasor-sim"], optional: ["phasor-data"], desc: "门面、prelude、SignalSweep；data feature 引入 phasor-data", arch: "—", page: "phasor.html" },
+  "phasor-py": { layer: 6, x: 770, loc: 2369, deps: ["phasor-data", "phasor-analysis", "phasor-core", "phasor-expr", "phasor-generic", "phasor-model", "phasor-records", "phasor-sim"], desc: "PyO3 扩展 phasor._phasor + Python 包 phasor", arch: "全部", page: "phasor-py.html" },
 };
 const LAYER_NAMES = ["地基", "领域与数组", "内核与数据", "记录", "模拟", "分析", "门面"];
 const LAYER_COLORS = ["#5ea0ff", "#2fbfa8", "#e07a3d", "#c9a227", "#d35d5d", "#b07cd8", "#8a8a8a"];
@@ -667,7 +648,7 @@ function showCrate(n, up, down) {
   const c = CRATES[n];
   const direct = NAMES.filter((m) => CRATES[m].deps.includes(n));
   d.innerHTML = `<h3>${n} <span class="small">第 ${c.layer} 层 · ${LAYER_NAMES[c.layer]} · ${c.loc.toLocaleString()} 行</span></h3>
-    <p class="muted" style="margin:0 0 6px">${c.desc}。设计见 ARCHITECTURE ${c.arch}${c.page ? `；<a href="${c.page}">打开 ${n} 页面 →</a>` : "；还没有独立页面。"}</p>
+    <p class="muted" style="margin:0 0 6px">${c.desc}。计划见 docs/plan.md ${c.arch}${c.page ? `；<a href="${c.page}">打开 ${n} 页面 →</a>` : "；还没有独立页面。"}</p>
     <p class="small" style="margin:6px 0 2px">直接依赖（${c.deps.length}）</p><div class="uses" style="margin-top:0">${c.deps.map(chip).join("") || `<span class="small">无（只有 std）</span>`}</div>
     <p class="small" style="margin:8px 0 2px">被直接依赖（${direct.length}）· 传递影响 ${down.size} 个 crate</p><div class="uses" style="margin-top:0">${direct.map(chip).join("") || `<span class="small">无：它在最顶层</span>`}</div>`;
 }

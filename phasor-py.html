@@ -209,7 +209,7 @@
   <span class="crumb">L6 · 门面 · <b>phasor-py</b></span>
 </header>
 <aside class="toc" id="toc" aria-label="目录">
-  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li><li><a class="pg" href="architecture.html">设计与架构</a></li></ul></div>
+  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li></ul></div>
   <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
   <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
   <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
@@ -481,13 +481,13 @@
       <tbody>
         <tr><td><code>crates/phasor-py/README.md</code>“Each individual metric accessor rebuilds the derivation chain … the cache starts empty each time”；<code>lib.rs</code> 的 <code>metrics()</code> 注释“asking for six of them separately does six times the work”</td><td><code>PyPortfolio</code> 持有 <code>cache: Cache</code>，结构体自己的文档说“a curve computed for one call is still there for the next”；第二次 <code>sharpe_ratio()</code> 约 19 ms，第一次约 90 ms</td><td>读者会以为必须用 <code>metrics()</code> 才不慢；实际上单独调用也会命中缓存</td></tr>
         <tr><td>README“<code>phasor.data</code> supplies Binance Spot download, CSV caching and aligned OHLCV arrays”</td><td><code>python/phasor/data.py</code> 的模块文档是“Read-only local Arrow sources”，包里没有网络代码；下载在 <code>examples/fetch.py</code>、<code>download_binance_vision.py</code></td><td>与 AGENTS.md“库 crate 不下载、不写文件”的规则一致的是代码，不是这句文档</td></tr>
-        <tr><td>README 第 3 行“zero-copy in”；ARCHITECTURE §12.2“Arrays cross without copies”</td><td>只对连续、F 序、float64 的输入成立。C 序、整数、步长切片都会被壳复制（路由表里黄色下划线的格子）；运行结束后 <code>PyPortfolio</code> 还会复制一次源宽度的收盘价</td><td>“零拷贝”是一个条件，不是保证；大矩阵应该一开始就用 F 序构造</td></tr>
-        <tr><td>ARCHITECTURE §12.3“every parameter is scalar, per-column 1-D or (T, C)”</td><td>非共享 <code>init_cash</code> 的 <code>(T, C)</code> 只读第 0 行；共享时 <code>init_cash</code> 不收矩阵、<code>cash_deposits</code> 要 <code>(T, n_groups)</code>；现金流的一维是每根 K 线；bool 参数没有一维形式</td><td>按文档传一个逐行变化的 <code>init_cash</code> 矩阵不会报错，只会被截成第一行</td></tr>
-        <tr><td>ARCHITECTURE §12.3“stops need <code>high</code> and <code>low</code>”；<code>lib.rs</code> 的报错“with no range no stop can ever fire”</td><td>phasor-sim 的 <code>from_signals.rs</code> 在 open / high / low 为 NaN 时用收盘价重建它们，只给收盘价的止损照样触发（Rust 测试与 Python 实测都是成交在 [0, 1, 2]）</td><td>Python 用户被迫多传两个数组；只有收盘价的数据只能手工传 <code>high=close, low=close</code></td></tr>
+        <tr><td>README 第 3 行“zero-copy in”</td><td>只对连续、F 序、float64 的输入成立。C 序、整数、步长切片都会被壳复制（路由表里黄色下划线的格子）；运行结束后 <code>PyPortfolio</code> 还会复制一次源宽度的收盘价</td><td>“零拷贝”是一个条件，不是保证；大矩阵应该一开始就用 F 序构造</td></tr>
+        <tr><td>“每个参数都可以是标量、每列一维或 <code>(T, C)</code>”的通常说法</td><td>非共享 <code>init_cash</code> 的 <code>(T, C)</code> 只读第 0 行；共享时 <code>init_cash</code> 不收矩阵、<code>cash_deposits</code> 要 <code>(T, n_groups)</code>；现金流的一维是每根 K 线；bool 参数没有一维形式</td><td>按文档传一个逐行变化的 <code>init_cash</code> 矩阵不会报错，只会被截成第一行</td></tr>
+        <tr><td><code>lib.rs</code> 的报错“with no range no stop can ever fire”</td><td>phasor-sim 的 <code>from_signals.rs</code> 在 open / high / low 为 NaN 时用收盘价重建它们，只给收盘价的止损照样触发（Rust 测试与 Python 实测都是成交在 [0, 1, 2]）</td><td>Python 用户被迫多传两个数组；只有收盘价的数据只能手工传 <code>high=close, low=close</code></td></tr>
       </tbody>
     </table>
   </div>
-  <p class="small">尚未暴露（<code>lib.rs</code> 模块文档与 ARCHITECTURE §12.5）：滚动指标、回撤记录、指标扫描、phasor-signals、<code>CallSeq::Explicit</code>、Polars。</p>
+  <p class="small">尚未暴露（<code>lib.rs</code> 模块文档）：滚动指标、回撤记录、指标扫描、phasor-signals、<code>CallSeq::Explicit</code>、Polars。</p>
 
   <!-- ============================================================ -->
   <h2 id="reading">读码顺序</h2>
@@ -595,7 +595,7 @@ const UP = [
   { id: "phasor-records", sub: "OrderRecords · LogRecords", mods: ["lib.rs"], role: "运行留下的成交和日志；共享资金时 assemble 调 sort_by_column 排一次序。orders()/logs()/trades() 以列式字典交出。", page: "phasor-records.html" },
   { id: "phasor-expr", sub: "FactorSet · alpha158/360", mods: ["expr.rs"], role: "编译好的因子集；evaluate 在 py.detach 里跑，返回扁平的列优先数组，壳用 order=\"F\" 还原。", page: "phasor-expr.html" },
   { id: "phasor-generic", sub: "crossed_above_1d", mods: ["expr.rs"], role: "crossed_above 按列调用 crossed_above_1d，结果作为一个扁平 bool 数组返回——嵌套 list 曾是扫描里最慢的一步。", page: "phasor-generic.html" },
-  { id: "phasor-data", sub: "load · Dataset · align", mods: ["data.rs"], role: "本地 Arrow 源的加载、准备、按可用时间对齐；没有独立页面，见 ARCHITECTURE §4。", page: null },
+  { id: "phasor-data", sub: "load · Dataset · align", mods: ["data.rs"], role: "本地 Arrow 源的加载、准备、按可用时间对齐；没有独立页面。", page: null },
   { id: "arrow-array/schema", sub: "ffi feature", mods: ["arrow.rs"], role: "Arrow C Data 接口的 FFI 结构体；arrow.rs 在这里用 unsafe 把胶囊转成 RecordBatch 再转回去。", page: null },
 ];
 const MODULES = [
@@ -610,10 +610,10 @@ const MODULES = [
 const DOWN = [
   { id: "phasor/__init__.py", sub: "from_signals · from_orders · FactorSet", uses: ["lib.rs", "expr.rs", "data.rs"], role: "614 行。_matrix / _param / _flag / _signals 把输入整理成扩展要的形状和布局；FactorSet、Expression 包装；两个入口的长文档。" },
   { id: "phasor/strategy.py", sub: "@strategy · factors · crossed_above", uses: ["expr.rs", "lib.rs"], role: "@strategy 给函数加 run / sweep：拼列、column_map 平铺、group_lens、signal_delay。factors() 拒绝用到未来数据的表达式。" },
-  { id: "phasor/data.py", sub: "Source · Catalog · BarPanel", uses: ["data.rs"], role: "DataSchema、Source、Catalog、Dataset（asof / window）、BarPanel（drop_missing 只留每个品种都有 K 线的时刻，D9）；加载显式、只读。" },
-  { id: "phasor/resolution.py", sub: "align · resample", uses: [], role: "纯 NumPy（D8）：align 把粗周期的值放到它可用时刻当时或之后的第一根细 K 线上；resample 把细周期序列按 last / sum / compound 聚合回粗周期。" },
-  { id: "phasor/sessions.py", sub: "session_mask · session_end", uses: [], role: "纯 NumPy 加 zoneinfo（D9）：按交易所时区的本地时刻判断交易时段，支持隔夜时段；session_end 是 force_exit 的掩码。" },
-  { id: "phasor/signals.py", sub: "random_* · generate_ohlc_stop_exits", uses: ["lib.rs"], role: "随机信号；generate_ohlc_stop_exits 不经模拟算出每个入场的止损出场、触发价和类型（D6），参数和 from_signals 的止损一致。" },
+  { id: "phasor/data.py", sub: "Source · Catalog · BarPanel", uses: ["data.rs"], role: "DataSchema、Source、Catalog、Dataset（asof / window）、BarPanel（drop_missing 只留每个品种都有 K 线的时刻）；加载显式、只读。" },
+  { id: "phasor/resolution.py", sub: "align · resample", uses: [], role: "纯 NumPy：align 把粗周期的值放到它可用时刻当时或之后的第一根细 K 线上；resample 把细周期序列按 last / sum / compound 聚合回粗周期。" },
+  { id: "phasor/sessions.py", sub: "session_mask · session_end", uses: [], role: "纯 NumPy 加 zoneinfo：按交易所时区的本地时刻判断交易时段，支持隔夜时段；session_end 是 force_exit 的掩码。" },
+  { id: "phasor/signals.py", sub: "random_* · generate_ohlc_stop_exits", uses: ["lib.rs"], role: "随机信号；generate_ohlc_stop_exits 不经模拟算出每个入场的止损出场、触发价和类型，参数和 from_signals 的止损一致。" },
   { id: "phasor/validation.py", sub: "rolling · expanding · purged_kfold", uses: [], role: "345 行纯 NumPy：切分器只返回行号；walk_forward 在 train 上选、在 test 上报。" },
 ];
 const depSvg = document.getElementById("dep-graph"), detail = document.getElementById("detail");
@@ -833,8 +833,8 @@ const DEFAULTS = [
   ["tsl_stop / tsl_th / td_stop / dt_stop", "None", "NaN", "from_signals：移动止损和门槛、时间止损（按行数）"],
   ["stop_ladder / stop_order_type / stop_limit_delta", "None", "Disabled / Market / NaN", "阶梯时 sl_stop、tp_stop 的行是级；止损限价单"],
   ["entries / exits", "None", "false", "from_signals：可省略（order_mode 不读它们）"],
-  ["size_type", '"amount"', "Amount", "from_signals 也接受三种目标类型：入场调到目标，出场全平（D7）；另有 valuepercent 和三种 *100 写法（B5）"],
-  ["force_exit", "None", "false", "两个循环：标记的 K 线上按订单价平仓，替代那根的其他订单；一维掩码作用于所有列（D9）"],
+  ["size_type", '"amount"', "Amount", "from_signals 也接受三种目标类型：入场调到目标，出场全平；另有 valuepercent 和三种 *100 写法"],
+  ["force_exit", "None", "false", "两个循环：标记的 K 线上按订单价平仓，替代那根的其他订单；一维掩码作用于所有列"],
   ["order_mode", "False", "false", "from_signals：size 就是订单，和 from_orders 一样，止损和限价单照常可用"],
   ["order_type", "None", "Market", "from_signals：\"market\" 或 \"limit\"，字符串或每列一个"],
   ["limit_delta / delta_format / limit_reverse", "None", "NaN / Percent / false", "限价离订单价多远、怎么读，是否反向（突破单）"],

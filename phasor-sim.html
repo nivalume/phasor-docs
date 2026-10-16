@@ -187,7 +187,7 @@
   <span class="crumb">L4 · 模拟 · <b>phasor-sim</b></span>
 </header>
 <aside class="toc" id="toc" aria-label="目录">
-  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li><li><a class="pg" href="architecture.html">设计与架构</a></li></ul></div>
+  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li></ul></div>
   <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
   <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
   <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
@@ -206,7 +206,7 @@
   <div class="stats">
     <div class="stat"><b>4 份 fixture，全部复现</b><span>这个页面的 JS 移植在 Node 里重放：signals 5,088 行、from_orders 290 例（5,931 笔成交）、cash_sharing 48 例、from_signals 181 例（1,115 笔成交），一处不差</span></div>
     <div class="stat"><b>并行单位是账户组</b><span>独立的列各自一组，扫描天然可并行；共享资金的组内部按顺序执行，因为每笔成交都改变下一笔能用的钱</span></div>
-    <div class="stat"><b>单线程 2.6–3.3× vectorbt</b><span>10 个 from_orders 负载、校验和一致的前提下对比 vectorbt 的 Numba 循环；4 线程 9.7–12.1×（ARCHITECTURE §15.1）</span></div>
+    <div class="stat"><b>单线程 2.6–3.3× vectorbt</b><span>10 个 from_orders 负载、校验和一致的前提下对比 vectorbt 的 Numba 循环；4 线程 9.7–12.1×</span></div>
   </div>
 
   <!-- ============================================================ -->
@@ -435,7 +435,7 @@
         <tr><td>限价单</td><td>—</td><td>order_type = Market，limit_delta = NaN，delta_format = Percent，limit_reverse = false，limit_order_price = Limit，limit_delay = false，limit_tif / limit_expiry = NaN</td><td>没有限价单的账户组走 <code>prepare_order::&lt;false&gt;</code>，不含挂单代码</td></tr>
         <tr><td>挂单冲突</td><td>—</td><td>upon_adj_limit_conflict = KeepIgnore，upon_opp_limit_conflict = CancelExecute，upon_adj / opp_stop_conflict = KeepIgnore</td><td>止损冲突的默认值就是原来的行为：止损替换当根信号</td></tr>
         <tr><td>价格选项</td><td colspan="2">price_type = Price，from_ago = 0，bid_price / ask_price = NaN，price_area_vio_mode = Ignore</td><td>都没用时 from_orders 按原来的方式读订单，from_signals 走不含这些代码的实例</td></tr>
-        <tr><td>强制平仓</td><td colspan="2">force_exit = false（标量）</td><td>from_orders 的 plain 快路径要求它是标量 false；from_signals 打开时走扩展实例（D9）</td></tr>
+        <tr><td>强制平仓</td><td colspan="2">force_exit = false（标量）</td><td>from_orders 的 plain 快路径要求它是标量 false；from_signals 打开时走扩展实例</td></tr>
         <tr><td>订单模式</td><td>—</td><td>order_mode = false</td><td>打开时 size 就是订单，和 from_orders 一样；走扩展实例</td></tr>
         <tr><td>更多止损</td><td>—</td><td>tsl_stop / tsl_th / td_stop / dt_stop = NaN，stop_ladder = Disabled，stop_order_type = Market，stop_limit_delta = NaN</td><td>没布置这些止损时仍是参考实现的止损逻辑</td></tr>
         <tr><td>合约乘数</td><td colspan="2">multiplier = 1</td><td>不为 1 时也走 <code>LEV</code> 实例：把该列按"价格 × 乘数"交给内核，记录和日志写回原价；同一列内不能变</td></tr>
@@ -465,7 +465,7 @@
     <article class="card"><h3>串行与多线程逐位相同</h3><p>每个组写自己的缓冲区，记录 id 在按组顺序合并之后才分配；随机拒单的随机数是 <code>(seed, row, col)</code> 的函数，只在概率不为 0 时生成。任何依赖线程交错的东西都会破坏这一点。</p></article>
     <article class="card"><h3>现金的变化必须是记录</h3><p>入金、分红、收益、持仓费和穿仓核销都写成 <code>CashRecords</code>，强平写成带 <code>liquidation</code> 标记的成交，因为分析层只从记录重建余额。只改了循环里的 cash 而不写记录，净值曲线会悄悄错。保证金结算是例外：它只在持仓和现金之间挪钱，不改变权益，所以不留记录。</p></article>
     <article class="card"><h3>阶段的顺序是语义</h3><p>先多头进出冲突、再空头进出冲突、再多空冲突、最后反向进场；先测止损再跟踪；先确定全组价格再执行。换顺序就会换掉留下来的信号或成交，fixture 会抓到。<code>tests/fixtures/*.tsv</code> 不能为了让改动通过而重新生成。</p></article>
-    <article class="card"><h3>保持 Send、无全局状态</h3><p>参考的事件驱动引擎把状态放在进程全局的 <code>Rc&lt;RefCell&lt;..&gt;&gt;</code> 后面，只能顺序扫描；这里每个引擎实例都必须 <code>Send</code>，这是代码库的硬约束（ARCHITECTURE §11.5）。</p></article>
+    <article class="card"><h3>保持 Send、无全局状态</h3><p>参考的事件驱动引擎把状态放在进程全局的 <code>Rc&lt;RefCell&lt;..&gt;&gt;</code> 后面，只能顺序扫描；这里每个引擎实例都必须 <code>Send</code>，这是代码库的硬约束（<code>lib.rs</code> 模块文档）。</p></article>
   </div>
 
   <h2>源文件</h2>
@@ -475,21 +475,21 @@
       <tbody>
         <tr><td colspan="2" class="small">行号对应 2d3df32（知识库迁出时的提交）；之后新增的条目只写符号名。</td></tr>
         <tr><td class="mono">crates/phasor-sim/src/lib.rs</td><td>账户组独立、为什么不用 SIMD；count_where（成交上界）；any_levered（也数乘数不为 1 的列）、margin_columns、isolated_columns、multipliers、unscale_log；DEFAULT_MIN_SIZE = 1e-8；再导出入口。</td></tr>
-        <tr><td class="mono">src/from_orders.rs</td><td>FromOrders 与默认值、build_order、updated_value（:254）、simulate_group（两遍、调用顺序、update_value）、串行 / 并行 / 带日志入口。之后：force_exit，order_at 在标记的 K 线上把订单换成 Both 方向的 TargetAmount 0（D9）。</td></tr>
-        <tr><td class="mono">src/from_signals.rs</td><td>FromSignals 与默认值、stop_price（:276）、should_update_stop、Stops、read_signals、prepare_order（:502，价格 → 止损 → 信号 → 冲突 → 数量）、simulate_group（:711，执行与重新布置止损）。之后：Stops 移进 state.rs；prepare_order 带 <code>const PENDING</code>，拆出 user_order（信号 → 冲突 → 数量）、signal_order、test_resting、route_limit、place_limit 和 follow_up（止损成交后按新持仓再执行信号）；执行循环对 follow_up 再走一遍。force_exit（D9）在扩展实例里：这根没有止损触发时，丢掉信号和挂着的限价单、清掉止损，按订单价平掉持仓。</td></tr>
+        <tr><td class="mono">src/from_orders.rs</td><td>FromOrders 与默认值、build_order、updated_value（:254）、simulate_group（两遍、调用顺序、update_value）、串行 / 并行 / 带日志入口。之后：force_exit，order_at 在标记的 K 线上把订单换成 Both 方向的 TargetAmount 0。</td></tr>
+        <tr><td class="mono">src/from_signals.rs</td><td>FromSignals 与默认值、stop_price（:276）、should_update_stop、Stops、read_signals、prepare_order（:502，价格 → 止损 → 信号 → 冲突 → 数量）、simulate_group（:711，执行与重新布置止损）。之后：Stops 移进 state.rs；prepare_order 带 <code>const PENDING</code>，拆出 user_order（信号 → 冲突 → 数量）、signal_order、test_resting、route_limit、place_limit 和 follow_up（止损成交后按新持仓再执行信号）；执行循环对 follow_up 再走一遍。force_exit在扩展实例里：这根没有止损触发时，丢掉信号和挂着的限价单、清掉止损，按订单价平掉持仓。</td></tr>
         <tr><td class="mono">src/limit.rs</td><td>限价单的纯函数：limit_price（三种 delta_format 和 limit_reverse）、last_row（limit_tif、limit_expiry 按行数）、fill_price（从起点检查跳空，再看当根范围；Limit / HardLimit / Close）。</td></tr>
-        <tr><td class="mono">src/prices.rs</td><td>Quotes（price_type、买卖价、price_area_vio_mode）、order_price、buys（from_orders 按持仓判断目标类订单的方向）、source_row（from_ago）。buys 也认 B5 的新仓位类型。</td></tr>
+        <tr><td class="mono">src/prices.rs</td><td>Quotes（price_type、买卖价、price_area_vio_mode）、order_price、buys（from_orders 按持仓判断目标类订单的方向）、source_row（from_ago）。buys 也认 ValuePercent 和 *100 仓位类型。</td></tr>
         <tr><td class="mono">src/stops.rs</td><td>Inputs、test（时间止损在开盘，再依次是止损、移动止损、止盈）、trail（sl_trail 和移动止损的最好价、门槛）、arm / update（布置和加仓时更新）、ladder_exit（阶梯每级平掉的份额）。</td></tr>
-        <tr><td class="mono">src/stop_exits.rs</td><td>OhlcStopExits、generate_ohlc_stop_exits（D6）：每个入场在收盘布置止损，用 stops::test / trail 逐根检查；until_next、skip_until_exit 关、开时等于 from_signals 的止损出场。</td></tr>
+        <tr><td class="mono">src/stop_exits.rs</td><td>OhlcStopExits、generate_ohlc_stop_exits：每个入场在收盘布置止损，用 stops::test / trail 逐根检查；until_next、skip_until_exit 关、开时等于 from_signals 的止损出场。</td></tr>
         <tr><td class="mono">src/state.rs</td><td>ColumnState（两个循环共用：持仓、负债、locked_cash、估值价、StopState、LimitOrder），公开的纯数据结构；账户组的现金还在循环的局部变量里。</td></tr>
-        <tr><td class="mono">src/signals.rs</td><td>Signals、from_direction_mode、from_stop、resolve_signal_conflict、resolve_dir_conflict、resolve_opposite_entry、signals_to_size。之后：resolve_pending_conflict（D3）；signals_to_target 和分派用的 size_signals（D7：目标类仓位，signals_to_size 仍按参考实现拒绝）。</td></tr>
+        <tr><td class="mono">src/signals.rs</td><td>Signals、from_direction_mode、from_stop、resolve_signal_conflict、resolve_dir_conflict、resolve_opposite_entry、signals_to_size。之后：resolve_pending_conflict；signals_to_target 和分派用的 size_signals（目标类仓位，signals_to_size 仍按参考实现拒绝）。</td></tr>
         <tr><td class="mono">src/groups.rs</td><td>Groups（ungrouped、from_lens、range、chunks）、CallSeq（Default / Auto / Explicit）、approx_order_value（先把 *100 写法除以 100，ValuePercent 按 size × value）、insert_argsort。</td></tr>
         <tr><td class="mono">src/cash.rs · src/random.rs</td><td>开盘的入金与分红、收盘的收益（负数封顶于可用现金）；SplitMix64 的 uniform(seed, row, col)。</td></tr>
         <tr><td class="mono">src/margin.rs</td><td>保证金列的 owed、unsettled、settle：每根 K 线把盈亏结算进现金，成本移到估值价；逐仓列不结算。</td></tr>
         <tr><td class="mono">src/holding.rs</td><td>Rates、Held、charge：收盘按订单之后的持仓收资金费、隔夜融资、借款利息、借券费，不封顶，按 mark_price（否则收盘价）乘合约乘数算名义价值。</td></tr>
         <tr><td class="mono">src/liquidation.rs</td><td>Inputs、Column、test（路径从开盘到不利极值或标记价格，权益和维持保证金按 α 线性，求第一次跌破的点）、fill（TargetAmount(0)、liquidation_fee、记录标记）、write_off / write_off_account（穿仓核销）。路径上的价格乘合约乘数。两个循环各有一个不内联的 liquidate。</td></tr>
         <tr><td class="mono">tests/*.rs · examples/bench.rs · examples/scaling.rs</td><td>四份差分测试与订单控制测试；对比 vectorbt 的基准与线程扩展。</td></tr>
-        <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §8、§11.2、§15.1</td><td>模拟循环、并行、性能。</td></tr>
+        <tr><td class="mono">docs/plan.md 2.1–2.7、3</td><td>模拟各功能的已有和还缺；约束和性能记录。</td></tr>
       </tbody>
     </table>
   </div>

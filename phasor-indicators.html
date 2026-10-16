@@ -178,7 +178,7 @@
   <span class="crumb">L2 · 内核与数据 · <b>phasor-indicators</b></span>
 </header>
 <aside class="toc" id="toc" aria-label="目录">
-  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li><li><a class="pg" href="architecture.html">设计与架构</a></li></ul></div>
+  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li></ul></div>
   <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
   <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
   <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li class="cur"><a class="pg" href="phasor-indicators.html" aria-current="page">phasor-indicators</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|sweep:扫描布局|cache:缓存|lab:指标实验台|degenerate:退化读数|api:API|verify:验证|rules:规则"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#sweep">扫描布局</a></li><li><a href="#cache">缓存</a></li><li><a href="#lab">指标实验台</a></li><li><a href="#degenerate">退化读数</a></li><li><a href="#api">API</a></li><li><a href="#verify">验证</a></li><li><a href="#rules">规则</a></li></ol></li></ul></div>
@@ -263,7 +263,7 @@
   <div class="panel">
     <div class="cap">线的颜色 = 被用到的模块。示例 / 测试里的使用不计入</div>
     <div class="body"><svg id="dep-graph" width="1040" height="380" viewBox="0 0 1040 380" role="img" aria-label="phasor-indicators 依赖图"></svg></div>
-    <div class="foot"><p class="small" style="margin:0">来源：Cargo.toml 与 <code>src/</code> 中的 <code>use phasor_indicators::…</code>。ARCHITECTURE §6.4 把它列为信号层的一部分。</p></div>
+    <div class="foot"><p class="small" style="margin:0">来源：Cargo.toml 与 <code>src/</code> 中的 <code>use phasor_indicators::…</code>。</p></div>
   </div>
   <div class="detail" id="detail">
     <h3>点一个节点</h3>
@@ -396,7 +396,7 @@
         <tr><td class="mono">src/sweep.rs</td><td>combinations（:44）、ParamLevel（:62）、sweep_columns（:103）、column_of（:135）与布局测试。</td></tr>
         <tr><td class="mono">src/indicators.rs</td><td>Indicator（:31）、moving_average / moving_std（minp = window）、Cache、place；ma（:149）、mstd（:192）、bbands（:237）、rsi（:306）、stoch（:371）、macd（:451）、true_range（:518）、atr（:543）、obv（:588）。</td></tr>
         <tr><td class="mono">tests/parity_indicators.rs · tests/fixtures/indicators.tsv</td><td>与 vectorbt 的差分测试、扫描布局测试、退化读数覆盖测试；fixture 由 tests/parity/generate_indicators.py 生成。</td></tr>
-        <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §3.1、§6.4</td><td>列轴布局；指标与参数扫描。</td></tr>
+        <tr><td class="mono">docs/plan.md 2.10</td><td>指标：已有和还缺的功能。</td></tr>
       </tbody>
     </table>
   </div>

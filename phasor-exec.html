@@ -186,7 +186,7 @@
   <span class="crumb">L2 · 内核与数据 · <b>phasor-exec</b></span>
 </header>
 <aside class="toc" id="toc" aria-label="目录">
-  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li><li><a class="pg" href="architecture.html">设计与架构</a></li></ul></div>
+  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li></ul></div>
   <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
   <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
   <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li class="cur"><a class="pg" href="phasor-exec.html" aria-current="page">phasor-exec</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|flow:流程|cascade:换算链|sim:模拟器|short:空头账本|tolerance:容差边界|hoist:ValidatedOrder|class:类图|verify:验证|rules:规则"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#flow">流程</a></li><li><a href="#cascade">换算链</a></li><li><a href="#sim">模拟器</a></li><li><a href="#short">空头账本</a></li><li><a href="#tolerance">容差边界</a></li><li><a href="#hoist">ValidatedOrder</a></li><li><a href="#class">类图</a></li><li><a href="#verify">验证</a></li><li><a href="#rules">规则</a></li></ol></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
@@ -684,10 +684,10 @@
       <tbody>
         <tr><td class="mono">crates/phasor-exec/src/lib.rs</td><td>两种失败、确定性、两套 fixture 的说明；再导出内核函数、四个类型和五个 phasor-model 枚举。</td></tr>
         <tr><td class="mono">src/types.rs</td><td>ExecuteOrderState（debt / free_cash 的含义）、ProcessOrderState（flat）、Order 及其 Default、OrderResult。</td></tr>
-        <tr><td class="mono">src/kernel.rs</td><td>sign / floor_to；buy（:48）、sell（:228）；validate_bar（:388）、param_violation（:427）；ValidatedOrder（:476）；execute_order（:542）、execute_validated（:559，换算链 :610–677）；单元测试。之后：percent_spelling，不内联的冷函数，换算链在 TargetPercent 之前用一次比较把 ValuePercent 和三种 *100 写法交给它（B5）。</td></tr>
+        <tr><td class="mono">src/kernel.rs</td><td>sign / floor_to；buy（:48）、sell（:228）；validate_bar（:388）、param_violation（:427）；ValidatedOrder（:476）；execute_order（:542）、execute_validated（:559，换算链 :610–677）；单元测试。之后：percent_spelling，不内联的冷函数，换算链在 TargetPercent 之前用一次比较把 ValuePercent 和三种 *100 写法交给它。</td></tr>
         <tr><td class="mono">tests/parity.rs · tests/parity_sequence.rs</td><td>单次与链式的差分测试；tests/common/mod.rs 是 fixture 读取与 agree。</td></tr>
         <tr><td class="mono">tests/fixtures/execute_order.tsv · order_sequence.tsv</td><td>参考实现的输出，由 tests/parity/generate_execute_order.py、generate_order_sequence.py 生成。</td></tr>
-        <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §7、§14.4</td><td>撮合内核的设计说明；变异测试。</td></tr>
+        <tr><td class="mono">docs/plan.md 2.2</td><td>订单与仓位：已有和还缺的功能。</td></tr>
       </tbody>
     </table>
   </div>

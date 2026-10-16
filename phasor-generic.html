@@ -179,7 +179,7 @@
   <span class="crumb">L1 · 领域与数组 · <b>phasor-generic</b></span>
 </header>
 <aside class="toc" id="toc" aria-label="目录">
-  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li><li><a class="pg" href="architecture.html">设计与架构</a></li></ul></div>
+  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li></ul></div>
   <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
   <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li class="cur"><a class="pg" href="phasor-generic.html" aria-current="page">phasor-generic</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|rolling:滚动窗口|deque:单调队列|ewm:EWM|shift:平移与填充|cross:交叉|synthetic:合成路径|api:API|verify:验证|rules:规则"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#rolling">滚动窗口</a></li><li><a href="#deque">单调队列</a></li><li><a href="#ewm">EWM</a></li><li><a href="#shift">平移与填充</a></li><li><a href="#cross">交叉</a></li><li><a href="#synthetic">合成路径</a></li><li><a href="#api">API</a></li><li><a href="#verify">验证</a></li><li><a href="#rules">规则</a></li></ol></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
   <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
@@ -414,7 +414,7 @@
     <div class="foot"><p class="small" style="margin:0">改“列数”：第 0 列的路径不变——它只依赖 <code>(seed, row, 0)</code>，与总共要了多少列无关。<code>ohlc_from_close</code> 在同一布局上生成开高低：开盘 = 上一根收盘，高 = <code>max(o,c) + |max(o,c)|·spread·U</code>，低同理，所以即使随机游走穿过 0，也保持 <code>low ≤ min(o,c) ≤ max(o,c) ≤ high</code>。</p></div>
   </div>
   <div class="note warn">
-    <b>目前没有调用方：</b>ARCHITECTURE §2.3 把合成价格列为这个 crate 的职责，但 <code>gbm</code>、<code>random_walk</code>、<code>ohlc_from_close</code> 在工作区的 <code>src/</code>、示例和 Python 包里都没有被调用，Python 层也没有绑定它们。
+    <b>目前没有 Rust 调用方：</b>合成价格是这个 crate 的职责，但 <code>gbm</code>、<code>random_walk</code>、<code>ohlc_from_close</code> 在工作区的 <code>src/</code>、示例和 Python 包里都没有被调用，Python 层也没有绑定它们。
     它们和 rolling / elementwise 不同，不是参考实现的移植，所以不在 <code>generic.tsv</code> 里；验证靠自己的性质测试（同种子逐位相同、列独立、对数收益的均值和方差、OHLC 不等式）。
   </div>
 
@@ -473,7 +473,7 @@
         <tr><td class="mono">src/elementwise.rs</td><td>fshift / bshift / diff / pct_change / ffill / bfill / fillna、crossed_above_1d / crossed_below_1d 与矩阵版本。</td></tr>
         <tr><td class="mono">src/synthetic.rs</td><td>SplitMix64、bits、uniform、Box–Muller normal、random_walk、gbm、ohlc_from_close 与性质测试。</td></tr>
         <tr><td class="mono">tests/parity_generic.rs · tests/fixtures/generic.tsv</td><td>与 vectorbt 的差分测试；fixture 由 tests/parity/generate_generic.py 生成。</td></tr>
-        <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §2.3、§5.5、§14.3–14.4</td><td>crate 职责、因子计算核心如何复用滚动窗口、一致性与变异测试。</td></tr>
+        <tr><td class="mono">docs/plan.md 2.9</td><td>数据：合成数据已有和还缺的部分。</td></tr>
       </tbody>
     </table>
   </div>

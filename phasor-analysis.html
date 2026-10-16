@@ -183,7 +183,7 @@
   <span class="crumb">L5 · 分析 · <b>phasor-analysis</b></span>
 </header>
 <aside class="toc" id="toc" aria-label="目录">
-  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li><li><a class="pg" href="architecture.html">设计与架构</a></li></ul></div>
+  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li></ul></div>
   <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
   <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
   <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
@@ -443,7 +443,7 @@
         <tr><td class="mono">src/aggregate.rs · trade_stats.rs · events.rs</td><td>Reduce、group_by、best_column、argmax / argmin；按列的交易统计（持平的交易既不算赢也不算输）；事件研究（读未来，只用于决定要不要模拟）。</td></tr>
         <tr><td class="mono">src/stats.rs · portfolio.rs</td><td>Value、Tag、StatsInput、Metric、Select、stats、默认与基准注册表；Scoring、Cache、Portfolio。Portfolio::free_cash 对全仓保证金列加回 position × close × 合约乘数，对逐仓列加回最后一笔成交记下的成本（盈亏不算可用现金）；cash_flow_by_kind。</td></tr>
         <tr><td class="mono">tests/*.rs · tests/fixtures/{metrics,analysis,stats}.tsv</td><td>三份差分测试，以及现金流、敞口、共享账户测试。</td></tr>
-        <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §10</td><td>Portfolio、重建链、指标、统计注册表、扫描结果汇总。</td></tr>
+        <tr><td class="mono">docs/plan.md 2.12</td><td>组合分析：已有和还缺的功能。</td></tr>
       </tbody>
     </table>
   </div>

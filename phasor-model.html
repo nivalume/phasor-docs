@@ -168,7 +168,7 @@
   <span class="crumb">L1 · 领域与数组 · <b>phasor-model</b></span>
 </header>
 <aside class="toc" id="toc" aria-label="目录">
-  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li><li><a class="pg" href="architecture.html">设计与架构</a></li></ul></div>
+  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li></ul></div>
   <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
   <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li class="cur"><a class="pg" href="phasor-model.html" aria-current="page">phasor-model</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|enums:枚举|status:拒单原因|ids:标识|bar:K 线|types:定点数|class:类图|table:对照表|rules:规则"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#enums">枚举</a></li><li><a href="#status">拒单原因</a></li><li><a href="#ids">标识</a></li><li><a href="#bar">K 线</a></li><li><a href="#types">定点数</a></li><li><a href="#class">类图</a></li><li><a href="#table">对照表</a></li><li><a href="#rules">规则</a></li></ol></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
   <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
@@ -271,7 +271,7 @@
         <path d="M206 170 C 300 120, 420 120, 497 122" fill="none" stroke="#8a8a8a" stroke-dasharray="3 3"/>
       </svg>
     </div>
-    <div class="foot"><p class="small" style="margin:0">每一行都是独立实现，按公开语义编写，没有从任何一个项目里拷贝代码（ARCHITECTURE 附录 A）。<code>BarType</code> 的字符串格式和 <code>SYMBOL.VENUE</code> 都是 Nautilus 的约定。</p></div>
+    <div class="foot"><p class="small" style="margin:0">每一行都是独立实现，按公开语义编写，没有从任何一个项目里拷贝代码（README 的 Licence 一节）。<code>BarType</code> 的字符串格式和 <code>SYMBOL.VENUE</code> 都是 Nautilus 的约定。</p></div>
   </div>
 
   <h3>如果从零实现，按这个顺序</h3>
@@ -318,9 +318,9 @@
     <div class="foot"><p class="small" style="margin:0" id="en-note"></p></div>
   </div>
   <div class="grid3">
-    <article class="card"><h3>SizeType 是一条级联</h3><p>phasor-exec 按固定顺序把 Percent、TargetPercent、TargetValue、Value、TargetAmount 逐级改写，直到只剩 <code>Amount</code>（ARCHITECTURE §7.3）。ValuePercent 和三种 *100 写法（6–9，B5）在级联之前由一个冷函数改写成前面的类型。枚举本身只定义“数量怎么读”，换算在内核里。</p></article>
+    <article class="card"><h3>SizeType 是一条级联</h3><p>phasor-exec 按固定顺序把 Percent、TargetPercent、TargetValue、Value、TargetAmount 逐级改写，直到只剩 <code>Amount</code>。ValuePercent 和三种 *100 写法（6–9）在级联之前由一个冷函数改写成前面的类型。枚举本身只定义“数量怎么读”，换算在内核里。</p></article>
     <article class="card"><h3>Rejected 不是 Err</h3><p><code>OrderStatus::Rejected</code> 是返回值里的普通结果，原因在 <code>StatusInfo</code>。<code>Err</code> 留给 phasor-core 的不变量错误。</p></article>
-    <article class="card"><h3>三种交易视图共用一个 schema</h3><p><code>TradesType</code> 的三个值只改变成交如何归属到交易：按进场 FIFO、按出场平均、或按仓位聚合。这是移植时最常见的错误（§9.5）。</p></article>
+    <article class="card"><h3>三种交易视图共用一个 schema</h3><p><code>TradesType</code> 的三个值只改变成交如何归属到交易：按进场 FIFO、按出场平均、或按仓位聚合。这是移植时最常见的错误。</p></article>
   </div>
 
   <!-- ============================================================ -->
@@ -363,7 +363,7 @@
   <div class="note warn">
     <b>文档与实现的差距：</b><code>ids.rs</code> 的模块注释说“驻留把每个标识压成一个 <code>Copy</code> 句柄，按整数比较”。现在的实现不是这样：
     <code>Symbol</code>、<code>Venue</code> 是 <code>Arc&lt;str&gt;</code> 的包装，<code>InstrumentId</code> 只是 <code>Clone</code>，相等比较按字符串内容。
-    注释自己也说明了“阶段 1 保持简单，有性能数据之后再优化”；ARCHITECTURE §3.6 写作“尚未驻留”。要点是类型已经不透明，换存储时调用方不用改。
+    注释自己也说明了“阶段 1 保持简单，有性能数据之后再优化”。要点是类型已经不透明，换存储时调用方不用改。
   </div>
 
   <!-- ============================================================ -->
@@ -573,7 +573,6 @@
         <tr><td class="mono">src/ids.rs</td><td>Symbol（:17）、Venue（:34）、InstrumentId（:54，from_parts :63）、Display 与 FromStr。</td></tr>
         <tr><td class="mono">src/bar.rs</td><td>UnixNanos（:16）、Bar（:24）、OhlcvPanel（:48）、BarType（:67）及其 FromStr / Display。</td></tr>
         <tr><td class="mono">src/types.rs</td><td>PriceRaw / QuantityRaw 别名、PRECISION、SCALAR、Price（:42，UNDEF / ERROR 哨兵）、Quantity（:87）。</td></tr>
-        <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §3.6</td><td>领域模型一节；§7.3 数量换算链，§9.5 三种交易视图，§4.1 catalog 目录布局。</td></tr>
       </tbody>
     </table>
   </div>
@@ -726,17 +725,17 @@ function buildTable() {
 
 /* ---------------- enums browser ---------------- */
 const ENUMS = {
-  SizeType: { group: "order", line: 14, doc: "请求的数量怎么解释。phasor-exec 按固定顺序把它逐级改写成 Amount（§7.3）。", users: ["phasor-exec", "phasor-sim", "phasor-records", "phasor-py"],
-    v: [["Amount", "单位数"], ["Value", "现金金额，除以估值价得到单位数"], ["Percent", "可用现金的比例，[0, 1]"], ["TargetAmount", "目标单位数；与当前仓位求差"], ["TargetValue", "目标现金价值"], ["TargetPercent", "目标占组合价值的比例"], ["ValuePercent", "组合价值的比例，按 size × value 变成 Value（B5）"], ["Percent100", "百分数写的 Percent：先除以 100"], ["ValuePercent100", "百分数写的 ValuePercent"], ["TargetPercent100", "百分数写的 TargetPercent"]] },
+  SizeType: { group: "order", line: 14, doc: "请求的数量怎么解释。phasor-exec 按固定顺序把它逐级改写成 Amount。", users: ["phasor-exec", "phasor-sim", "phasor-records", "phasor-py"],
+    v: [["Amount", "单位数"], ["Value", "现金金额，除以估值价得到单位数"], ["Percent", "可用现金的比例，[0, 1]"], ["TargetAmount", "目标单位数；与当前仓位求差"], ["TargetValue", "目标现金价值"], ["TargetPercent", "目标占组合价值的比例"], ["ValuePercent", "组合价值的比例，按 size × value 变成 Value"], ["Percent100", "百分数写的 Percent：先除以 100"], ["ValuePercent100", "百分数写的 ValuePercent"], ["TargetPercent100", "百分数写的 TargetPercent"]] },
   Direction: { group: "order", line: 41, doc: "一列能做哪一边。", users: ["phasor-exec", "phasor-sim", "phasor-records", "phasor-analysis", "phasor-py"],
     v: [["LongOnly", "只做多；做空被拒"], ["ShortOnly", "只做空"], ["Both", "多空都可以，包括穿过零反手"]] },
-  LeverageMode: { group: "order", line: 59, doc: "带杠杆的买入什么时候借钱（B4）。参考实现只有杠杆 1，没有它。", users: ["phasor-exec", "phasor-sim", "phasor-records", "phasor-py"],
+  LeverageMode: { group: "order", line: 59, doc: "带杠杆的买入什么时候借钱。参考实现只有杠杆 1，没有它。", users: ["phasor-exec", "phasor-sim", "phasor-records", "phasor-py"],
     v: [["Lazy", "先用自有现金，不够才借"], ["Eager", "每笔都借 1 − 1/leverage"]] },
-  AccountType: { group: "order", line: 73, doc: "一列怎么为交易付钱（C1）。按列设置、整次运行不变，所以现货列和永续列能放在一个账户组里共享现金。", users: ["phasor-exec", "phasor-sim", "phasor-records", "phasor-py"],
+  AccountType: { group: "order", line: 73, doc: "一列怎么为交易付钱。按列设置、整次运行不变，所以现货列和永续列能放在一个账户组里共享现金。", users: ["phasor-exec", "phasor-sim", "phasor-records", "phasor-py"],
     v: [["Cash", "多头付全款，空头占用所得和抵押"], ["Margin", "多空都只押初始保证金，盈亏每根 K 线结算进现金：期货、永续、CFD"]] },
-  MarginBasis: { group: "order", line: 87, doc: "保证金列的初始保证金和维持保证金用什么单位（C1、C2）。", users: ["phasor-exec", "phasor-sim", "phasor-py"],
+  MarginBasis: { group: "order", line: 87, doc: "保证金列的初始保证金和维持保证金用什么单位。", users: ["phasor-exec", "phasor-sim", "phasor-py"],
     v: [["Notional", "成交价名义价值的比例；初始保证金为 NaN 时是 1 / leverage"], ["Unit", "每单位数量的固定现金，期货交易所按手公布"]] },
-  MarginMode: { group: "order", line: 103, doc: "保证金列用谁的保证金（C2）。按列设置、整次运行不变；现金列忽略它。", users: ["phasor-sim", "phasor-py"],
+  MarginMode: { group: "order", line: 103, doc: "保证金列用谁的保证金。按列设置、整次运行不变；现金列忽略它。", users: ["phasor-sim", "phasor-py"],
     v: [["Cross", "全仓：盈亏每根 K 线结算进账户现金，账户整体按维持保证金检查，一起强平"], ["Isolated", "逐仓：不结算进账户现金，只按自己的保证金检查，最多亏掉押进去的保证金"]] },
   OrderSide: { group: "order", line: 118, doc: "订单在哪一边成交。数量是无符号的，方向只在这里。", users: ["phasor-exec", "phasor-records", "phasor-analysis"],
     v: [["Buy", "买入"], ["Sell", "卖出"]] },
@@ -760,25 +759,25 @@ const ENUMS = {
     v: [["Close", "平仓"], ["CloseReduce", "平仓，再套用加减仓规则"], ["Reverse", "反手"], ["ReverseReduce", "反手，再套用加减仓规则"]] },
   StopUpdateMode: { group: "stop", line: 340, doc: "新的止损值是否替换正在生效的那个。", users: ["phasor-sim"],
     v: [["Keep", "保留现有止损"], ["Override", "替换，除非新值是 NaN"], ["OverrideNaN", "替换，即使是 NaN（等于清除止损）"]] },
-  OrderType: { group: "limit", line: 352, doc: "from_signals 里信号的订单立即执行还是作为限价单挂出（D2）。止损出场总是市价单。", users: ["phasor-sim", "phasor-py"],
+  OrderType: { group: "limit", line: 352, doc: "from_signals 里信号的订单立即执行还是作为限价单挂出。止损出场总是市价单。", users: ["phasor-sim", "phasor-py"],
     v: [["Market", "按订单价成交，加滑点"], ["Limit", "挂在限价上，直到市价够到、到期，或本列有其他成交；不加滑点"]] },
-  LimitOrderPrice: { group: "limit", line: 363, doc: "限价单被够到时按什么价成交（D2）。", users: ["phasor-sim", "phasor-py"],
+  LimitOrderPrice: { group: "limit", line: 363, doc: "限价单被够到时按什么价成交。", users: ["phasor-sim", "phasor-py"],
     v: [["Limit", "限价；开盘就越过限价时按开盘价"], ["HardLimit", "总是限价，跳空也一样"], ["Close", "当根收盘价"]] },
-  DeltaFormat: { group: "limit", line: 375, doc: "limit_delta 怎么相对订单价解读（D2）。买单向下、卖单向上，limit_reverse 反过来。", users: ["phasor-sim", "phasor-py"],
+  DeltaFormat: { group: "limit", line: 375, doc: "limit_delta 怎么相对订单价解读。买单向下、卖单向上，limit_reverse 反过来。", users: ["phasor-sim", "phasor-py"],
     v: [["Percent", "订单价的比例"], ["Absolute", "价格差"], ["Target", "直接就是限价"]] },
-  PendingConflictMode: { group: "limit", line: 389, doc: "当根信号遇到本列挂着的单（挂单，或当根触发的止损）时怎么办（D3）。前半是挂着的单保留还是撤掉，后半是信号执行还是忽略；同为买或同为卖用 upon_adj_*，否则 upon_opp_*。", users: ["phasor-sim", "phasor-py"],
+  PendingConflictMode: { group: "limit", line: 389, doc: "当根信号遇到本列挂着的单（挂单，或当根触发的止损）时怎么办。前半是挂着的单保留还是撤掉，后半是信号执行还是忽略；同为买或同为卖用 upon_adj_*，否则 upon_opp_*。", users: ["phasor-sim", "phasor-py"],
     v: [["KeepIgnore", "保留挂着的单，忽略信号"], ["KeepExecute", "保留，信号也执行；止损时先止损再按新持仓执行信号"], ["CancelIgnore", "撤掉挂着的单，忽略信号"], ["CancelExecute", "撤掉，执行信号"]] },
-  PriceType: { group: "order", line: 403, doc: "订单按哪个价格成交（D4）。Python 的 price=\"nextopen\" 是 Open 加 from_ago=1。", users: ["phasor-sim", "phasor-py"],
+  PriceType: { group: "order", line: 403, doc: "订单按哪个价格成交。Python 的 price=\"nextopen\" 是 Open 加 from_ago=1。", users: ["phasor-sim", "phasor-py"],
     v: [["Price", "price 输入，带 ±inf 约定"], ["Open", "执行那根的开盘价"], ["Close", "执行那根的收盘价"]] },
-  PriceAreaVioMode: { group: "order", line: 415, doc: "订单价超出当根最高最低价时怎么办（D4）。", users: ["phasor-sim", "phasor-py"],
+  PriceAreaVioMode: { group: "order", line: 415, doc: "订单价超出当根最高最低价时怎么办。", users: ["phasor-sim", "phasor-py"],
     v: [["Ignore", "照常成交"], ["Cap", "截到较近的边界"], ["Error", "报错"]] },
-  StopLadderMode: { group: "stop", line: 427, doc: "止损、止盈阶梯怎么分仓位（D5）。开启时 sl_stop、tp_stop 的行是级。", users: ["phasor-sim", "phasor-py"],
+  StopLadderMode: { group: "stop", line: 427, doc: "止损、止盈阶梯怎么分仓位。开启时 sl_stop、tp_stop 的行是级。", users: ["phasor-sim", "phasor-py"],
     v: [["Disabled", "不分级，止损一次平掉全部"], ["Uniform", "每级平掉布置时仓位的相同份额"], ["Weighted", "每级的份额与它和上一级的距离成比例"]] },
   TradeDirection: { group: "record", line: 439, doc: "一笔交易在哪一边。", users: ["phasor-records"],
     v: [["Long", "多头"], ["Short", "空头"]] },
   TradeStatus: { group: "record", line: 449, doc: "模拟结束时交易是否还开着。", users: ["phasor-records", "phasor-analysis"],
     v: [["Open", "仍未平仓"], ["Closed", "已平仓"]] },
-  TradesType: { group: "record", line: 463, doc: "交易记录的哪种视图。三者共用一个 schema，只是成交归属的方式不同（§9.5）。", users: ["phasor-analysis", "phasor-py"],
+  TradesType: { group: "record", line: 463, doc: "交易记录的哪种视图。三者共用一个 schema，只是成交归属的方式不同。", users: ["phasor-analysis", "phasor-py"],
     v: [["EntryTrades", "每笔进场成交一条；出场按 FIFO 分配回去"], ["ExitTrades", "每笔出场成交一条；进场平均进来"], ["Positions", "同一父仓位的交易聚合成一个仓位"]] },
   CashFlowKind: { group: "record", line: 480, doc: "现金为什么在没有成交的情况下变动。分析层据此区分“带进来的钱”和“赚到的钱”：入金改变净值但不是收益，其余都算收益。phasor 自己加的，不来自 vectorbt。", users: ["phasor-records", "phasor-sim"],
     v: [["Deposit", "在 K 线开盘时入金或出金"], ["Earning", "利息、费用等收支，在收盘时记入"], ["Dividend", "每股分红 × 开盘时的持仓；空头要支付"], ["Funding", "永续资金费：收盘按持仓 × 标记价格 × 费率，费率为正时多头付"], ["Financing", "隔夜融资：收盘按 |持仓| × 标记价格 × 该方向的费率"], ["Interest", "带杠杆多头借款的利息"], ["BorrowFee", "现金列空头的借券费"], ["Liquidation", "强平后账户付不起的亏损，作为正数核销"]] },

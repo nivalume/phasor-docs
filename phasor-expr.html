@@ -183,7 +183,7 @@
   <span class="crumb">L2 · 内核与数据 · <b>phasor-expr</b></span>
 </header>
 <aside class="toc" id="toc" aria-label="目录">
-  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li><li><a class="pg" href="architecture.html">设计与架构</a></li></ul></div>
+  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li></ul></div>
   <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
   <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
   <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li class="cur"><a class="pg" href="phasor-expr.html" aria-current="page">phasor-expr</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|pipeline:流水线|lang:语言|compiler:编译器|eval:求值|kernels:计算核心|backends:后端|alpha:Alpha158/360|verify:验证|rules:规则"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#pipeline">流水线</a></li><li><a href="#lang">语言</a></li><li><a href="#compiler">编译器</a></li><li><a href="#eval">求值</a></li><li><a href="#kernels">计算核心</a></li><li><a href="#backends">后端</a></li><li><a href="#alpha">Alpha158/360</a></li><li><a href="#verify">验证</a></li><li><a href="#rules">规则</a></li></ol></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
@@ -364,13 +364,13 @@
       </tbody>
     </table>
   </div>
-  <p class="small">还不支持：截面算子（一行读所有标的，例如截面排名）、跨标的引用、掩码（ARCHITECTURE §5.7、§17.2）。正因为所有算子都只读本标的，图才可以按标的并行。</p>
+  <p class="small">还不支持：截面算子（一行读所有标的，例如截面排名）、跨标的引用、掩码（docs/plan.md 2.10）。正因为所有算子都只读本标的，图才可以按标的并行。</p>
 
   <!-- ============================================================ -->
   <h2 id="compiler">编译器实验台</h2>
   <p>
     下面是 <code>parse.rs</code> 和 <code>graph.rs</code> 的移植：词法、Pratt 解析、元数检查、哈希合并、常量折叠、参数校验、视图解析和槽位调度。每行一个 <code>名字 = 表达式</code>。
-    它对 Alpha158 给出的正是 ARCHITECTURE 写的 357 个节点、17 个槽位、148 个直接写输出，对 Alpha360 是 722 个节点、1 个槽位。
+    它对 Alpha158 给出 357 个节点、17 个槽位、148 个直接写输出，对 Alpha360 是 722 个节点、1 个槽位。
   </p>
   <div class="panel">
     <div class="cap">FactorSet::compile，JS 移植</div>
@@ -470,7 +470,7 @@
     长表格式 + <code>.over(symbol)</code>，每批 64 个因子，qlib 特有的算子用 <code>rolling_map</code> 调用和原生后端测试里同一组逐窗函数。它的用途是<b>独立交叉验证</b>，不是性能。
   </p>
   <div class="panel">
-    <div class="cap">原生 vs Polars（4 线程，3 次取最好；ARCHITECTURE §5.6）。条长是对数刻度</div>
+    <div class="cap">原生 vs Polars（4 线程，3 次取最好）。条长是对数刻度</div>
     <div class="body"><div id="bench"></div></div>
     <div class="foot"><p class="small" style="margin:0">Polars 慢在：每个算子都要重新按标的分组、qlib 算子是 O(window) 的 UDF、批次之间无法共享子表达式、<code>Option&lt;f64&gt;</code> 转换。原生后端的优势主要来自整张图只走一遍、共享节点和视图。</p></div>
   </div>
@@ -526,7 +526,7 @@
         <tr><td class="mono">src/backend.rs · src/polars_backend.rs</td><td>ComputeBackend trait、NativeBackend；PolarsBackend（feature）。</td></tr>
         <tr><td class="mono">src/alpha158.rs · src/alpha360.rs</td><td>qlib 默认特征库的表达式。</td></tr>
         <tr><td class="mono">tests/parity_qlib.rs · benches/backends.rs · examples/scale.rs</td><td>qlib fixture 差分测试、后端基准、规模测试。</td></tr>
-        <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §5</td><td>语言、解析、编译成依赖图、原生求值、计算核心、Polars 后端、内存与限制。</td></tr>
+        <tr><td class="mono">docs/plan.md 2.10</td><td>指标和因子引擎：已有和还缺的功能（截面算子、分批输出等）。</td></tr>
       </tbody>
     </table>
   </div>
@@ -1196,13 +1196,13 @@ function buildTable() {
 /* ---------------- compiler explorer ---------------- */
 const toLines = (pairs) => pairs.map(([n, e]) => `${n} = ${e}`).join("\n");
 const C_PRESETS = [
-  { name: "ARCHITECTURE 的例子", src: "trend = $close / Mean($close, 20) - 1\nroc = Ref($close, 1) / $close\nvol = Std($close / Ref($close, 1) - 1, 20)", note: "三个因子共享 $close 和 Ref($close, 1)；Ref 是视图，不占槽位。" },
+  { name: "三个因子的例子", src: "trend = $close / Mean($close, 20) - 1\nroc = Ref($close, 1) / $close\nvol = Std($close / Ref($close, 1) - 1, 20)", note: "三个因子共享 $close 和 Ref($close, 1)；Ref 是视图，不占槽位。" },
   { name: "两种写法是一个节点", src: "a = Ref($close,1)/$close\nb = Div(Ref($close,1), $close)\nc = +Ref($close, 1)", note: "graph.rs 的测试 shared_subexpressions_and_spellings_are_one_node：只有 3 个节点（$close、Ref、Div），a 和 b 指向同一个节点，一元 + 直接消失。" },
   { name: "常量折叠", src: "a = -(1 + 2) * 3\nb = If(1 > 2, 4, 5)\nc = $close * (2 ** 3)", note: "操作数全是字面量的逐元素节点在编译期算掉：a = −9、b = 5、c 里的 2**3 变成 8。字面量不占槽位。" },
   { name: "槽位复用", src: "chain = Abs(Abs(Abs(Abs(Abs(Abs(Abs(Abs(Abs(Abs($close))))))))))", note: "十层的链只需要 2 个槽位：每个节点写进一个和它输入不同的槽位，读完就释放；最后一层没人读，直接写输出。" },
   { name: "视图与未来", src: "past = Ref(Ref(Abs($close),1),2) / $close\nlabel = Ref($close,-1)", note: "Ref(Ref(x,1),2) 合并成“x 偏移 3”的视图，它让 Abs 一直活到最后读者；Ref($close,−1) 读未来，必须计算，并让 uses_future() 为真。" },
   { name: "编译期错误", src: "ok = Mean($close, 5)\nbad = Quantile($close, 5, 1.5)", note: "参数校验在 Graph::compile 里，报错带因子名；试试 Mean($close, 2.5)、Ref($close, $open)、Magic($close)、$close = 1。" },
-  { name: "Alpha158（158 个）", pairs: () => alpha158Pairs(), note: "357 个节点、17 个槽位、148 个直接写输出——和 ARCHITECTURE §5.3 一致。节点太多，下面的图只画前 70 个。" },
+  { name: "Alpha158（158 个）", pairs: () => alpha158Pairs(), note: "357 个节点、17 个槽位、148 个直接写输出。节点太多，下面的图只画前 70 个。" },
   { name: "Alpha360（360 个）", pairs: () => alpha360Pairs(), note: "722 个节点、1 个槽位：354 个 Ref 全是视图，360 个除法没人读、直接写输出，唯一占槽位的是 $volume + 1e-12。" },
 ];
 let compiled = null;

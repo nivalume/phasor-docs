@@ -175,7 +175,7 @@
   <span class="crumb">L3 · 记录 · <b>phasor-records</b></span>
 </header>
 <aside class="toc" id="toc" aria-label="目录">
-  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li><li><a class="pg" href="architecture.html">设计与架构</a></li></ul></div>
+  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li></ul></div>
   <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
   <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
   <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
@@ -1184,7 +1184,7 @@ Journal::extend: order_id += offset      // -1 保持 -1</pre>
       </tbody>
     </table>
   </div>
-  <p class="small" style="margin-top:14px">设计背景见 <a href="architecture.html">架构文档</a>：§2.2 两层统一输出、§9.5 三种交易视图、§10.2 只从记录重建余额、§11.2 并行无共享。</p>
+  <p class="small" style="margin-top:14px">设计背景见 <code>lib.rs</code>、<code>trades.rs</code>、<code>cash.rs</code> 的模块文档：统一的记录格式、三种交易视图、只从记录重建余额、并行无共享。</p>
 </main>
 <script>
 /* ---------------- dependency graph ---------------- */

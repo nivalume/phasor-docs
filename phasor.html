@@ -186,7 +186,7 @@
   <span class="crumb">L6 · 门面 · <b>phasor（门面）</b></span>
 </header>
 <aside class="toc" id="toc" aria-label="目录">
-  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li><li><a class="pg" href="architecture.html">设计与架构</a></li></ul></div>
+  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li></ul></div>
   <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
   <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
   <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
@@ -298,7 +298,7 @@
   <h2 id="expand">expand 的代价</h2>
   <p>
     <code>args(&amp;close)</code> 要的是<b>已经展开</b>的收盘价 <code>(T, C · S)</code>，所以要先 <code>expand</code>：把每个标的的收盘价按情形数复制一遍。
-    这和 ARCHITECTURE 里“扫描不复制价格”（<code>FlexArray::MappedColumns</code>，Python 的 <code>column_map</code>）走的是不同的路。<code>expand</code> 的文档说
+    这和“扫描不复制价格”的做法（<code>FlexArray::MappedColumns</code>，Python 的 <code>column_map</code>）走的是不同的路。<code>expand</code> 的文档说
     “对很大的扫描，一个重复列视图……可以替换这个方法”——这个视图其实已经存在，phasor-py 就在用。
   </p>
   <div class="panel">
@@ -375,9 +375,9 @@ let portfolio = Portfolio::from_signals(&amp;args, threads)?;</code></pre>
     <table>
       <thead><tr><th style="width:32%">文档说</th><th style="width:38%">代码 / 实测</th><th>影响</th></tr></thead>
       <tbody>
-        <tr><td><code>lib.rs</code>“Both the vectorized tier and the phase-2 event-driven tier emit the same records”</td><td>ARCHITECTURE §0：phase 2 是 “planned, nothing implemented”</td><td>现在时写的是一个计划；读者会去找不存在的第二层</td></tr>
+        <tr><td><code>lib.rs</code>“Both the vectorized tier and the phase-2 event-driven tier emit the same records”</td><td>事件驱动层没有实现，<code>docs/plan.md</code> 里也没有</td><td>现在时写的是一个计划；读者会去找不存在的第二层</td></tr>
         <tr><td><code>tests/sweep.rs</code> 文件头“<code>examples/sweep.rs</code> is the readable version”</td><td>没有这个文件。crate 里只有 <code>examples/factor_sweep.rs</code>；<code>lib.rs</code> 指的 <code>examples/sweep.py</code> 在仓库根目录，由 phasor-py 的 <code>test_examples.py</code> 运行</td><td>两份文档各指一个“可读版本”，其中一个不存在</td></tr>
-        <tr><td>ARCHITECTURE §2“Sweeps do not copy prices … <code>FlexArray::MappedColumns</code>”；<code>expand</code> 文档“a repeated-column view … can replace this method”</td><td>Rust 门面的路径是复制：<code>args()</code> 只收展开后的收盘价并用 <code>FlexArray::full</code>；<code>MappedColumns</code> 已经在 phasor-core 里，phasor-py 的 <code>column_map</code> 用的就是它</td><td>同一个扫描，走 Python 不复制价格，走 Rust 门面复制 C 倍</td></tr>
+        <tr><td><code>expand</code> 文档“a repeated-column view … can replace this method”</td><td>Rust 门面的路径是复制：<code>args()</code> 只收展开后的收盘价并用 <code>FlexArray::full</code>；<code>MappedColumns</code> 已经在 phasor-core 里，phasor-py 的 <code>column_map</code> 用的就是它</td><td>同一个扫描，走 Python 不复制价格，走 Rust 门面复制 C 倍</td></tr>
         <tr><td><code>examples/factor_sweep.rs</code>、<code>tests/factor_path.rs</code> 写 <code>use phasor_model::OhlcvPanel;</code></td><td>只在工作区里能编译。一个只依赖 <code>phasor</code> 的 crate 写这一行得到 <code>E0432 unresolved import</code>（实测）；要写 <code>phasor::model::OhlcvPanel</code>，它也不在 prelude 里</td><td>照着例子写的第一个下游程序编译不过</td></tr>
         <tr><td>重复情形标签的报错</td><td>原文是 <code>duplicate signal sweep case label Str("same")</code>——用的是 <code>Label</code> 的 Debug 形式</td><td>小事；其他报错都用人读的形式</td></tr>
         <tr><td>phasor-py：“sl_stop or tp_stop was given without high and low … no stop can ever fire”</td><td>上面的 <code>continuous_entry…</code> 测试就是反例：只给收盘价，止损照样触发</td><td>见 <a href="phasor-py.html#guards">phasor-py · 护栏</a></td></tr>
