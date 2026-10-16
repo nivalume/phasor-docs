@@ -432,6 +432,7 @@
         <tr><td>杠杆与保证金</td><td colspan="2">leverage = 1，account_type = Cash，initial_margin = NaN（= 1 / leverage），margin_basis = Notional，margin_mode = Cross</td><td>只要有一列杠杆大于 1 或是保证金列，整次运行走 <code>const LEV: bool</code> 那份实例</td></tr>
         <tr><td>持仓费</td><td colspan="2">funding_rate、long / short_financing_rate、debt_rate、borrow_rate 全为 0，mark_price = NaN（= 收盘价）</td><td>用了任一持仓费也走 <code>LEV</code> 实例：持仓费不封顶，现金可以小于 0</td></tr>
         <tr><td>强平</td><td colspan="2">maintenance_margin = 0，liquidation_fee = 0；from_orders 的 open / high / low = NaN</td><td>只有保证金列且设了维持保证金的账户才检查；缺 OHLC 时按收盘价检查</td></tr>
+        <tr><td>合约乘数</td><td colspan="2">multiplier = 1</td><td>不为 1 时也走 <code>LEV</code> 实例：把该列按"价格 × 乘数"交给内核，记录和日志写回原价；同一列内不能变</td></tr>
       </tbody>
     </table>
   </div>
@@ -467,15 +468,15 @@
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
         <tr><td colspan="2" class="small">行号对应 2d3df32（知识库迁出时的提交）；之后新增的条目只写符号名。</td></tr>
-        <tr><td class="mono">crates/phasor-sim/src/lib.rs</td><td>账户组独立、为什么不用 SIMD；count_where（成交上界）；any_levered、margin_columns、isolated_columns；DEFAULT_MIN_SIZE = 1e-8；再导出入口。</td></tr>
+        <tr><td class="mono">crates/phasor-sim/src/lib.rs</td><td>账户组独立、为什么不用 SIMD；count_where（成交上界）；any_levered（也数乘数不为 1 的列）、margin_columns、isolated_columns、multipliers、unscale_log；DEFAULT_MIN_SIZE = 1e-8；再导出入口。</td></tr>
         <tr><td class="mono">src/from_orders.rs</td><td>FromOrders 与默认值、build_order、updated_value（:254）、simulate_group（两遍、调用顺序、update_value）、串行 / 并行 / 带日志入口。</td></tr>
         <tr><td class="mono">src/from_signals.rs</td><td>FromSignals 与默认值、stop_price（:276）、should_update_stop、Stops、read_signals、prepare_order（:502，价格 → 止损 → 信号 → 冲突 → 数量）、simulate_group（:711，执行与重新布置止损）。</td></tr>
         <tr><td class="mono">src/signals.rs</td><td>Signals、from_direction_mode、from_stop、resolve_signal_conflict、resolve_dir_conflict、resolve_opposite_entry、signals_to_size。</td></tr>
         <tr><td class="mono">src/groups.rs</td><td>Groups（ungrouped、from_lens、range、chunks）、CallSeq（Default / Auto / Explicit）、approx_order_value、insert_argsort。</td></tr>
         <tr><td class="mono">src/cash.rs · src/random.rs</td><td>开盘的入金与分红、收盘的收益（负数封顶于可用现金）；SplitMix64 的 uniform(seed, row, col)。</td></tr>
         <tr><td class="mono">src/margin.rs</td><td>保证金列的 owed、unsettled、settle：每根 K 线把盈亏结算进现金，成本移到估值价；逐仓列不结算。</td></tr>
-        <tr><td class="mono">src/holding.rs</td><td>Rates、Held、charge：收盘按订单之后的持仓收资金费、隔夜融资、借款利息、借券费，不封顶，按 mark_price（否则收盘价）算名义价值。</td></tr>
-        <tr><td class="mono">src/liquidation.rs</td><td>Inputs、Column、test（路径从开盘到不利极值或标记价格，权益和维持保证金按 α 线性，求第一次跌破的点）、fill（TargetAmount(0)、liquidation_fee、记录标记）、write_off / write_off_account（穿仓核销）。两个循环各有一个不内联的 liquidate。</td></tr>
+        <tr><td class="mono">src/holding.rs</td><td>Rates、Held、charge：收盘按订单之后的持仓收资金费、隔夜融资、借款利息、借券费，不封顶，按 mark_price（否则收盘价）乘合约乘数算名义价值。</td></tr>
+        <tr><td class="mono">src/liquidation.rs</td><td>Inputs、Column、test（路径从开盘到不利极值或标记价格，权益和维持保证金按 α 线性，求第一次跌破的点）、fill（TargetAmount(0)、liquidation_fee、记录标记）、write_off / write_off_account（穿仓核销）。路径上的价格乘合约乘数。两个循环各有一个不内联的 liquidate。</td></tr>
         <tr><td class="mono">tests/*.rs · examples/bench.rs · examples/scaling.rs</td><td>四份差分测试与订单控制测试；对比 vectorbt 的基准与线程扩展。</td></tr>
         <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §8、§11.2、§15.1</td><td>模拟循环、并行、性能。</td></tr>
       </tbody>

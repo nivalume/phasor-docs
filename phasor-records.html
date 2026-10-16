@@ -617,10 +617,10 @@
     phasor-analysis 的 Portfolio 在构造时排序；phasor-py 只在组共享现金时另存一份排好序的副本。<code>CashRecords::sort_by_column</code> 同理，同列同一根 K 线上的入金和收益保持入账顺序。
   </p>
 
-  <h3>余额列：只在可能借钱的运行里有</h3>
+  <h3>余额列：只在可能借钱或设了合约乘数的运行里有</h3>
   <p>
-    不带杠杆、没有保证金列、没有持仓费的运行，余额由成交本身决定（多头不欠钱，空头占用两倍市值），不必存。否则可用现金依赖路径，成交之外还要记下每笔成交之后的状态：
-    模拟循环在 <code>push_order</code> 之后调一次 <code>push_balances(Balances)</code>，<code>Balances</code> 带五个字段，在 <code>OrderRecords</code> 里各是一列，要么每笔成交都有，要么全空。
+    不带杠杆、没有保证金列、没有持仓费、合约乘数都是 1 的运行，余额由成交本身决定（多头不欠钱，空头占用两倍市值），不必存。否则可用现金依赖路径，成交之外还要记下每笔成交之后的状态：
+    模拟循环在 <code>push_order</code> 之后调一次 <code>push_balances(Balances)</code>，<code>Balances</code> 带六个字段，在 <code>OrderRecords</code> 里各是一列，要么每笔成交都有，要么全空。
     <code>extend</code>、<code>concat</code>、<code>sort_by_column</code> 把它们和成交一起搬。
   </p>
   <div class="wrap"><table>
@@ -631,6 +631,7 @@
       <tr><td class="mono">margin</td><td>false</td><td>true</td></tr>
       <tr><td class="mono">isolated</td><td>false</td><td>逐仓列为 true：盈亏不结算进账户现金，分析层按成本而不是市值加回可用现金</td></tr>
       <tr><td class="mono">liquidation</td><td colspan="2">这笔成交是强平，不是策略的订单</td></tr>
+      <tr><td class="mono">multiplier</td><td colspan="2">这列的合约乘数：成交的现金流是 size × price × multiplier，price 仍是价格。<code>Balances::default()</code> 里是 1，这一列为空时 <code>multiplier_of(i)</code> 也返回 1</td></tr>
     </tbody>
   </table></div>
   <p class="small">没有这些标记的手工记录按现金列、非强平处理，旧的记录不会出错。<code>CashRecords</code> 的 <code>kind</code> 现在有八种：入金、收益、分红、资金费、隔夜融资、利息、借券费、强平核销。</p>
@@ -850,9 +851,9 @@
     <div class="card"><h3>下单前 · 7</h3><p>cash<br>position<br>debt<br>locked_cash<br>free_cash<br>val_price<br>value</p></div>
     <div class="card"><h3>请求 · 20</h3><p>req_size · req_price<br>req_size_type<br>req_direction<br>req_fees · req_fixed_fees<br>req_slippage<br>req_min_size · req_max_size<br>req_size_granularity<br>req_leverage · req_leverage_mode<br>req_account_type<br>req_initial_margin · req_margin_basis<br>req_reject_prob<br>req_lock_cash<br>req_allow_partial<br>req_raise_reject · req_log</p></div>
     <div class="card"><h3>下单后 · 7</h3><p>new_cash<br>new_position<br>new_debt<br>new_locked_cash<br>new_free_cash<br>new_val_price<br>new_value</p></div>
-    <div class="card"><h3>结果 · 8</h3><p>res_size · res_price<br>res_fees<br>res_side（未成交 −1）<br>res_status<br>res_status_info（无 −1）<br>order_id（未成交 −1）<br>liquidation（强平写的行）</p></div>
+    <div class="card"><h3>结果 · 9</h3><p>res_size · res_price<br>res_fees<br>res_side（未成交 −1）<br>res_status<br>res_status_info（无 −1）<br>order_id（未成交 −1）<br>liquidation（强平写的行）<br>multiplier（合约乘数）</p></div>
   </div>
-  <p class="small" style="margin-top:8px">45 列：参考实现的 37 列，加上杠杆的 4 列（<code>locked_cash</code>、<code>new_locked_cash</code>、<code>req_leverage</code>、<code>req_leverage_mode</code>）、保证金的 3 列（<code>req_account_type</code>、<code>req_initial_margin</code>、<code>req_margin_basis</code>）和 <code>liquidation</code>；加上不存储的 <code>id</code> 共 46 个字段。参考实现有的字段，名字和顺序一一对应。模拟循环先填一个 <code>LogEntry</code> 结构体再交给 <code>push_log</code>，没有写成 38 个位置参数：<code>cash</code> 和 <code>free_cash</code> 挨着、都是 f64，最容易无声地传反。</p>
+  <p class="small" style="margin-top:8px">46 列：参考实现的 37 列，加上杠杆的 4 列（<code>locked_cash</code>、<code>new_locked_cash</code>、<code>req_leverage</code>、<code>req_leverage_mode</code>）、保证金的 3 列（<code>req_account_type</code>、<code>req_initial_margin</code>、<code>req_margin_basis</code>）、<code>liquidation</code> 和 <code>multiplier</code>；加上不存储的 <code>id</code> 共 47 个字段。价格字段（<code>val_price</code>、<code>req_price</code>、<code>res_price</code>、<code>new_val_price</code>）是价格，现金和净值是现金。参考实现有的字段，名字和顺序一一对应。模拟循环先填一个 <code>LogEntry</code> 结构体再交给 <code>push_log</code>，没有写成 38 个位置参数：<code>cash</code> 和 <code>free_cash</code> 挨着、都是 f64，最容易无声地传反。</p>
 
   <div class="grid2" style="margin-top:12px">
     <div class="panel" style="margin:0">
@@ -1016,13 +1017,13 @@ journal.logs.reason_counts(col, n_cols)?
         <g font-size="11">
           <rect x="16" y="16" width="320" height="218" rx="6" fill="#262626" stroke="#e07a3d"/>
           <rect x="16" y="16" width="320" height="30" rx="6" fill="#33200f"/><rect x="16" y="34" width="320" height="12" fill="#33200f"/>
-          <text x="28" y="36" fill="#f0b088">«struct» TradeRecords（13 列）</text>
+          <text x="28" y="36" fill="#f0b088">«struct» TradeRecords（14 列）</text>
           <text x="28" y="64" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ col · size</text>
           <text x="28" y="82" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ entry_idx · entry_price · entry_fees</text>
           <text x="28" y="100" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ exit_idx · exit_price · exit_fees</text>
           <text x="28" y="118" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ pnl · ret</text>
           <text x="28" y="136" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ direction · status: Vec&lt;i8&gt;</text>
-          <text x="28" y="154" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ parent_id: Vec&lt;i64&gt;</text>
+          <text x="28" y="154" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ parent_id: Vec&lt;i64&gt; · multiplier</text>
           <text x="28" y="178" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ duration() -&gt; Vec&lt;f64&gt;</text>
           <text x="28" y="196" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ col_map(n_cols) -&gt; Result&lt;ColMap&gt;</text>
           <text x="28" y="214" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ mapped(field, &amp;map) -&gt; MappedArray</text>
@@ -1093,7 +1094,7 @@ journal.logs.reason_counts(col, n_cols)?
       <tbody>
         <tr><td class="mono">OrderRecords</td><td class="mono">col idx size price fees side · cash</td><td>size 永远为正，方向在 side（Buy=0, Sell=1）。price 是滑点之后的成交价。<code>len</code>、<code>ids</code> 只数成交，不数现金流。</td></tr>
         <tr><td class="mono">CashRecords</td><td class="mono">col idx amount kind</td><td>amount 有符号，是实际入账额（封顶之后），不是请求额。入金记在账户组的第一列（初始现金从那列读），属于某个标的的流水记在该标的列；按账户求和时两者都落进同一个账户。kind：Deposit=0, Earning=1, Dividend=2。</td></tr>
-        <tr><td class="mono">TradeRecords</td><td class="mono">13 列，见类图</td><td>三种视图一个结构。direction：Long=0, Short=1；status：Open=0, Closed=1。open 交易的 exit_idx 是最后一根，exit_price 是那根的收盘价。parent_id 跨列全局编号，单独就能标识一个仓位。</td></tr>
+        <tr><td class="mono">TradeRecords</td><td class="mono">14 列，见类图</td><td>三种视图一个结构。pnl 乘了合约乘数，ret 不受影响（分母的入场价值也乘了）。direction：Long=0, Short=1；status：Open=0, Closed=1。open 交易的 exit_idx 是最后一根，exit_price 是那根的收盘价。parent_id 跨列全局编号，单独就能标识一个仓位。</td></tr>
         <tr><td class="mono">DrawdownRecords</td><td class="mono">9 列，见类图</td><td><code>drawdown()</code> 是负数：(valley − peak) / peak。<code>recovery_duration_ratio</code> 大于 1 表示爬回来比跌下去慢，这是常态，也是回撤代价高于其深度的原因。</td></tr>
         <tr><td class="mono">Excursions</td><td class="mono">mae mfe mae_ret mfe_ret</td><td>顺序与输入交易相同。乘以 size 得到金额尺度。</td></tr>
         <tr><td class="mono">LogRecords / LogEntry</td><td class="mono">37 列 / 结构体</td><td>见上节。<code>Journal</code> 是打开日志时传入的 sink。</td></tr>

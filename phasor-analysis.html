@@ -415,7 +415,7 @@
     <article class="card"><h3>tests/parity_metrics.rs · metrics.tsv</h3><p>2,047 行：18 个标量指标的各种参数（年化因子、无风险利率、要求收益、截断、ddof），以及每个指标的滚动形式（各 20 行）。空序列、单根、含 NaN、含无穷、全正、全负、常数……这个页面的移植 5,287 个值逐位相同。</p></article>
     <article class="card"><h3>tests/parity_analysis.rs · analysis.tsv</h3><p>37 个端到端情形：买入持有、做空往返、带成本、目标百分比、两列一列空闲、24 个随机扫描。检查净值、收益、8 个收益指标和交易统计（交易数、胜率、盈亏比、期望、总盈亏）。本页复现前三项；交易统计需要 phasor-records 的交易视图，本页没有移植。</p></article>
     <article class="card"><h3>tests/parity_stats.rs · stats.tsv</h3><p>9 种情形 × 8 个参数组合的整张 stats 表（标题和数值），包括 “never traded”、“flat price”、“still holding”。</p></article>
-    <article class="card"><h3>其他测试</h3><p><code>cash_flows.rs</code>（入金不是收益、出金封顶于可用现金）、<code>exposure.rs</code>（空头的总敞口）、<code>shared_accounts.rs</code>（共享资金分组）、<code>leverage.rs</code> 和 <code>margin.rs</code>（借钱的多头、保证金列的权益和可用现金）、<code>holding.rs</code> 和 <code>liquidation.rs</code>（持仓费、强平、穿仓核销、逐仓的可用现金；两份各有一个性质测试，逐根检查重建出的权益等于模拟循环里的权益）。变异矩阵记录 analysis 43/47，存活的几个在各自的模块注释里论证为等价（例如 Sharpe 的 len &lt; 2 护栏）。</p></article>
+    <article class="card"><h3>其他测试</h3><p><code>cash_flows.rs</code>（入金不是收益、出金封顶于可用现金）、<code>exposure.rs</code>（空头的总敞口）、<code>shared_accounts.rs</code>（共享资金分组）、<code>leverage.rs</code> 和 <code>margin.rs</code>（借钱的多头、保证金列的权益和可用现金）、<code>holding.rs</code> 和 <code>liquidation.rs</code>（持仓费、强平、穿仓核销、逐仓的可用现金；两份各有一个性质测试，逐根检查重建出的权益等于模拟循环里的权益）、<code>multiplier.rs</code>（乘数为 k 的运行等于数量放大 k 倍的运行，两个循环都测）。变异矩阵记录 analysis 43/47，存活的几个在各自的模块注释里论证为等价（例如 Sharpe 的 len &lt; 2 护栏）。</p></article>
   </div>
 
   <!-- ============================================================ -->
@@ -437,11 +437,11 @@
       <tbody>
         <tr><td colspan="2" class="small">行号对应 2d3df32（知识库迁出时的提交）；之后新增的条目只写符号名。</td></tr>
         <tr><td class="mono">crates/phasor-analysis/src/lib.rs</td><td>“与层无关”“按层汇总是主要功能”“惰性重建”；Status 一节（已过时，见上）。</td></tr>
-        <tr><td class="mono">src/series.rs</td><td>asset_flow（:74）、assets、cash_flow、deposits、free_cash_flow（:191）、gross_exposure、cash、asset_value、value、period_return（:323）、returns、returns_with_deposits、compounded_value、returns_from_orders；之后加了 levered_free_cash_flow（带余额的运行按记录里的 debt、locked_cash 算占用）和 cash_flow_by_kind（某一种现金流的矩阵）。</td></tr>
+        <tr><td class="mono">src/series.rs</td><td>asset_flow（:74）、assets、cash_flow、deposits、free_cash_flow（:191）、gross_exposure、cash、asset_value、value、period_return（:323）、returns、returns_with_deposits、compounded_value、returns_from_orders；之后加了 levered_free_cash_flow（带余额的运行按记录里的 debt、locked_cash 算占用）和 cash_flow_by_kind（某一种现金流的矩阵）；再后来加了 multipliers（每列的合约乘数，从成交记录读，全为 1 时是 None），cash_flow 和 asset_value 按它乘。</td></tr>
         <tr><td class="mono">src/metrics.rs · benchmark.rs · percentile.rs · rolling.rs</td><td>标量收益指标（DAILY = 365、VAR_CUTOFF = 0.05）；相对基准的指标；Numba 拼写的百分位；每个指标的滚动形式（经 rolling_apply_1d）。</td></tr>
         <tr><td class="mono">src/robust.rs</td><td>erfc、norm_cdf、norm_ppf（Acklam + 一步 Halley）、probabilistic_sharpe、expected_max_sharpe、deflated_sharpe、pbo_cscv（MAX_PBO_SPLITS = 16）。</td></tr>
         <tr><td class="mono">src/aggregate.rs · trade_stats.rs · events.rs</td><td>Reduce、group_by、best_column、argmax / argmin；按列的交易统计（持平的交易既不算赢也不算输）；事件研究（读未来，只用于决定要不要模拟）。</td></tr>
-        <tr><td class="mono">src/stats.rs · portfolio.rs</td><td>Value、Tag、StatsInput、Metric、Select、stats、默认与基准注册表；Scoring、Cache、Portfolio。Portfolio::free_cash 对全仓保证金列加回 position × close，对逐仓列加回最后一笔成交记下的成本（盈亏不算可用现金）；cash_flow_by_kind。</td></tr>
+        <tr><td class="mono">src/stats.rs · portfolio.rs</td><td>Value、Tag、StatsInput、Metric、Select、stats、默认与基准注册表；Scoring、Cache、Portfolio。Portfolio::free_cash 对全仓保证金列加回 position × close × 合约乘数，对逐仓列加回最后一笔成交记下的成本（盈亏不算可用现金）；cash_flow_by_kind。</td></tr>
         <tr><td class="mono">tests/*.rs · tests/fixtures/{metrics,analysis,stats}.tsv</td><td>三份差分测试，以及现金流、敞口、共享账户测试。</td></tr>
         <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §10</td><td>Portfolio、重建链、指标、统计注册表、扫描结果汇总。</td></tr>
       </tbody>
