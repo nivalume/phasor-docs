@@ -610,7 +610,7 @@
           <text x="690" y="354" fill="#909090">is_addition_zero(a, b)</text>
           <text x="690" y="370" fill="#909090">add(a, b) → f64</text>
           <text x="690" y="386" fill="#666666">const fn sign(x) → i8    （私有）</text>
-          <text x="690" y="402" fill="#666666">全部 #[inline] #[must_use]</text>
+          <text x="690" y="402" fill="#666666">全部 #[must_use]；内联，is_addition_zero 强制内联</text>
         </g>
         <path d="M136 166 V210" stroke="#8a8a8a" stroke-dasharray="4 3" marker-start="url(#kdia)"/>
         <text x="144" y="192" font-size="10" fill="#909090">1..*</text>
@@ -651,7 +651,7 @@
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
         <tr><td class="mono">crates/phasor-core/src/lib.rs</td><td>三个“承重”模块的说明；再导出 <code>Error</code>、<code>Result</code>。</td></tr>
-        <tr><td class="mono">src/math.rs</td><td>REL_TOL / ABS_TOL（:25、:32），is_close（:40），is_close_tol（:52），is_close_or_less（:72），is_less（:82），is_addition_zero（:94），add（:109），私有 sign；13 个测试。</td></tr>
+        <tr><td class="mono">src/math.rs</td><td>REL_TOL / ABS_TOL（:25、:32），is_close（:40），is_close_tol（:52），is_close_or_less（:72），is_less（:82），is_addition_zero（:99），add（:114），私有 sign；13 个测试。</td></tr>
         <tr><td class="mono">src/flex.rs</td><td>FlexArray 五个变体（:29），get（:61），varies_by_row（:80），mapped / scalar / per_column / per_row / full 构造函数。</td></tr>
         <tr><td class="mono">src/matrix.rs</td><td>Matrix（:18）与它的构造、按列访问、map_columns。</td></tr>
         <tr><td class="mono">src/columns.rs</td><td>布局约定的说明；Label（:36）按位比较的 Eq / Hash；Level::repeat（:151）/ tile（:168）；Columns（:208）、group_indices（:305）、describe（:333）。</td></tr>

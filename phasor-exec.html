@@ -339,7 +339,7 @@
     随机拒单在买卖之前（被拒的订单不会碰到只有无穷大请求才会触发的两个错误）。
   </p>
   <div class="panel">
-    <div class="cap">kernel.rs:559–701。灰色出口 = Ignored，红色 = Rejected，紫色 = Err</div>
+    <div class="cap">kernel.rs:588–730。灰色出口 = Ignored，红色 = Rejected，紫色 = Err</div>
     <div class="body">
       <svg width="1040" height="300" viewBox="0 0 1040 300" role="img" aria-label="execute_validated 流程">
         <defs>
@@ -360,7 +360,7 @@
     负无穷的 Amount 有特殊含义——“用 100% 的资源做空”——被改写成 <code>Percent(−1)</code>；Percent 最终变成“带比例的 ±∞”，由买卖腿按现金或可卖数量截断。
   </p>
   <div class="panel">
-    <div class="cap">kernel.rs:610–677。在下面的模拟器里改 size_type，可以在执行轨迹里看到每一步的改写</div>
+    <div class="cap">kernel.rs:639–706。在下面的模拟器里改 size_type，可以在执行轨迹里看到每一步的改写</div>
     <div class="body">
       <svg width="1040" height="220" viewBox="0 0 1040 220" role="img" aria-label="数量换算链">
         <defs>
@@ -684,7 +684,7 @@
       <tbody>
         <tr><td class="mono">crates/phasor-exec/src/lib.rs</td><td>两种失败、确定性、两套 fixture 的说明；再导出内核函数、四个类型和五个 phasor-model 枚举。</td></tr>
         <tr><td class="mono">src/types.rs</td><td>ExecuteOrderState（debt / free_cash 的含义）、ProcessOrderState（flat）、Order 及其 Default、OrderResult。</td></tr>
-        <tr><td class="mono">src/kernel.rs</td><td>sign / floor_to；buy（:48）、sell（:228）；validate_bar（:388）、param_violation（:427）；ValidatedOrder（:476）；execute_order（:542）、execute_validated（:559，换算链 :610–677）；单元测试。</td></tr>
+        <tr><td class="mono">src/kernel.rs</td><td>sign / floor_to；buy（:86）、sell（:293），二者强制内联；少走的分支拆成不内联的冷函数 locked_cash_limit（:47，lock_cash 买入的现金上限）、sell_size_limit（:243，lock_cash 或无穷百分比卖出的上限）；validate_bar（:417）、param_violation（:456）；ValidatedOrder（:505）；execute_order（:571）、execute_validated（:588，换算链 :639–706）；单元测试。</td></tr>
         <tr><td class="mono">tests/parity.rs · tests/parity_sequence.rs</td><td>单次与链式的差分测试；tests/common/mod.rs 是 fixture 读取与 agree。</td></tr>
         <tr><td class="mono">tests/fixtures/execute_order.tsv · order_sequence.tsv</td><td>参考实现的输出，由 tests/parity/generate_execute_order.py、generate_order_sequence.py 生成。</td></tr>
         <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §7、§14.4</td><td>撮合内核的设计说明；变异测试。</td></tr>

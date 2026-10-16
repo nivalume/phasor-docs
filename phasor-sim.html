@@ -428,7 +428,7 @@
         <tr><td><code>accumulate</code></td><td>—</td><td>Disabled</td><td></td></tr>
         <tr><td>止损</td><td>—</td><td>sl / tp = NaN，stop_entry_price = Close，stop_exit_price = StopLimit，upon_stop_exit = Close，upon_stop_update = Override</td><td><code>use_stops = true</code>，但没有止损距离就不会布置</td></tr>
         <tr><td><code>groups</code> / <code>call_seq</code></td><td>每列一组 / Default</td><td>None（每列一组）/ Default</td><td></td></tr>
-        <tr><td>现金流</td><td colspan="2">cash_deposits、cash_dividends、cash_earnings 全为 0</td><td>默认关闭时每根 K 线没有额外开销</td></tr>
+        <tr><td>现金流</td><td colspan="2">cash_deposits、cash_dividends、cash_earnings 全为 0</td><td>三项全关时循环走 <code>group_loop::&lt;_, false&gt;</code>，里面没有现金流的代码；只留着从不触发的分支也会让循环慢 5%–6%</td></tr>
       </tbody>
     </table>
   </div>
@@ -464,12 +464,12 @@
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
         <tr><td class="mono">crates/phasor-sim/src/lib.rs</td><td>账户组独立、为什么不用 SIMD；count_where（成交上界）；DEFAULT_MIN_SIZE = 1e-8；再导出入口。</td></tr>
-        <tr><td class="mono">src/from_orders.rs</td><td>FromOrders 与默认值、build_order、updated_value（:254）、simulate_group（两遍、调用顺序、update_value）、串行 / 并行 / 带日志入口。</td></tr>
-        <tr><td class="mono">src/from_signals.rs</td><td>FromSignals 与默认值、stop_price（:276）、should_update_stop、Stops、read_signals、prepare_order（:502，价格 → 止损 → 信号 → 冲突 → 数量）、simulate_group（:711，执行与重新布置止损）。</td></tr>
+        <tr><td class="mono">src/from_orders.rs</td><td>FromOrders 与默认值、build_order、updated_value（:254）、simulate_group（:324，按有没有现金流选一份 group_loop）、group_loop（:347，两遍、调用顺序、update_value）、串行 / 并行 / 带日志入口。</td></tr>
+        <tr><td class="mono">src/from_signals.rs</td><td>FromSignals 与默认值、stop_price（:276）、should_update_stop、Stops、read_signals、prepare_order（:502，价格 → 止损 → 信号 → 冲突 → 数量）、simulate_group（:707，按有没有现金流选一份 group_loop）、group_loop（:731，执行与重新布置止损）。</td></tr>
         <tr><td class="mono">src/signals.rs</td><td>Signals、from_direction_mode、from_stop、resolve_signal_conflict、resolve_dir_conflict、resolve_opposite_entry、signals_to_size。</td></tr>
         <tr><td class="mono">src/groups.rs</td><td>Groups（ungrouped、from_lens、range、chunks）、CallSeq（Default / Auto / Explicit）、approx_order_value、insert_argsort。</td></tr>
-        <tr><td class="mono">src/cash.rs · src/random.rs</td><td>开盘的入金与分红、收盘的收益（负数封顶于可用现金）；SplitMix64 的 uniform(seed, row, col)。</td></tr>
-        <tr><td class="mono">tests/*.rs · examples/bench.rs · examples/scaling.rs</td><td>四份差分测试与订单控制测试；对比 vectorbt 的基准与线程扩展。</td></tr>
+        <tr><td class="mono">src/cash.rs · src/random.rs</td><td>all_off（:47，三项全关时循环走不含现金流代码的那一份）、开盘的入金与分红、收盘的收益（负数封顶于可用现金）；SplitMix64 的 uniform(seed, row, col)。</td></tr>
+        <tr><td class="mono">tests/*.rs · examples/bench.rs · examples/scaling.rs</td><td>四份差分测试与订单控制测试；对比 vectorbt 的基准（<code>--once NAME</code> 只跑一个 workload 一次，供 <code>benchmarks/instructions.py</code> 数指令）与线程扩展。</td></tr>
         <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §8、§11.2、§15.1</td><td>模拟循环、并行、性能。</td></tr>
       </tbody>
     </table>
