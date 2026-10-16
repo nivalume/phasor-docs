@@ -152,7 +152,7 @@
   </p>
   <div class="stats">
     <div class="stat"><b>13 个 crate</b><span>7 层：地基 → 领域与数组 → 内核与数据 → 记录 → 模拟 → 分析 → 门面</span></div>
-    <div class="stat"><b>约 3.0 万行 Rust</b><span>各 crate <code>src/</code> 合计；最大的是 phasor-analysis（5,648 行）</span></div>
+    <div class="stat"><b>约 3.1 万行 Rust</b><span>各 crate <code>src/</code> 合计；最大的是 phasor-analysis（5,693 行）</span></div>
     <div class="stat"><b>2 层执行</b><span>向量化层（阶段 1）与事件驱动层（阶段 2，计划中）共享同一个撮合内核和记录格式</span></div>
     <div class="stat"><b>12 / 13 有页面</b><span>只有 phasor-data 还没有独立的 crate 页；它见 ARCHITECTURE §4</span></div>
   </div>
@@ -286,7 +286,7 @@
           <a href="phasor-model.html">
             <rect x="552" y="442" width="512" height="62" rx="6" fill="#182238" stroke="#5ea0ff"/>
             <text x="808" y="466" text-anchor="middle" font-weight="600" fill="#f0f0f0">phasor-model</text>
-            <text x="808" y="484" text-anchor="middle" font-size="10" fill="#b8b8b8">17 个 repr(i8) 撮合枚举 · InstrumentId · BarType · OhlcvPanel · Price / Quantity</text>
+            <text x="808" y="484" text-anchor="middle" font-size="10" fill="#b8b8b8">18 个 repr(i8) 撮合枚举 · InstrumentId · BarType · OhlcvPanel · Price / Quantity</text>
             <text x="808" y="497" text-anchor="middle" font-size="9" fill="#909090">撮合语义跟 vectorbt，值与标识跟 NautilusTrader</text>
           </a>
           <text x="16" y="536" font-size="11" fill="#b8b8b8">唯一的例外：phasor-data 只依赖 phasor-model。库 crate 不下载、不写文件；串行与多线程结果逐位相同，随机数是 (seed, row, col) 的函数。</text>
@@ -507,7 +507,7 @@
     </a>
     <a class="card" href="phasor-model.html">
       <span class="lvl">L3 · 第 1 层</span><strong>phasor-model</strong>
-      <span class="d">领域模型。两条血统与“已用 / 预留”；17 个枚举浏览器、拒单原因解码、InstrumentId / BarType 解析器、定点数比较的陷阱。</span>
+      <span class="d">领域模型。两条血统与“已用 / 预留”；18 个枚举浏览器、拒单原因解码、InstrumentId / BarType 解析器、定点数比较的陷阱。</span>
     </a>
     <a class="card" href="phasor-generic.html">
       <span class="lvl">L3 · 第 1 层</span><strong>phasor-generic</strong>
@@ -556,18 +556,18 @@
 /* ---------------- crate data (Cargo.toml) ---------------- */
 const CRATES = {
   "phasor-core": { layer: 0, x: 610, loc: 1427, deps: [], desc: "Matrix、FlexArray、列标签、浮点容差、Error、按位置取的随机数；无外部依赖", arch: "§3.1–3.5", page: "phasor-core.html" },
-  "phasor-model": { layer: 1, x: 400, loc: 793, deps: ["phasor-core"], desc: "撮合枚举、id、BarType、OhlcvPanel、定点 Price / Quantity", arch: "§3.6", page: "phasor-model.html" },
+  "phasor-model": { layer: 1, x: 400, loc: 814, deps: ["phasor-core"], desc: "撮合枚举、id、BarType、OhlcvPanel、定点 Price / Quantity", arch: "§3.6", page: "phasor-model.html" },
   "phasor-generic": { layer: 1, x: 690, loc: 1716, deps: ["phasor-core"], desc: "滚动 / 扩展 / EWM 窗口、平移、填充、交叉；带种子的合成价格", arch: "§2.3", page: "phasor-generic.html" },
   "phasor-signals": { layer: 1, x: 950, loc: 2045, deps: ["phasor-core"], desc: "信号清洗、生成出场、排名、区间、随机信号、标签", arch: "§6.2", page: "phasor-signals.html" },
   "phasor-data": { layer: 2, x: 180, loc: 560, deps: ["phasor-model"], desc: "CSV / Parquet / catalog → Arrow → 面板，按时点对齐", arch: "§4", page: null },
-  "phasor-exec": { layer: 2, x: 400, loc: 1181, deps: ["phasor-core", "phasor-model"], desc: "下单撮合内核，向量化层与事件驱动层共用", arch: "§7", page: "phasor-exec.html" },
+  "phasor-exec": { layer: 2, x: 400, loc: 1673, deps: ["phasor-core", "phasor-model"], desc: "下单撮合内核，向量化层与事件驱动层共用", arch: "§7", page: "phasor-exec.html" },
   "phasor-expr": { layer: 2, x: 660, loc: 4088, deps: ["phasor-core", "phasor-generic", "phasor-model"], desc: "表达式解析、图编译、原生与 Polars 后端、Alpha158/360", arch: "§5", page: "phasor-expr.html" },
   "phasor-indicators": { layer: 2, x: 890, loc: 1188, deps: ["phasor-core", "phasor-generic"], desc: "MA、MSTD、BBANDS、RSI、STOCH、MACD、ATR、OBV 及参数扫描", arch: "§6.4", page: "phasor-indicators.html" },
-  "phasor-records": { layer: 3, x: 400, loc: 4113, deps: ["phasor-core", "phasor-exec", "phasor-model"], desc: "记录格式、sink、成交、回撤、mapped array", arch: "§9", page: "phasor-records.html" },
-  "phasor-sim": { layer: 4, x: 470, loc: 4315, deps: ["phasor-core", "phasor-exec", "phasor-model", "phasor-records"], desc: "from_orders / from_signals 循环、止损止盈、分组、并行执行", arch: "§8", page: "phasor-sim.html" },
-  "phasor-analysis": { layer: 5, x: 610, loc: 5648, deps: ["phasor-core", "phasor-generic", "phasor-model", "phasor-records", "phasor-sim"], desc: "Portfolio、净值 / 收益链、指标、统计、汇总", arch: "§10", page: "phasor-analysis.html" },
+  "phasor-records": { layer: 3, x: 400, loc: 4236, deps: ["phasor-core", "phasor-exec", "phasor-model"], desc: "记录格式、sink、成交、回撤、mapped array", arch: "§9", page: "phasor-records.html" },
+  "phasor-sim": { layer: 4, x: 470, loc: 4465, deps: ["phasor-core", "phasor-exec", "phasor-model", "phasor-records"], desc: "from_orders / from_signals 循环、止损止盈、分组、并行执行", arch: "§8", page: "phasor-sim.html" },
+  "phasor-analysis": { layer: 5, x: 610, loc: 5693, deps: ["phasor-core", "phasor-generic", "phasor-model", "phasor-records", "phasor-sim"], desc: "Portfolio、净值 / 收益链、指标、统计、汇总", arch: "§10", page: "phasor-analysis.html" },
   "phasor": { layer: 6, x: 470, loc: 364, deps: ["phasor-data", "phasor-analysis", "phasor-core", "phasor-exec", "phasor-generic", "phasor-indicators", "phasor-expr", "phasor-model", "phasor-records", "phasor-signals", "phasor-sim"], optional: ["phasor-data"], desc: "门面、prelude、SignalSweep；data feature 引入 phasor-data", arch: "§6.1", page: "phasor.html" },
-  "phasor-py": { layer: 6, x: 770, loc: 3106, deps: ["phasor-data", "phasor-analysis", "phasor-core", "phasor-expr", "phasor-generic", "phasor-model", "phasor-records", "phasor-signals", "phasor-sim"], desc: "PyO3 扩展 phasor._phasor + Python 包 phasor", arch: "§12", page: "phasor-py.html" },
+  "phasor-py": { layer: 6, x: 770, loc: 3167, deps: ["phasor-data", "phasor-analysis", "phasor-core", "phasor-expr", "phasor-generic", "phasor-model", "phasor-records", "phasor-signals", "phasor-sim"], desc: "PyO3 扩展 phasor._phasor + Python 包 phasor", arch: "§12", page: "phasor-py.html" },
 };
 const LAYER_NAMES = ["地基", "领域与数组", "内核与数据", "记录", "模拟", "分析", "门面"];
 const LAYER_COLORS = ["#5ea0ff", "#2fbfa8", "#e07a3d", "#c9a227", "#d35d5d", "#b07cd8", "#8a8a8a"];

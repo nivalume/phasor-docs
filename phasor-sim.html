@@ -250,6 +250,13 @@
     否则一根创新高又回落的 K 线会被自己的回落止损出局。只有收盘价的序列也要能测止损：缺失的开高低由已知的价格补出来。
   </p>
 
+  <h3>7. 借来的钱不是净值</h3>
+  <p>
+    带杠杆买入时，自有现金只付 1/leverage，其余是借的。持仓按市值算进资产，借款就必须从净值里扣掉，否则 1000 元借 500 买 1500 元的货，净值会凭空多出 500，
+    按目标权重下的单还会因此越买越多。所以循环在 <code>leverage</code> 大于 1 时把多头按<b>扣掉借款的净值</b>估值；<code>update_value</code> 打开时，借款同时加了现金和负债，净值不动。
+    分析层只读记录，看不到循环里的负债，所以带杠杆的运行还要在每条成交记录上写下 <code>debt</code> 和 <code>locked_cash</code>。
+  </p>
+
   <div class="wrap types">
     <table>
       <thead><tr><th>第一性原理的问题</th><th>phasor-sim 的回答</th><th>小节</th></tr></thead>
@@ -260,6 +267,7 @@
         <tr><td>整体决定再执行</td><td>两遍：先确定全组价格与估值价、开盘净值只算一次；净值在组内传递而不是重新求和</td><td><a href="#bar">一根 K 线</a></td></tr>
         <tr><td>信号矛盾</td><td><code>signals.rs</code> 的纯函数：from_stop → 进出冲突 → 多空冲突 → 反向进场 → signals_to_size</td><td><a href="#pipeline">信号管线</a></td></tr>
         <tr><td>止损</td><td><code>stop_price</code>（跳空 → 开盘价）、先测试后跟踪、成交后重新布置或清除、<code>StopLimit</code> 不付滑点</td><td><a href="#stops">止损</a></td></tr>
+        <tr><td>借款不是净值</td><td><code>any_levered</code> 每次运行判断一次，选带 <code>LEV</code> 的那份 <code>group_loop</code>：多头扣掉 debt 估值，每笔成交 <code>push_balances</code></td><td><a href="#defaults">默认值</a></td></tr>
       </tbody>
     </table>
   </div>
@@ -428,7 +436,8 @@
         <tr><td><code>accumulate</code></td><td>—</td><td>Disabled</td><td></td></tr>
         <tr><td>止损</td><td>—</td><td>sl / tp = NaN，stop_entry_price = Close，stop_exit_price = StopLimit，upon_stop_exit = Close，upon_stop_update = Override</td><td><code>use_stops = true</code>，但没有止损距离就不会布置</td></tr>
         <tr><td><code>groups</code> / <code>call_seq</code></td><td>每列一组 / Default</td><td>None（每列一组）/ Default</td><td></td></tr>
-        <tr><td>现金流</td><td colspan="2">cash_deposits、cash_dividends、cash_earnings 全为 0</td><td>三项全关时循环走 <code>group_loop::&lt;_, false&gt;</code>，里面没有现金流的代码；只留着从不触发的分支也会让循环慢 5%–6%</td></tr>
+        <tr><td>现金流</td><td colspan="2">cash_deposits、cash_dividends、cash_earnings 全为 0</td><td>三项全关时循环走 <code>group_loop::&lt;_, false, _&gt;</code>，里面没有现金流的代码；只留着从不触发的分支也会让循环慢 5%–6%</td></tr>
+        <tr><td><code>leverage</code> / <code>leverage_mode</code></td><td>1 / Lazy</td><td>1 / Lazy</td><td>任何一格大于 1，整次运行走 <code>group_loop::&lt;_, _, true&gt;</code>：每列都标成 <code>in_levered_account</code>（现金可以为负），多头扣掉借款估值，每笔成交记下 debt 和 locked_cash。判断按整次运行做，不按组：记录要么每笔都带余额，要么都不带。leverage = 1 的列在这份循环里结果逐位不变（有测试）</td></tr>
       </tbody>
     </table>
   </div>
@@ -444,7 +453,7 @@
     <article class="card"><h3>parity_cash_sharing.rs · cash_sharing.tsv</h3><p>24 个情形 × {布局顺序, 自动顺序}。另有一个测试要求“排序会改变成交”至少在一个情形上成立——否则一个完全忽略 <code>CallSeq::Auto</code> 的实现也能通过整套测试。</p></article>
     <article class="card"><h3>parity_from_signals.rs · from_signals.tsv</h3><p>181 例（120 个随机）：两种信号约定、各种冲突与反向进场模式、累积、止损的跳空 / 触及、止盈、跟踪、四种退出价、四种退出模式、三种更新模式、没有高低价的止损、两列分叉、按列止损。</p></article>
   </div>
-  <p class="small" style="margin-top:8px">另有 <code>order_controls.rs</code>（cash_limit、reject_prob、raise_reject 等参考实现没有或不同的控制），以及 phasor-analysis 的 <code>cash_flows.rs</code>：每条订单日志里的现金和可用现金，必须等于从记录重建出来的余额，独立账户与共享账户都测，线程数不影响结果。</p>
+  <p class="small" style="margin-top:8px">另有 <code>order_controls.rs</code>（cash_limit、reject_prob、raise_reject 等参考实现没有或不同的控制），以及 phasor-analysis 的 <code>cash_flows.rs</code>：每条订单日志里的现金和可用现金，必须等于从记录重建出来的余额，独立账户与共享账户都测，线程数不影响结果。参考实现没有杠杆，fixture 只钉住 leverage = 1；<code>leverage.rs</code> 用手算的情形检查借款、开空的保证金、欠款后拒买（<code>NoCashLeverage</code>），以及带杠杆的运行里 leverage = 1 的列逐位不变、串行与并行逐位相同。</p>
 
   <!-- ============================================================ -->
   <h2 id="table">谁依赖它，用来做什么</h2>
@@ -453,7 +462,7 @@
   <h2 id="rules">不能绕开的规则</h2>
   <div class="grid2">
     <article class="card"><h3>串行与多线程逐位相同</h3><p>每个组写自己的缓冲区，记录 id 在按组顺序合并之后才分配；随机拒单的随机数是 <code>(seed, row, col)</code> 的函数，只在概率不为 0 时生成。任何依赖线程交错的东西都会破坏这一点。</p></article>
-    <article class="card"><h3>现金的变化必须是记录</h3><p>入金、分红、收益都写成 <code>CashRecords</code>，因为分析层只从记录重建余额。只改了循环里的 cash 而不写记录，净值曲线会悄悄错。</p></article>
+    <article class="card"><h3>现金的变化必须是记录</h3><p>入金、分红、收益都写成 <code>CashRecords</code>，因为分析层只从记录重建余额。只改了循环里的 cash 而不写记录，净值曲线会悄悄错。借款也一样：带杠杆的运行在每条成交记录上带 debt 和 locked_cash。</p></article>
     <article class="card"><h3>阶段的顺序是语义</h3><p>先多头进出冲突、再空头进出冲突、再多空冲突、最后反向进场；先测止损再跟踪；先确定全组价格再执行。换顺序就会换掉留下来的信号或成交，fixture 会抓到。<code>tests/fixtures/*.tsv</code> 不能为了让改动通过而重新生成。</p></article>
     <article class="card"><h3>保持 Send、无全局状态</h3><p>参考的事件驱动引擎把状态放在进程全局的 <code>Rc&lt;RefCell&lt;..&gt;&gt;</code> 后面，只能顺序扫描；这里每个引擎实例都必须 <code>Send</code>，这是代码库的硬约束（ARCHITECTURE §11.5）。</p></article>
   </div>
@@ -463,13 +472,13 @@
     <table>
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
-        <tr><td class="mono">crates/phasor-sim/src/lib.rs</td><td>账户组独立、为什么不用 SIMD；count_where（成交上界）；DEFAULT_MIN_SIZE = 1e-8；再导出入口。</td></tr>
-        <tr><td class="mono">src/from_orders.rs</td><td>FromOrders 与默认值、build_order、updated_value（:254）、simulate_group（:324，按有没有现金流选一份 group_loop）、group_loop（:347，两遍、调用顺序、update_value）、串行 / 并行 / 带日志入口。</td></tr>
-        <tr><td class="mono">src/from_signals.rs</td><td>FromSignals 与默认值、stop_price（:276）、should_update_stop、Stops、read_signals、prepare_order（:502，价格 → 止损 → 信号 → 冲突 → 数量）、simulate_group（:707，按有没有现金流选一份 group_loop）、group_loop（:731，执行与重新布置止损）。</td></tr>
+        <tr><td class="mono">crates/phasor-sim/src/lib.rs</td><td>账户组独立、为什么不用 SIMD；count_where（成交上界）；any_levered（:101，整次运行是否有列能借款）；DEFAULT_MIN_SIZE = 1e-8；再导出入口。</td></tr>
+        <tr><td class="mono">src/from_orders.rs</td><td>FromOrders 与默认值、build_order（:181，杠杆运行里标上 in_levered_account）、updated_value（:276）、simulate_group（:358，按有没有现金流、有没有杠杆选四份 group_loop 之一）、group_loop（:391，两遍、调用顺序、update_value、LEV 时扣掉多头的 debt）、串行 / 并行 / 带日志入口。</td></tr>
+        <tr><td class="mono">src/from_signals.rs</td><td>FromSignals 与默认值、stop_price（:285）、should_update_stop、Stops、read_signals、prepare_order（:535，价格 → 止损 → 信号 → 冲突 → 数量）、simulate_group（:742，同样四份）、group_loop（:771，执行与重新布置止损）。</td></tr>
         <tr><td class="mono">src/signals.rs</td><td>Signals、from_direction_mode、from_stop、resolve_signal_conflict、resolve_dir_conflict、resolve_opposite_entry、signals_to_size。</td></tr>
         <tr><td class="mono">src/groups.rs</td><td>Groups（ungrouped、from_lens、range、chunks）、CallSeq（Default / Auto / Explicit）、approx_order_value、insert_argsort。</td></tr>
         <tr><td class="mono">src/cash.rs · src/random.rs</td><td>all_off（:47，三项全关时循环走不含现金流代码的那一份）、开盘的入金与分红、收盘的收益（负数封顶于可用现金）；uniform(seed, row, col)：包一层不内联的函数，调 phasor_core::random::uniform。</td></tr>
-        <tr><td class="mono">tests/*.rs · examples/bench.rs · examples/scaling.rs</td><td>四份差分测试与订单控制测试；对比 vectorbt 的基准（<code>--once NAME</code> 只跑一个 workload 一次，供 <code>benchmarks/instructions.py</code> 数指令）与线程扩展。</td></tr>
+        <tr><td class="mono">tests/*.rs · examples/bench.rs · examples/scaling.rs</td><td>四份差分测试、订单控制测试与杠杆测试（leverage.rs）；对比 vectorbt 的基准（<code>--once NAME</code> 只跑一个 workload 一次，供 <code>benchmarks/instructions.py</code> 数指令）与线程扩展。</td></tr>
         <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §8、§11.2、§15.1</td><td>模拟循环、并行、性能。</td></tr>
       </tbody>
     </table>

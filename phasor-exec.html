@@ -198,13 +198,13 @@
 <main>
   <h1>phasor-exec</h1>
   <p class="muted">
-    撮合内核。整个引擎里语义最密的地方：给定一个账户状态和一笔订单请求，算出成交了多少、什么价、多少手续费，以及新的现金、仓位、负债和可用现金——
+    撮合内核。整个引擎里语义最密的地方：给定一个账户状态和一笔订单请求，算出成交了多少、什么价、多少手续费，以及新的现金、仓位、负债、占用资金和可用现金——
     或者说明为什么没成交。两条模拟循环在每根 K 线上调用它，阶段 2 的事件驱动层也会调用同一个函数。<b>正是这份共享</b>，让向量化的结果可以被逐笔回放验证。
   </p>
   <div class="stats">
     <div class="stat"><b>1 个纯函数</b><span><code>execute_order(state, order, reject_draw)</code>：不读全局状态，随机数由调用方传进来，所以并行和串行逐位相同</span></div>
     <div class="stat"><b>474 + 1,504 条 fixture</b><span>单次调用逐字段对照 vectorbt 1.1.0；链式调用把自己的输出喂给下一步，抓状态传递的错误</span></div>
-    <div class="stat"><b>3 种结局</b><span>成交（Filled）、忽略 / 拒绝（Ignored / Rejected，带 14 种原因之一，状态不变）、错误（Err，不变量被破坏）</span></div>
+    <div class="stat"><b>3 种结局</b><span>成交（Filled）、忽略 / 拒绝（Ignored / Rejected，带 15 种原因之一，状态不变）、错误（Err，不变量被破坏）</span></div>
   </div>
 
   <!-- ============================================================ -->
@@ -222,6 +222,11 @@
     做空会收到卖出所得，但这笔钱不能当成可以随便花的现金：平仓时要按市价买回来。于是需要记下空头“欠”多少（<code>debt</code>，按开仓均价计），
     以及扣掉保证金之后真正可用的现金（<code>free_cash</code>）。这两个量<b>依赖路径</b>——同样的现金和仓位，可以由不同的开平仓历史得到，对应不同的保证金占用——
     所以它们必须是显式状态，不能从现金和仓位推出来。
+  </p>
+  <p>
+    杠杆再加一个量。借来的钱不是自己的，所以 <code>cash</code> 只记自有现金，多头借的钱计入 <code>debt</code>；持仓占用的自有资金记在 <code>locked_cash</code>：
+    多头是成本里自己出的部分，空头是保证金（开仓时的 <code>市值 / leverage</code>）。不带杠杆时多头没有借款，空头的保证金正好等于卖出所得，
+    这是参考实现能表达的唯一情形，所以 <code>leverage = 1</code> 的每笔成交都必须和它逐位一致。
   </p>
 
   <h3>3. “买多少”有很多种说法</h3>
@@ -281,19 +286,20 @@
         <path d="M266 139 C 300 139, 310 112, 340 108" fill="none" stroke="#8a8a8a" stroke-dasharray="5 4" marker-end="url(#carr)"/>
         <path d="M640 84 C 680 84, 680 53, 714 53" fill="none" stroke="#8a8a8a" marker-end="url(#carr)"/>
         <path d="M640 108 C 680 108, 680 139, 714 139" fill="none" stroke="#8a8a8a" marker-end="url(#carr)"/>
-        <text x="16" y="192" font-size="11" fill="#b8b8b8">内核只改 cash、position、debt、free_cash 四个量；估值价、组合价值、记录写入都在调用方。这条边界让它能在任意一根 K 线上被单独调用和单独测试。</text>
+        <text x="16" y="192" font-size="11" fill="#b8b8b8">内核只改 cash、position、debt、locked_cash、free_cash 五个量；估值价、组合价值、记录写入都在调用方。这条边界让它能在任意一根 K 线上被单独调用和单独测试。</text>
       </svg>
     </div>
   </div>
 
   <h3>如果从零实现，按这个顺序</h3>
   <ol class="steps">
-    <li><b>先定状态和结果的形状。</b>状态 = 现金、有符号仓位、负债、可用现金；结果 = 成交量、成交价、手续费、方向、状态、原因。拒绝时原样返回状态。</li>
-    <li><b>先置零，再比较。</b>进入内核的每个余额先用容差吸附到精确的 0，否则平掉的仓位“还开着”，可负担判断会抖动。</li>
+    <li><b>先定状态和结果的形状。</b>状态 = 自有现金、有符号仓位、负债、占用资金、可用现金；结果 = 成交量、成交价、手续费、方向、状态、原因。拒绝时原样返回状态。</li>
+    <li><b>先置零，再比较。</b>进入内核的余额先用容差吸附到精确的 0，否则平掉的仓位“还开着”，可负担判断会抖动。<code>locked_cash</code> 例外：它只按持仓比例被读取，内核也不在里面留残差。</li>
     <li><b>忽略先于校验。</b>NaN 数量 / 价格表示“这根没有信号”，即使状态非法也应当被忽略——这是参考实现的行为，也决定了后面能不能把校验提到循环外。</li>
-    <li><b>校验只报不变量。</b>负现金、非有限仓位、非正价格、参数越界 → 错误；其余一律走正常结果。</li>
+    <li><b>校验只报不变量。</b>负现金（带杠杆的账户除外）、非有限仓位、非正价格、参数越界 → 错误；其余一律走正常结果。</li>
     <li><b>换算链归一数量。</b>TargetPercent → TargetValue → TargetAmount / Amount，−∞ → Percent(−1)，Percent → ±∞ 加比例；按符号分派。</li>
     <li><b>买和卖各写一次，手续费包含在上限内。</b>买不起时反解名义金额，有交易单位时<b>再取整一次</b>；做空时同步更新负债和保证金。</li>
+    <li><b>杠杆单独走一条路。</b>自有现金只付做多部分的 <code>1/leverage</code>、平空部分的全价和全部手续费，其余借入；带杠杆的分支放进不内联的函数，<code>leverage = 1</code> 时一条指令都不走。</li>
     <li><b>随机拒单把随机数当参数。</b>调用方用 <code>(seed, row, col)</code> 生成；概率为 0 时根本不生成。</li>
     <li><b>与参考实现逐字段差分</b>，单次调用和链式调用各一套；用变异测试检验 fixture 能不能抓住“把容差换成 &lt;=”这类改动。</li>
   </ol>
@@ -339,7 +345,7 @@
     随机拒单在买卖之前（被拒的订单不会碰到只有无穷大请求才会触发的两个错误）。
   </p>
   <div class="panel">
-    <div class="cap">kernel.rs:588–730。灰色出口 = Ignored，红色 = Rejected，紫色 = Err</div>
+    <div class="cap">kernel.rs:807–953。灰色出口 = Ignored，红色 = Rejected，紫色 = Err</div>
     <div class="body">
       <svg width="1040" height="300" viewBox="0 0 1040 300" role="img" aria-label="execute_validated 流程">
         <defs>
@@ -350,7 +356,7 @@
         <g font-size="11" id="flow-g"></g>
       </svg>
     </div>
-    <div class="foot"><p class="small" style="margin:0">买卖两条腿内部还会产生拒绝：买入的 NoCashLong、CantCoverFees、MaxSizeExceeded、MinSizeNotReached、PartialFill，卖出另有 NoCashShort、NoOpenPosition；两条腿各有一个“无限做多 / 无限做空”的错误。</p></div>
+    <div class="foot"><p class="small" style="margin:0">买卖两条腿内部还会产生拒绝：买入的 NoCashLong（带杠杆时是 NoCashLeverage）、CantCoverFees、MaxSizeExceeded、MinSizeNotReached、PartialFill，卖出另有 NoCashShort、NoOpenPosition；两条腿各有一个“无限做多 / 无限做空”的错误。</p></div>
   </div>
 
   <!-- ============================================================ -->
@@ -360,7 +366,7 @@
     负无穷的 Amount 有特殊含义——“用 100% 的资源做空”——被改写成 <code>Percent(−1)</code>；Percent 最终变成“带比例的 ±∞”，由买卖腿按现金或可卖数量截断。
   </p>
   <div class="panel">
-    <div class="cap">kernel.rs:639–706。在下面的模拟器里改 size_type，可以在执行轨迹里看到每一步的改写</div>
+    <div class="cap">kernel.rs:862–930。在下面的模拟器里改 size_type，可以在执行轨迹里看到每一步的改写</div>
     <div class="body">
       <svg width="1040" height="220" viewBox="0 0 1040 220" role="img" aria-label="数量换算链">
         <defs>
@@ -453,22 +459,25 @@
   </div>
 
   <!-- ============================================================ -->
-  <h2 id="short">空头账本：debt 与 free_cash</h2>
+  <h2 id="short">账本：debt、locked_cash 与 free_cash</h2>
   <p>
-    开空收到的钱进 <code>cash</code>，但同时记一笔 <code>debt</code>（按开仓价计的卖出所得），并让 <code>free_cash</code> 变化 <code>所得 − 2 × short_value</code>：
-    一次抵掉这笔所得本身，一次是为将来买回预留的保证金。平空时按 <code>debt / |position|</code>（开仓均价）按比例释放。下面的表用同一个移植逐步算出来。
+    开空收到的钱进 <code>cash</code>，但同时记一笔 <code>debt</code>（按开仓价计的卖出所得）和一笔 <code>locked_cash</code>（保证金，<code>short_value / leverage</code>），
+    并让 <code>free_cash</code> 变化 <code>所得 − short_value − short_value / leverage</code>：一次抵掉这笔所得本身，一次是为将来买回预留的保证金。
+    <code>leverage = 1</code> 时就是参考实现的 <code>所得 − 2 × short_value</code>；<code>leverage = 2</code> 时占用是市值的 150%，即美股 Reg T 的做空要求。
+    平空时按 <code>(debt + locked_cash) / |position|</code> 按比例释放。带杠杆的多头把借款计入 <code>debt</code>、自己出的部分计入 <code>locked_cash</code>，卖出时按比例先还债。
+    下面的表用同一个移植逐步算出来，最后一列是循环算的 <code>value = cash + position × price − 多头的 debt</code>。
   </p>
   <div class="panel">
-    <div class="cap">初始现金 100，无手续费。每一步的输入状态 = 上一步的输出</div>
+    <div class="cap">初始现金 100，无手续费。每一步的输入状态 = 上一步的输出；后两个序列 leverage = 2</div>
     <div class="body">
       <div class="seg" id="sh-presets"><span class="lbl">序列</span></div>
-      <div class="wrap"><table><thead><tr><th>步</th><th>订单</th><th>结果</th><th>cash</th><th>position</th><th>debt</th><th>free_cash</th><th>cash − debt</th></tr></thead><tbody id="sh-rows"></tbody></table></div>
+      <div class="wrap"><table><thead><tr><th>步</th><th>订单</th><th>结果</th><th>cash</th><th>position</th><th>debt</th><th>locked_cash</th><th>free_cash</th><th>value</th></tr></thead><tbody id="sh-rows"></tbody></table></div>
     </div>
     <div class="foot"><p class="small" style="margin:0" id="sh-note"></p></div>
   </div>
   <div class="note">
     <b>为什么不能只存现金和仓位：</b>同样是“现金 150、空 5 股”，可以是 10 元一次开空 5 股，也可以是先在 20 元开空再部分平掉……开仓均价不同，平仓时释放的保证金就不同。
-    <code>ExecuteOrderState</code> 的文档原话是“保证金占用依赖路径”，所以 <code>debt</code> 和 <code>free_cash</code> 是一等状态。
+    <code>ExecuteOrderState</code> 的文档原话是“保证金占用依赖路径”，所以 <code>debt</code>、<code>locked_cash</code> 和 <code>free_cash</code> 是一等状态。
   </div>
 
   <!-- ============================================================ -->
@@ -490,14 +499,14 @@
   </div>
   <div class="grid3">
     <article class="card"><h3>与零比较是精确的</h3><p>买卖两条腿里 <code>cash_limit == 0</code>、<code>adj_size == 0</code>、<code>position &lt; 0</code> 这些判断故意不用容差：参考实现在这里是精确比较，换成 <code>is_close</code> 会改变哪些订单成交。</p></article>
-    <article class="card"><h3>但入口先吸附到零</h3><p>进入内核时，<code>cash、position、debt、free_cash、val_price、value</code> 先经 <code>is_close(v, 0)</code> 吸附。于是后面的精确比较看到的是干净的 0，而不是 <code>1e-17</code>。</p></article>
+    <article class="card"><h3>但入口先吸附到零</h3><p>进入内核时，<code>cash、position、debt、free_cash、val_price、value</code> 先经 <code>is_close(v, 0)</code> 吸附。于是后面的精确比较看到的是干净的 0，而不是 <code>1e-17</code>。<code>locked_cash</code> 不吸附：卖光多头时它直接置 0，部分卖出留下的份额远离 0。</p></article>
     <article class="card"><h3>测的是 adj_size</h3><p>买入腿的 SizeZero 检查测的是截断前的 <code>adj_size</code>，不是最终的 <code>final_size</code>——和参考实现一致，代码里专门注释了这一点。</p></article>
   </div>
 
   <!-- ============================================================ -->
   <h2 id="hoist">ValidatedOrder：把列常量的校验提出循环</h2>
   <p>
-    校验分两半。<code>validate_bar</code> 读的是每根 K 线都会变的东西（状态、价格、方向）；<code>param_violation</code> 读的是一整列通常共享的参数（费率、滑点、数量上下限、粒度、拒单概率、现金上限）。
+    校验分两半。<code>validate_bar</code> 读的是每根 K 线都会变的东西（状态、价格、方向）；<code>param_violation</code> 读的是一整列通常共享的参数（费率、滑点、数量上下限、粒度、杠杆、拒单概率、现金上限）。
     在真实策略里大多数 K 线不成交，这些 K 线几乎只做校验，所以把第二半每列做一次就是可观的提速：benchmarks/README.md 记录 <code>ValidatedOrder</code> 连同“每列构造一次订单”合计稀疏 +30%、稠密 +22%。
   </p>
   <div class="grid2">
@@ -505,9 +514,9 @@
       <table>
         <thead><tr><th colspan="2">validate_bar（每根 K 线）</th></tr></thead>
         <tbody>
-          <tr><td>cash</td><td>不是 NaN，且 ≥ 0</td></tr>
+          <tr><td>cash</td><td>不是 NaN，且 ≥ 0（带杠杆的账户可以为负）</td></tr>
           <tr><td>position</td><td>有限</td></tr>
-          <tr><td>debt</td><td>有限，且 ≥ 0</td></tr>
+          <tr><td>debt / locked_cash</td><td>有限，且 ≥ 0（合成一次判断，精确检查在冷函数里）</td></tr>
           <tr><td>free_cash</td><td>不是 NaN（可以为负）</td></tr>
           <tr><td>price</td><td>有限，且 &gt; 0</td></tr>
           <tr><td>LongOnly</td><td>持仓不能为负</td></tr>
@@ -524,6 +533,7 @@
           <tr><td>min_size</td><td>有限，且 ≥ 0</td></tr>
           <tr><td>max_size</td><td>不是 NaN，且 &gt; 0（可以是 +inf）</td></tr>
           <tr><td>size_granularity</td><td>NaN（不取整），或有限且 &gt; 0</td></tr>
+          <tr><td>leverage</td><td>有限，且 ≥ 1</td></tr>
           <tr><td>reject_prob</td><td>在 [0, 1]</td></tr>
           <tr><td>cash_limit</td><td>不是 NaN，且 ≥ 0</td></tr>
         </tbody>
@@ -536,7 +546,7 @@
     <article class="card"><h3>报错顺序不变</h3><p>两半拆开后仍按原来的顺序调用：同时违反状态和参数时报的是状态错误（测试 <code>a_bad_state_outranks_a_bad_parameter</code>）。违规存成 <code>&amp;'static str</code>，让 ValidatedOrder 保持 <code>Copy</code>。</p></article>
   </div>
   <p class="small" style="margin-top:8px">
-    代码注释写的是“十四项检查里的七项”“提速 12–15%”；现在 <code>param_violation</code> 有 8 项（<code>cash_limit</code> 是后来加的），提速数字以 benchmarks/README.md 的复测为准。
+    代码注释写的是“十七项检查里的九项”“提速 12–15%”：<code>validate_bar</code> 8 项，<code>param_violation</code> 9 项（<code>cash_limit</code>、<code>leverage</code> 是后来加的）；提速数字以 benchmarks/README.md 的复测为准。
   </p>
 
   <!-- ============================================================ -->
@@ -545,7 +555,7 @@
   <div class="panel">
     <div class="cap">phasor-exec 的公开接口</div>
     <div class="body">
-      <svg width="1040" height="430" viewBox="0 0 1040 430" role="img" aria-label="phasor-exec 类图">
+      <svg width="1040" height="480" viewBox="0 0 1040 480" role="img" aria-label="phasor-exec 类图">
         <defs>
           <marker id="karr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
             <path d="M0,0 L8,4 L0,8 z" fill="#8a8a8a" />
@@ -556,7 +566,7 @@
         </defs>
         <g font-size="11" font-family="ui-monospace, Menlo, monospace">
           <!-- Order -->
-          <rect x="16" y="16" width="250" height="300" rx="6" fill="#262626" stroke="#3a7afe"/>
+          <rect x="16" y="16" width="250" height="332" rx="6" fill="#262626" stroke="#3a7afe"/>
           <rect x="16" y="16" width="250" height="24" rx="6" fill="#1a2744"/>
           <text x="141" y="33" text-anchor="middle" fill="#f0f0f0" font-weight="600">struct Order : Copy, Default</text>
           <text x="26" y="56" fill="#b8b8b8">size: f64          = +inf</text>
@@ -570,19 +580,22 @@
           <text x="26" y="184" fill="#b8b8b8">size_granularity   = NaN</text>
           <text x="26" y="200" fill="#b8b8b8">cash_limit         = +inf</text>
           <text x="26" y="216" fill="#b8b8b8">reject_prob        = 0</text>
-          <text x="26" y="232" fill="#b8b8b8">lock_cash          = false</text>
-          <text x="26" y="248" fill="#b8b8b8">allow_partial      = true</text>
-          <text x="26" y="264" fill="#b8b8b8">raise_reject       = false</text>
-          <text x="26" y="280" fill="#b8b8b8">log                = false</text>
-          <line x1="16" y1="290" x2="266" y2="290" stroke="#3d3d3d"/>
-          <text x="26" y="306" fill="#909090">inf 是活的哨兵：全部 / 用收盘价</text>
+          <text x="26" y="232" fill="#b8b8b8">leverage           = 1</text>
+          <text x="26" y="248" fill="#b8b8b8">leverage_mode      = Lazy</text>
+          <text x="26" y="264" fill="#b8b8b8">lock_cash          = false</text>
+          <text x="26" y="280" fill="#b8b8b8">allow_partial      = true</text>
+          <text x="26" y="296" fill="#b8b8b8">raise_reject       = false</text>
+          <text x="26" y="312" fill="#b8b8b8">log                = false</text>
+          <line x1="16" y1="322" x2="266" y2="322" stroke="#3d3d3d"/>
+          <text x="26" y="338" fill="#909090">inf 是活的哨兵：全部 / 用收盘价</text>
 
           <!-- ValidatedOrder -->
-          <rect x="16" y="340" width="250" height="78" rx="6" fill="#262626" stroke="#e07a3d"/>
-          <text x="141" y="358" text-anchor="middle" fill="#f0f0f0" font-weight="600">struct ValidatedOrder : Copy</text>
-          <text x="26" y="376" fill="#b8b8b8">order: Order   violation: Option&lt;&amp;str&gt;</text>
-          <text x="26" y="394" fill="#909090">new(order)  set_bar(size, price, st, dir)</text>
-          <text x="26" y="410" fill="#909090">order()  check() → Result</text>
+          <rect x="16" y="372" width="250" height="96" rx="6" fill="#262626" stroke="#e07a3d"/>
+          <text x="141" y="390" text-anchor="middle" fill="#f0f0f0" font-weight="600">struct ValidatedOrder : Copy</text>
+          <text x="26" y="408" fill="#b8b8b8">order: Order   violation: Option&lt;&amp;str&gt;</text>
+          <text x="26" y="424" fill="#b8b8b8">levered_account: bool</text>
+          <text x="26" y="442" fill="#909090">new(order)  set_bar(size, price, st, dir)</text>
+          <text x="26" y="458" fill="#909090">order()  check()  in_levered_account()</text>
 
           <!-- functions -->
           <rect x="320" y="150" width="380" height="124" rx="8" fill="#33200f" stroke="#e07a3d"/>
@@ -594,14 +607,15 @@
           <text x="330" y="242" fill="#f0b088">              &amp;ValidatedOrder, Option&lt;f64&gt;)</text>
           <text x="330" y="262" fill="#909090">→ Result&lt;(ExecuteOrderState, OrderResult)&gt;</text>
           <text x="330" y="292" fill="#666666">私有：buy  sell  validate_bar  param_violation</text>
-          <text x="330" y="308" fill="#666666">      sign（numpy 语义）  floor_to</text>
+          <text x="330" y="308" fill="#666666">      levered_buy_cost  repay_long  …（冷函数）</text>
+          <text x="330" y="324" fill="#666666">      sign（numpy 语义）  floor_to</text>
 
           <!-- states -->
           <rect x="756" y="16" width="268" height="118" rx="6" fill="#262626" stroke="#3a7afe"/>
           <rect x="756" y="16" width="268" height="24" rx="6" fill="#1a2744"/>
           <text x="890" y="33" text-anchor="middle" fill="#f0f0f0" font-weight="600">struct ProcessOrderState</text>
-          <text x="766" y="56" fill="#b8b8b8">cash, position, debt, free_cash</text>
-          <text x="766" y="72" fill="#b8b8b8">val_price, value: f64</text>
+          <text x="766" y="56" fill="#b8b8b8">cash, position, debt, locked_cash,</text>
+          <text x="766" y="72" fill="#b8b8b8">free_cash, val_price, value: f64</text>
           <text x="766" y="88" fill="#b8b8b8">oidx, lidx: usize</text>
           <line x1="756" y1="96" x2="1024" y2="96" stroke="#3d3d3d"/>
           <text x="766" y="112" fill="#909090">const fn flat(cash, val_price)</text>
@@ -610,9 +624,9 @@
           <rect x="756" y="160" width="268" height="90" rx="6" fill="#262626" stroke="#3a7afe"/>
           <rect x="756" y="160" width="268" height="24" rx="6" fill="#1a2744"/>
           <text x="890" y="177" text-anchor="middle" fill="#f0f0f0" font-weight="600">struct ExecuteOrderState</text>
-          <text x="766" y="200" fill="#b8b8b8">cash: f64        position: f64</text>
-          <text x="766" y="216" fill="#b8b8b8">debt: f64        free_cash: f64</text>
-          <text x="766" y="238" fill="#666666">内核写回的四个量</text>
+          <text x="766" y="200" fill="#b8b8b8">cash  position  debt</text>
+          <text x="766" y="216" fill="#b8b8b8">locked_cash  free_cash: f64</text>
+          <text x="766" y="238" fill="#666666">内核写回的五个量</text>
 
           <rect x="756" y="276" width="268" height="142" rx="6" fill="#262626" stroke="#3a7afe"/>
           <rect x="756" y="276" width="268" height="24" rx="6" fill="#1a2744"/>
@@ -628,11 +642,11 @@
           <rect x="320" y="16" width="380" height="96" rx="6" fill="#1e1e1e" stroke="#2fbfa8" stroke-dasharray="4 3"/>
           <text x="510" y="36" text-anchor="middle" fill="#f0f0f0" font-weight="600">再导出自 phasor-model</text>
           <text x="330" y="58" fill="#8fe0d2">Direction · OrderSide · OrderStatus</text>
-          <text x="330" y="74" fill="#8fe0d2">SizeType · StatusInfo</text>
+          <text x="330" y="74" fill="#8fe0d2">SizeType · StatusInfo · LeverageMode</text>
           <text x="330" y="98" fill="#909090">调用方 match 结果时不必再依赖 phasor-model</text>
         </g>
-        <path d="M141 340 V316" stroke="#8a8a8a" stroke-dasharray="4 3" marker-start="url(#kdia)"/>
-        <path d="M266 380 C 300 380, 300 240, 320 236" fill="none" stroke="#8a8a8a" stroke-dasharray="4 3" marker-end="url(#karr)"/>
+        <path d="M141 372 V348" stroke="#8a8a8a" stroke-dasharray="4 3" marker-start="url(#kdia)"/>
+        <path d="M266 412 C 300 412, 300 240, 320 236" fill="none" stroke="#8a8a8a" stroke-dasharray="4 3" marker-end="url(#karr)"/>
         <path d="M266 200 H320" stroke="#8a8a8a" stroke-dasharray="4 3" marker-end="url(#karr)"/>
         <path d="M756 75 C 730 75, 720 190, 700 196" fill="none" stroke="#8a8a8a" stroke-dasharray="4 3" marker-end="url(#karr)"/>
         <path d="M700 250 C 730 250, 730 205, 756 205" fill="none" stroke="#8a8a8a" marker-end="url(#karr)"/>
@@ -656,7 +670,7 @@
   </div>
   <div class="note">
     <b>fixture 是由变异测试塑形的，不是凭感觉写的。</b>把可负担判断从 <code>is_close_or_less</code> 换成 <code>&lt;=</code> 曾经通过了全部测试，于是加了 <code>tolerance_boundary_*</code>；
-    置零有两套冗余机制，只有链式测试能发现两者同时被删掉。比较时 NaN 与 NaN、同号无穷与同号无穷算一致（<code>tests/common/mod.rs</code> 的 <code>agree</code>），其余用 <code>is_close</code>。
+    置零有两套冗余机制，只有链式测试能发现两者同时被删掉。比较时 NaN 与 NaN、同号无穷与同号无穷算一致（<code>tests/common/mod.rs</code> 的 <code>agree</code>），其余用 <code>is_close</code>。参考实现没有杠杆，fixture 只覆盖 <code>leverage = 1</code>（读入时状态里的 <code>locked_cash</code> 取 <code>debt</code>）；带杠杆的路径由 kernel.rs 里按手算结果写的单元测试检查。
     fixture 由 <code>tests/parity/generate_*.py</code> 对 vectorbt 1.1.0 生成并提交，<code>cargo test</code> 不需要 Python。
   </div>
 
@@ -674,7 +688,7 @@
     <article class="card"><h3>语义跟参考实现走，哪怕不地道</h3><p>文件开头写明：两者可能不同的地方一律跟 vectorbt，不地道的写法加注释而不是“整理”。0 和 NaN 走卖出分支、SizeZero 测 <code>adj_size</code>、numpy 语义的 <code>sign</code>，都是有意保留的。<code>tests/fixtures/*.tsv</code> 不能为了让改动通过而重新生成。</p></article>
     <article class="card"><h3>拒绝不是错误</h3><p>被拒的订单原样返回状态，带一个 <code>StatusInfo</code>；只有不变量被破坏才返回 <code>Err</code>。<code>raise_reject</code> 是调用方（phasor-sim）把拒绝升级成错误的开关，内核自己不看它。</p></article>
     <article class="card"><h3>保持可单独调用</h3><p>不要让内核读“这一列的其它部分”，也不要在里面写记录、维护估值价或生成随机数。这些都在调用方，阶段 2 的事件驱动层才能直接复用它。</p></article>
-    <article class="card"><h3>余额更新一律走 math::add</h3><p>现金、仓位、负债、可用现金的每次更新都用 <code>add</code>，异号近似抵消时得到精确的 0；可负担判断用 <code>is_close_or_less</code>，严格小于用 <code>is_less</code>。见 <a href="phasor-core.html#math">phasor-core · 容差</a>。</p></article>
+    <article class="card"><h3>余额更新一律走 math::add</h3><p>现金、仓位、负债、可用现金的每次更新都用 <code>add</code>，异号近似抵消时得到精确的 0（卖出多头时释放 <code>locked_cash</code> 是唯一的普通算术：全卖直接置 0，部分卖出留下的份额远离 0）；可负担判断用 <code>is_close_or_less</code>，严格小于用 <code>is_less</code>。见 <a href="phasor-core.html#math">phasor-core · 容差</a>。</p></article>
   </div>
 
   <h2>源文件</h2>
@@ -682,9 +696,9 @@
     <table>
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
-        <tr><td class="mono">crates/phasor-exec/src/lib.rs</td><td>两种失败、确定性、两套 fixture 的说明；再导出内核函数、四个类型和五个 phasor-model 枚举。</td></tr>
-        <tr><td class="mono">src/types.rs</td><td>ExecuteOrderState（debt / free_cash 的含义）、ProcessOrderState（flat）、Order 及其 Default、OrderResult。</td></tr>
-        <tr><td class="mono">src/kernel.rs</td><td>sign / floor_to；buy（:86）、sell（:293），二者强制内联；少走的分支拆成不内联的冷函数 locked_cash_limit（:47，lock_cash 买入的现金上限）、sell_size_limit（:243，lock_cash 或无穷百分比卖出的上限）；validate_bar（:417）、param_violation（:456）；ValidatedOrder（:505）；execute_order（:571）、execute_validated（:588，换算链 :639–706）；单元测试。</td></tr>
+        <tr><td class="mono">crates/phasor-exec/src/lib.rs</td><td>两种失败、确定性、两套 fixture 的说明；再导出内核函数、四个类型和六个 phasor-model 枚举（含 LeverageMode）。</td></tr>
+        <tr><td class="mono">src/types.rs</td><td>ExecuteOrderState（cash / debt / locked_cash / free_cash 的含义）、ProcessOrderState（flat）、Order 及其 Default（leverage = 1、leverage_mode = Lazy）、OrderResult。</td></tr>
+        <tr><td class="mono">src/kernel.rs</td><td>sign / floor_to；buy（:91）、sell（:431），二者强制内联；少走的分支拆成不内联的函数 locked_cash_limit（:47，lock_cash 买入的现金上限）、levered_buy_cost（:288，带杠杆买入的数量、自有现金和借款）、sell_size_limit（:350，lock_cash 或无穷百分比卖出的上限）、repay_long（:412，卖出带杠杆的多头时还款）；validate_bar（:587）、balance_violation（:629）、param_violation（:654）；ValidatedOrder（:706）；execute_order（:790）、execute_validated（:807，换算链 :862–930）；单元测试。</td></tr>
         <tr><td class="mono">tests/parity.rs · tests/parity_sequence.rs</td><td>单次与链式的差分测试；tests/common/mod.rs 是 fixture 读取与 agree。</td></tr>
         <tr><td class="mono">tests/fixtures/execute_order.tsv · order_sequence.tsv</td><td>参考实现的输出，由 tests/parity/generate_execute_order.py、generate_order_sequence.py 生成。</td></tr>
         <tr><td class="mono">docs/ARCHITECTURE.zh-CN.md §7、§14.4</td><td>撮合内核的设计说明；变异测试。</td></tr>
@@ -757,12 +771,15 @@ function buy(state, size, price, o, percent, T, opt) {
   if (o.lock_cash) {
     if (state.position >= 0) { cashLimit = state.free_cash; T("buy", `lock_cash，持仓 ≥ 0：cash_limit = free_cash = ${show(cashLimit)}`); }
     else {
+      // Closing the short gives back its proceeds and its collateral: 2·debt at leverage 1.
+      const reserved = state.debt + state.locked_cash;
       const coverReq = Math.abs(state.position) * adjPrice * (1 + o.fees) + o.fixed_fees;
-      const coverFree = add(state.free_cash + 2 * state.debt, -coverReq);
-      if (coverFree > 0) { cashLimit = state.free_cash + 2 * state.debt; T("buy", `lock_cash，够平空还有余：cash_limit = free_cash + 2·debt = ${show(cashLimit)}`); }
+      const coverFree = add(state.free_cash + reserved, -coverReq);
+      if (coverFree > 0) { cashLimit = state.free_cash + reserved; T("buy", `lock_cash，够平空还有余：cash_limit = free_cash + debt + locked_cash = ${show(cashLimit)}`); }
       else if (coverFree < 0) {
         const avg = state.debt / Math.abs(state.position);
-        const maxShort = (state.free_cash - o.fixed_fees) / (adjPrice * (1 + o.fees) - 2 * avg);
+        const avgLocked = state.locked_cash / Math.abs(state.position);
+        const maxShort = (state.free_cash - o.fixed_fees) / (adjPrice * (1 + o.fees) - (avg + avgLocked));
         cashLimit = maxShort * adjPrice * (1 + o.fees) + o.fixed_fees;
         T("buy", `lock_cash，不够平全部空头：只平 ${show(maxShort)}，cash_limit = ${show(cashLimit)}`);
       } else { cashLimit = state.cash; T("buy", `lock_cash，刚好够平空：cash_limit = cash`); }
@@ -772,8 +789,10 @@ function buy(state, size, price, o, percent, T, opt) {
   if (!Number.isNaN(percent)) cashLimit = rmin(cashLimit, percent * cashLimit);
   T("buy", `与 cash、order.cash_limit${Number.isNaN(percent) ? "" : `、percent ${show(percent)}`} 取小：cash_limit = ${show(cashLimit)}`);
 
+  const levered = o.leverage > 1;
   if (o.direction === "LongOnly" || o.direction === "Both") {
-    if (cashLimit === 0) return { state, res: notFilled("Rejected", "NoCashLong") };
+    // Below zero only in a leveraged account that owes; elsewhere validation stopped it, and this is `== 0`.
+    if (cashLimit <= 0) return { state, res: notFilled("Rejected", levered ? "NoCashLeverage" : "NoCashLong") };
     if (!Number.isFinite(size) && !Number.isFinite(cashLimit) && !Number.isNaN(size) && !Number.isNaN(cashLimit))
       throw new Invariant("attempt to go long infinitely: both size and available cash are infinite");
   } else if (state.position === 0) return { state, res: notFilled("Rejected", "NoOpenPosition") };
@@ -790,9 +809,14 @@ function buy(state, size, price, o, percent, T, opt) {
   const reqCash = adjSize * adjPrice;
   const reqFees = reqCash * o.fees + o.fixed_fees;
   const totalReq = reqCash + reqFees;
+  let finalSize, feesPaid, finalReq, borrowed = 0;
+  if (levered) {
+    const c = leveredBuyCost(state, adjSize, adjPrice, cashLimit, o, T);
+    if (c.info) return { state, res: notFilled("Rejected", c.info) };
+    ({ finalSize, feesPaid, finalReq, borrowed } = c);
+  } else {
   const affordable = opt.plainLe ? totalReq <= cashLimit : isCloseOrLess(totalReq, cashLimit);
   T("buy", `需要 ${show(reqCash)} + 手续费 ${show(reqFees)} = ${show(totalReq)}；${opt.plainLe ? "totalReq <= cash_limit" : "is_close_or_less(total, cash_limit)"} → ${affordable}`);
-  let finalSize, feesPaid, finalReq;
   if (affordable) { finalSize = adjSize; feesPaid = reqFees; finalReq = totalReq; }
   else {
     const maxReq = add(cashLimit, -o.fixed_fees) / (1 + o.fees);
@@ -806,21 +830,67 @@ function buy(state, size, price, o, percent, T, opt) {
       T("buy", `${show(maxAcq)} 再按 granularity 取整一次 → ${show(finalSize)}`);
     }
   }
+  }
   if (isClose(adjSize, 0)) return { state, res: notFilled("Ignored", "SizeZero") };
   if (isLess(finalSize, o.min_size)) return { state, res: notFilled("Rejected", "MinSizeNotReached") };
   if (Number.isFinite(size) && isLess(finalSize, size) && !o.allow_partial) return { state, res: notFilled("Rejected", "PartialFill") };
 
   const newCash = add(state.cash, -finalReq);
   const newPos = add(state.position, finalSize);
-  let newDebt, newFree;
+  // The part that ends up long ties up the own cash paid for it: its cost less what was borrowed.
+  const longSize = state.position < 0 ? rmax(newPos, 0) : finalSize;
+  const ownLong = longSize * adjPrice - borrowed;
+  let newDebt, newLocked, newFree;
   if (state.position < 0) {
     const shortSize = newPos < 0 ? finalSize : Math.abs(state.position);
     const avg = state.debt / Math.abs(state.position);
     const debtDiff = shortSize * avg;
-    newDebt = add(state.debt, -debtDiff); newFree = add(state.free_cash + 2 * debtDiff, -finalReq);
-    T("buy", `平空 ${show(shortSize)} @ 均价 ${show(avg)}：释放 debt ${show(debtDiff)}，free_cash 加回 2 × ${show(debtDiff)}`);
-  } else { newDebt = state.debt; newFree = add(state.free_cash, -finalReq); }
-  return { state: { cash: newCash, position: newPos, debt: newDebt, free_cash: newFree }, res: filled(finalSize, adjPrice, feesPaid, "Buy") };
+    const lockedDiff = shortSize * (state.locked_cash / Math.abs(state.position));
+    newDebt = add(state.debt, -debtDiff) + borrowed;
+    newLocked = add(state.locked_cash, -lockedDiff) + ownLong;
+    newFree = add(state.free_cash + (debtDiff + lockedDiff), -finalReq);
+    T("buy", `平空 ${show(shortSize)} @ 均价 ${show(avg)}：释放 debt ${show(debtDiff)} 和保证金 ${show(lockedDiff)}，一起加回 free_cash（leverage = 1 时是 2 × ${show(debtDiff)}）`);
+  } else {
+    newDebt = state.debt + borrowed; newLocked = state.locked_cash + ownLong; newFree = add(state.free_cash, -finalReq);
+  }
+  if (ownLong > 0) T("buy", `做多部分占用自有资金 ${show(ownLong)}，计入 locked_cash${borrowed > 0 ? `；借入 ${show(borrowed)} 计入 debt` : ""}`);
+  return { state: { cash: newCash, position: newPos, debt: newDebt, locked_cash: newLocked, free_cash: newFree }, res: filled(finalSize, adjPrice, feesPaid, "Buy") };
+}
+
+// What a leveraged buy fills and costs. Own cash pays for any short bought back at full price,
+// 1/leverage of what goes long, and every fee; the rest of the long part is borrowed.
+function leveredBuyCost(state, size, adjPrice, cashLimit, o, T) {
+  const lev = o.leverage;
+  const coverRoom = rmax(-state.position, 0);
+  const ownNeeded = (q) => {
+    const cover = rmin(q, coverRoom);
+    const notional = q * adjPrice;
+    return cover * adjPrice + (q - cover) * adjPrice / lev + (notional * o.fees + o.fixed_fees);
+  };
+  let finalSize = size;
+  const need = ownNeeded(size);
+  T("buy", `leverage ${show(lev)}：自有现金至少要付 平空部分全价 + 做多部分 1/λ + 手续费 = ${show(need)}`);
+  if (!isCloseOrLess(need, cashLimit)) {
+    const coverCost = coverRoom * adjPrice * (1 + o.fees) + o.fixed_fees;
+    let maxSize;
+    if (coverRoom > 0 && cashLimit < coverCost) {
+      maxSize = add(cashLimit, -o.fixed_fees) / (1 + o.fees) / adjPrice;
+      T("buy", `连空头都平不完（平空不加杠杆）：最多 ${show(maxSize)}`);
+    } else {
+      maxSize = add(cashLimit, -(o.fixed_fees + coverRoom * adjPrice * (1 - 1 / lev))) / (1 / lev + o.fees) / adjPrice;
+      T("buy", `自有现金不够：反解 (cash_limit − fixed_fees − 平空多付的部分) / (1/λ + fees) / price = ${show(maxSize)}`);
+    }
+    if (maxSize <= 0) return { info: "CantCoverFees" };
+    finalSize = Number.isNaN(o.size_granularity) ? maxSize : floorTo(maxSize, o.size_granularity);
+  }
+  const notional = finalSize * adjPrice;
+  const fees = notional * o.fees + o.fixed_fees;
+  const total = notional + fees;
+  const ownMin = ownNeeded(finalSize);
+  const own = o.leverage_mode === "Eager" ? ownMin : isCloseOrLess(total, cashLimit) ? total : rmax(cashLimit, ownMin);
+  const borrowed = rmax(add(total, -own), 0);
+  T("buy", `${o.leverage_mode}：成本 ${show(total)}，自有现金付 ${show(own)}，借入 ${show(borrowed)}`);
+  return { finalSize, feesPaid: fees, finalReq: own, borrowed };
 }
 
 function sell(state, size, price, o, percent, T) {
@@ -829,15 +899,18 @@ function sell(state, size, price, o, percent, T) {
   let sizeLimit;
   if (o.direction === "LongOnly") { sizeLimit = rmin(state.position, size); T("sell", `LongOnly：不超过持仓，size_limit = ${show(sizeLimit)}`); }
   else if (o.lock_cash || (!Number.isFinite(size) && !Number.isNaN(size) && !Number.isNaN(percent))) {
+    // Selling a long frees its proceeds less the debt they repay (zero without leverage).
     const longSize = rmax(state.position, 0);
-    const longCash = longSize * adjPrice * (1 - o.fees);
+    const longDebt = state.position > 0 ? state.debt : 0;
+    const longCash = longSize * adjPrice * (1 - o.fees) - longDebt;
     const totalFree = add(state.free_cash, longCash);
     let maxLimit;
     if (totalFree <= 0) {
       if (state.position <= 0) return { state, res: notFilled("Rejected", "NoCashShort") };
       maxLimit = longSize;
     } else {
-      const maxShort = add(totalFree, -o.fixed_fees) / (adjPrice * (1 + o.fees));
+      // A short ties up 1/leverage of its value besides its proceeds: 1 + fees per unit at leverage 1.
+      const maxShort = add(totalFree, -o.fixed_fees) / (adjPrice * (1 / o.leverage + o.fees));
       maxLimit = add(longSize, maxShort);
       if (maxLimit <= 0) return { state, res: notFilled("Rejected", "CantCoverFees") };
     }
@@ -866,22 +939,35 @@ function sell(state, size, price, o, percent, T) {
   const finalAcq = add(acq, -feesPaid);
   T("sell", `所得 ${show(acq)} − 手续费 ${show(feesPaid)} = ${show(finalAcq)}`);
   if (finalAcq < 0) return { state, res: notFilled("Rejected", "CantCoverFees") };
-  const newCash = state.cash + finalAcq;
   const newPos = add(state.position, -sizeLimit);
-  let newDebt, newFree;
+  // Selling a long frees its share of locked_cash and repays its share of what was borrowed.
+  let cash = state.cash, debt = state.debt, locked = state.locked_cash, free = state.free_cash;
+  if (state.position > 0) {
+    locked = newPos > 0 ? state.locked_cash - sizeLimit * (state.locked_cash / state.position) : 0;
+    if (state.debt > 0) {
+      const repaid = newPos > 0 ? sizeLimit * (state.debt / state.position) : state.debt;
+      cash = add(state.cash, -repaid); debt = add(state.debt, -repaid); free = add(state.free_cash, -repaid);
+      T("sell", `卖出带杠杆的多头：按比例还款 ${show(repaid)}，locked_cash 释放到 ${show(locked)}`);
+    }
+  }
+  const newCash = cash + finalAcq;
+  let newDebt, newLocked, newFree;
   if (newPos < 0) {
     const shortSize = state.position < 0 ? sizeLimit : Math.abs(newPos);
     const shortValue = shortSize * adjPrice;
-    newDebt = state.debt + shortValue; newFree = add(state.free_cash, add(finalAcq, -2 * shortValue));
-    T("sell", `新增空头 ${show(shortSize)}：debt + ${show(shortValue)}，free_cash 变化 所得 − 2 × ${show(shortValue)}`);
-  } else { newDebt = state.debt; newFree = state.free_cash + finalAcq; }
-  return { state: { cash: newCash, position: newPos, debt: newDebt, free_cash: newFree }, res: filled(sizeLimit, adjPrice, feesPaid, "Sell") };
+    const collateral = shortValue / o.leverage;
+    newDebt = debt + shortValue; newLocked = locked + collateral; newFree = add(free, add(finalAcq, -(shortValue + collateral)));
+    T("sell", `新增空头 ${show(shortSize)}：debt + ${show(shortValue)}，保证金 locked_cash + ${show(collateral)}，free_cash 变化 所得 − ${show(shortValue)} − ${show(collateral)}`);
+  } else { newDebt = debt; newLocked = locked; newFree = free + finalAcq; }
+  return { state: { cash: newCash, position: newPos, debt: newDebt, locked_cash: newLocked, free_cash: newFree }, res: filled(sizeLimit, adjPrice, feesPaid, "Sell") };
 }
 
-function validateBar(s, o, position) {
-  if (Number.isNaN(s.cash) || s.cash < 0) return "cash cannot be NaN and must be 0 or greater";
+// The Rust tests debt and locked_cash together and runs these two exact checks only when that fails.
+function validateBar(s, o, position, leveredAccount) {
+  if (Number.isNaN(s.cash) || (s.cash < 0 && !leveredAccount)) return "cash cannot be NaN and must be 0 or greater";
   if (!Number.isFinite(position)) return "position must be finite";
   if (!Number.isFinite(s.debt) || s.debt < 0) return "debt must be finite and 0 or greater";
+  if (!Number.isFinite(s.locked_cash) || s.locked_cash < 0) return "locked_cash must be finite and 0 or greater";
   if (Number.isNaN(s.free_cash)) return "free_cash cannot be NaN";
   if (!Number.isFinite(o.price) || o.price <= 0) return "order.price must be finite and greater than 0";
   if (o.direction === "LongOnly" && position < 0) return "position is negative but order.direction is LongOnly";
@@ -895,6 +981,7 @@ function paramViolation(o) {
   if (!Number.isFinite(o.min_size) || o.min_size < 0) return "order.min_size must be finite and 0 or greater";
   if (Number.isNaN(o.max_size) || o.max_size <= 0) return "order.max_size must be greater than 0";
   if ((!Number.isFinite(o.size_granularity) && !Number.isNaN(o.size_granularity)) || o.size_granularity <= 0) return "order.size_granularity must be NaN, or finite and greater than 0";
+  if (!Number.isFinite(o.leverage) || o.leverage < 1) return "order.leverage must be finite and 1 or greater";
   if (!Number.isFinite(o.reject_prob) || !(o.reject_prob >= 0 && o.reject_prob <= 1)) return "order.reject_prob must be between 0 and 1";
   if (Number.isNaN(o.cash_limit) || o.cash_limit < 0) return "order.cash_limit must be 0 or greater";
   return null;
@@ -906,18 +993,21 @@ function executeOrder(ps, o, draw, opt = {}) {
   const snap = (v) => (isClose(v, 0) ? 0 : v);
   const snapped = ["cash", "position", "debt", "free_cash", "val_price", "value"].filter((k) => ps[k] !== snap(ps[k]) && !Number.isNaN(ps[k]));
   const cash = snap(ps.cash), position = snap(ps.position), debt = snap(ps.debt), free_cash = snap(ps.free_cash), val_price = snap(ps.val_price), value = snap(ps.value);
-  const exec = { cash, position, debt, free_cash };
-  T("snap", snapped.length ? `吸附到 0：${snapped.map((k) => `${k} ${show(ps[k])} → 0`).join("，")}` : "六个余额都不在 0 的容差内，原样使用");
+  // locked_cash is left alone: it is only read in proportion to a position.
+  const exec = { cash, position, debt, locked_cash: ps.locked_cash, free_cash };
+  T("snap", snapped.length ? `吸附到 0：${snapped.map((k) => `${k} ${show(ps[k])} → 0`).join("，")}` : "六个余额都不在 0 的容差内，原样使用（locked_cash 不吸附）");
   const done = (r) => ({ ...r, trace });
   try {
     if (Number.isNaN(o.size)) { T("ignore", "size 是 NaN：忽略，不做任何校验"); return done({ state: exec, res: notFilled("Ignored", "SizeNaN") }); }
     if (Number.isNaN(o.price)) { T("ignore", "price 是 NaN：忽略"); return done({ state: exec, res: notFilled("Ignored", "PriceNaN") }); }
-    const vb = validateBar(exec, o, position);
+    // ValidatedOrder::new marks an order with leverage above 1; a loop marks every order of a levered run.
+    const leveredAccount = o.leverage > 1 || o.levered_account;
+    const vb = validateBar(exec, o, position, leveredAccount);
     if (vb) throw new Invariant(vb);
-    T("validate", "validate_bar：7 项状态 / 价格 / 方向检查通过");
+    T("validate", `validate_bar：8 项状态 / 价格 / 方向检查通过${leveredAccount ? "（带杠杆的账户，现金可以为负）" : ""}`);
     const pv = paramViolation(o);
     if (pv) throw new Invariant(pv);
-    T("validate", "param_violation：8 项参数检查通过（ValidatedOrder 在每列只做一次）");
+    T("validate", "param_violation：9 项参数检查通过（ValidatedOrder 在每列只做一次）");
     if (o.reject_prob > 0 && draw === null) throw new Invariant("order.reject_prob is non-zero but no random draw was supplied");
 
     let size = o.size, st = o.size_type;
@@ -1068,10 +1158,10 @@ function buildTable() {
 function buildFlow() {
   const g = document.getElementById("flow-g");
   const steps = [
-    ["入口置零", "6 个余额 is_close(v,0) → 0"],
+    ["入口置零", "6 个量 is_close(v,0) → 0"],
     ["忽略检查", "size / price 为 NaN"],
-    ["validate_bar", "状态、价格、方向（7 项）"],
-    ["参数检查", "ValidatedOrder 缓存（8 项）"],
+    ["validate_bar", "状态、价格、方向（8 项）"],
+    ["参数检查", "ValidatedOrder 缓存（9 项）"],
     ["draw 检查", "reject_prob > 0 却没给 draw"],
     ["换算链", "→ Amount / ±∞ + percent"],
     ["随机拒单", "draw < reject_prob"],
@@ -1109,12 +1199,13 @@ function buildFlow() {
 }
 
 /* ---------------- simulator UI ---------------- */
-const STATE_FIELDS = ["cash", "position", "debt", "free_cash", "val_price", "value"];
-const ORDER_NUM = ["size", "price", "fees", "fixed_fees", "slippage", "min_size", "max_size", "size_granularity", "cash_limit", "reject_prob", "draw"];
+const STATE_FIELDS = ["cash", "position", "debt", "locked_cash", "free_cash", "val_price", "value"];
+const ORDER_NUM = ["size", "price", "fees", "fixed_fees", "slippage", "min_size", "max_size", "size_granularity", "leverage", "cash_limit", "reject_prob", "draw"];
+const LEVERAGE_MODES = ["Lazy", "Eager"];
 const SIZE_TYPES = ["Amount", "Value", "Percent", "TargetAmount", "TargetValue", "TargetPercent"];
 const DIRECTIONS = ["LongOnly", "ShortOnly", "Both"];
-const DEFAULT_ORDER = { size: "inf", price: "inf", size_type: "Amount", direction: "Both", fees: "0", fixed_fees: "0", slippage: "0", min_size: "0", max_size: "inf", size_granularity: "nan", cash_limit: "inf", reject_prob: "0", draw: "", lock_cash: false, allow_partial: true };
-const flat = (cash, vp) => ({ cash: String(cash), position: "0", debt: "0", free_cash: String(cash), val_price: String(vp), value: String(cash) });
+const DEFAULT_ORDER = { size: "inf", price: "inf", size_type: "Amount", direction: "Both", fees: "0", fixed_fees: "0", slippage: "0", min_size: "0", max_size: "inf", size_granularity: "nan", leverage: "1", leverage_mode: "Lazy", cash_limit: "inf", reject_prob: "0", draw: "", lock_cash: false, allow_partial: true, levered_account: false };
+const flat = (cash, vp) => ({ cash: String(cash), position: "0", debt: "0", locked_cash: "0", free_cash: String(cash), val_price: String(vp), value: String(cash) });
 const X_PRESETS = [
   { name: "买 5 @ 10", s: flat(100, 10), o: { size: "5", price: "10" }, note: "单元测试 plain_buy_spends_cash_and_takes_a_position：现金 100 → 50，持仓 5。" },
   { name: "手续费在上限内", s: flat(100, 10), o: { size: "5", price: "10", fees: "0.01", fixed_fees: "1" }, note: "5 × 10 = 50，1% = 0.5，加 1 元固定费：手续费 1.5，剩 48.5（fees_come_out_of_the_cash_cap_not_on_top）。" },
@@ -1122,11 +1213,15 @@ const X_PRESETS = [
   { name: "反解 + 整手", s: flat(100, 10), o: { size: "20", price: "10", fees: "0.1", fixed_fees: "1", size_granularity: "1" }, note: "反解出的 8.999999999999998 再按 granularity 取整一次，得到 8 股而不是 9——浮点反解的结果略小于整数时，第二次取整会少成交一个单位。参考实现的算术相同，所以 phasor 也必须这样。剩下的 11 元留在现金里。" },
   { name: "开空 5", s: flat(100, 10), o: { size: "-5", price: "10" }, note: "shorting_records_debt_and_reserves_margin：现金 150，debt 50，free_cash = 100 + 50 − 2 × 50 = 50。点“把输出作为下一步”，再买 5 平掉。" },
   { name: "全部做空（−inf）", s: flat(100, 10), o: { size: "-inf", price: "10" }, note: "Amount = −inf 被改写成 Percent(−1)，卖出腿按 free_cash 算出最多能空多少：100 / 10 = 10 股。" },
-  { name: "目标 50% 权重", s: { cash: "50", position: "5", debt: "0", free_cash: "50", val_price: "12", value: "110" }, o: { size: "0.5", price: "12", size_type: "TargetPercent" }, note: "0.5 × value 110 = 55 → ÷ 12 = 4.583 → 减去持仓 5 = −0.417：卖出约 0.417 股。" },
+  { name: "目标 50% 权重", s: { cash: "50", position: "5", debt: "0", locked_cash: "50", free_cash: "50", val_price: "12", value: "110" }, o: { size: "0.5", price: "12", size_type: "TargetPercent" }, note: "0.5 × value 110 = 55 → ÷ 12 = 4.583 → 减去持仓 5 = −0.417：卖出约 0.417 股。" },
   { name: "LongOnly 无仓卖出", s: flat(100, 10), o: { size: "-3", price: "10", direction: "LongOnly" }, note: "LongOnly 的卖出不超过持仓；持仓为 0：Rejected / NoOpenPosition。" },
-  { name: "NaN 数量 + 坏状态", s: { cash: "-1", position: "0", debt: "0", free_cash: "-1", val_price: "10", value: "-1" }, o: { size: "nan", price: "10", fees: "inf" }, note: "现金为负、费率无穷，但数量是 NaN：先忽略，不校验（nan_size_is_ignored_even_when_the_state_is_invalid）。把 size 改成 5 看错误。" },
+  { name: "NaN 数量 + 坏状态", s: { cash: "-1", position: "0", debt: "0", locked_cash: "0", free_cash: "-1", val_price: "10", value: "-1" }, o: { size: "nan", price: "10", fees: "inf" }, note: "现金为负、费率无穷，但数量是 NaN：先忽略，不校验（nan_size_is_ignored_even_when_the_state_is_invalid）。把 size 改成 5 看错误。" },
   { name: "随机拒单", s: flat(100, 10), o: { size: "5", price: "10", reject_prob: "0.5", draw: "0.1" }, note: "draw 0.1 < 0.5 → RandomEvent，状态不变。改成 0.9 会成交；清空 draw 会得到“没有提供随机数”的错误。" },
   { name: "最小数量", s: flat(30, 10), o: { size: "5", price: "10", min_size: "4" }, note: "只有 30 元，最多买 3 股，低于 min_size 4：MinSizeNotReached。把 allow_partial 关掉、min_size 改成 0，会变成 PartialFill。" },
+  { name: "3 倍杠杆 100%", s: flat(1000, 100), o: { size: "1", price: "100", size_type: "Percent", leverage: "3" }, note: "a_percent_buy_uses_the_whole_leveraged_buying_power：1000 元 3 倍杠杆买 3000 元的货，30 股。自有现金全部用掉，借 2000 计入 debt，locked_cash 1000。" },
+  { name: "2 倍 eager / lazy", s: flat(1000, 100), o: { size: "10", price: "100", leverage: "2", leverage_mode: "Eager" }, note: "eager_leverage_borrows_as_much_as_it_can：现金够付全部，eager 仍只出一半（500），借 500。把 leverage_mode 改成 Lazy：现金够就一分不借（lazy_leverage_borrows_only_what_cash_cannot_cover）；再把 cash 和 free_cash 改成 600，就借 400。" },
+  { name: "2 倍开空", s: flat(1000, 100), o: { size: "-10", price: "100", fees: "0.01", leverage: "2" }, note: "a_short_ties_up_its_value_over_the_leverage：所得 1000 扣手续费 10，现金 1990；debt 1000 是卖出所得，locked_cash 500 是保证金（市值 / 2），free_cash 490。把 leverage 改成 1：locked_cash 也是 1000，free_cash −10，就是参考实现的 2 倍市值。" },
+  { name: "卖出不够还债", s: { cash: "0", position: "10", debt: "750", locked_cash: "250", free_cash: "0", val_price: "100", value: "250" }, o: { size: "-10", price: "50", leverage: "4" }, note: "a_long_sold_below_its_debt_leaves_the_account_owing：250 元 4 倍杠杆持有 1000 元的货，价格腰斩后卖出所得 500 只够还 750 借款里的 500，现金 −250。点“把输出作为下一步”，把 size 改成 1：NoCashLeverage；leverage 改成 1、勾上 in_levered_account 是 NoCashLong；再取消勾选就是错误。" },
 ];
 const parseNum = (s) => {
   const t = String(s).trim().toLowerCase();
@@ -1147,7 +1242,8 @@ function buildForm() {
     `<label>size_type<select id="o-size_type">${SIZE_TYPES.map((t) => `<option>${t}</option>`).join("")}</select></label>` +
     `<label>direction<select id="o-direction">${DIRECTIONS.map((t) => `<option>${t}</option>`).join("")}</select></label>` +
     ORDER_NUM.slice(2).map((f) => `<label>${f === "draw" ? "reject_draw" : f}<input type="text" id="o-${f}" ${f === "draw" ? 'placeholder="None"' : ""} /></label>`).join("") +
-    `<label class="chk"><input type="checkbox" id="o-lock_cash" />lock_cash</label><label class="chk"><input type="checkbox" id="o-allow_partial" />allow_partial</label>`;
+    `<label>leverage_mode<select id="o-leverage_mode">${LEVERAGE_MODES.map((t) => `<option>${t}</option>`).join("")}</select></label>` +
+    `<label class="chk"><input type="checkbox" id="o-lock_cash" />lock_cash</label><label class="chk"><input type="checkbox" id="o-allow_partial" />allow_partial</label><label class="chk"><input type="checkbox" id="o-levered_account" />in_levered_account</label>`;
   document.querySelectorAll("#x-state input, #x-order input, #x-order select").forEach((e) => e.addEventListener("input", () => { presetSeg.clear(); runSim(""); }));
 }
 function fill(p) {
@@ -1156,11 +1252,13 @@ function fill(p) {
   for (const f of ORDER_NUM) document.getElementById(`o-${f}`).value = o[f];
   document.getElementById("o-size_type").value = o.size_type;
   document.getElementById("o-direction").value = o.direction;
+  document.getElementById("o-leverage_mode").value = o.leverage_mode;
   document.getElementById("o-lock_cash").checked = o.lock_cash;
   document.getElementById("o-allow_partial").checked = o.allow_partial;
+  document.getElementById("o-levered_account").checked = o.levered_account;
 }
 const TAG = { snap: "#5ea0ff", ignore: "#8a8a8a", validate: "#b07cd8", cascade: "#c9a227", random: "#2fbfa8", dispatch: "#e07a3d", buy: "#4caf7a", sell: "#d35d5d", end: "#f0f0f0" };
-const STATUS_DESC = { SizeNaN: "size is NaN", PriceNaN: "price is NaN", ValPriceNaN: "valuation price is NaN", ValueNaN: "portfolio value is NaN", ValueZeroNeg: "portfolio value is zero or negative", SizeZero: "size is zero", NoCashShort: "not enough cash to short", NoCashLong: "not enough cash to go long", NoOpenPosition: "no open position to close", MaxSizeExceeded: "size exceeds the maximum", RandomEvent: "randomly rejected", CantCoverFees: "proceeds do not cover fees", MinSizeNotReached: "size is below the minimum", PartialFill: "partial fill required but not allowed" };
+const STATUS_DESC = { SizeNaN: "size is NaN", PriceNaN: "price is NaN", ValPriceNaN: "valuation price is NaN", ValueNaN: "portfolio value is NaN", ValueZeroNeg: "portfolio value is zero or negative", SizeZero: "size is zero", NoCashShort: "not enough cash to short", NoCashLong: "not enough cash to go long", NoOpenPosition: "no open position to close", MaxSizeExceeded: "size exceeds the maximum", RandomEvent: "randomly rejected", CantCoverFees: "proceeds do not cover fees", MinSizeNotReached: "size is below the minimum", PartialFill: "partial fill required but not allowed", NoCashLeverage: "no own cash to put up for a leveraged buy" };
 let lastOut = null, presetSeg = null;
 function runSim(note) {
   const resEl = document.getElementById("x-res");
@@ -1171,8 +1269,10 @@ function runSim(note) {
     draw = parseNum(document.getElementById("o-draw").value);
     o.size_type = document.getElementById("o-size_type").value;
     o.direction = document.getElementById("o-direction").value;
+    o.leverage_mode = document.getElementById("o-leverage_mode").value;
     o.lock_cash = document.getElementById("o-lock_cash").checked;
     o.allow_partial = document.getElementById("o-allow_partial").checked;
+    o.levered_account = document.getElementById("o-levered_account").checked;
   } catch (e) { resEl.className = "res error"; resEl.innerHTML = `<h3>输入错误</h3><p class="muted" style="margin:0">${esc(e.message)}</p>`; return; }
   const out = executeOrder(ps, o, draw);
   const tr = [...out.trace];
@@ -1185,8 +1285,8 @@ function runSim(note) {
     const r = out.res;
     const cls = r.status === "Filled" ? "filled" : r.status === "Rejected" ? "rejected" : "ignored";
     resEl.className = `res ${cls}`;
-    const before = { cash: ps.cash, position: ps.position, debt: ps.debt, free_cash: ps.free_cash };
-    const rows = ["cash", "position", "debt", "free_cash"].map((k) => {
+    const before = { cash: ps.cash, position: ps.position, debt: ps.debt, locked_cash: ps.locked_cash, free_cash: ps.free_cash };
+    const rows = ["cash", "position", "debt", "locked_cash", "free_cash"].map((k) => {
       const ch = !Object.is(before[k], out.state[k]) && !(Number.isNaN(before[k]) && Number.isNaN(out.state[k]));
       return `<tr><td style="color:#909090">${k}</td><td>${show(before[k])}</td><td>→</td><td class="${ch ? "chg" : ""}">${show(out.state[k])}</td></tr>`;
     }).join("");
@@ -1205,11 +1305,11 @@ function chain() {
   if (!lastOut) return;
   const s = lastOut.state;
   const vp = lastOut.price ?? lastOut.vp;
-  for (const k of ["cash", "position", "debt", "free_cash"]) document.getElementById(`s-${k}`).value = show(s[k]);
+  for (const k of ["cash", "position", "debt", "locked_cash", "free_cash"]) document.getElementById(`s-${k}`).value = show(s[k]);
   document.getElementById("s-val_price").value = show(vp);
-  document.getElementById("s-value").value = show(s.cash + s.position * vp);
+  document.getElementById("s-value").value = show(s.cash + s.position * vp - (s.position > 0 ? s.debt : 0));
   presetSeg.clear();
-  document.getElementById("x-chain-note").textContent = `val_price 取成交价 ${show(vp)}，value = cash + position × val_price（这一步在真实循环里由 phasor-sim 完成）。`;
+  document.getElementById("x-chain-note").textContent = `val_price 取成交价 ${show(vp)}，value = cash + position × val_price − 多头的 debt（这一步在真实循环里由 phasor-sim 完成）。`;
   runSim("");
 }
 
@@ -1223,16 +1323,21 @@ const SH_PRESETS = [
     note: "先买 5，再卖 10：其中 5 平多，只有反手出来的 5 股空头产生 debt 和保证金占用（short_size = |new_position|）。" },
   { name: "加空", steps: [{ size: -3, price: 10 }, { size: -2, price: 15 }, { size: 5, price: 12 }],
     note: "两次开空，debt 累计 30 + 30 = 60，均价 12。12 元全部平掉时释放的正是 debt / |position| = 12 的均价。" },
+  { name: "2 倍杠杆开空", leverage: 2, steps: [{ size: -5, price: 10 }, { size: 2.5, price: 8 }, { size: 2.5, price: 12 }],
+    note: "和第一个序列同样的交易，leverage = 2：保证金只要市值的一半，locked_cash 25，free_cash = 100 + 50 − 50 − 25 = 75，比不带杠杆多出 25。平仓按比例释放 debt 和 locked_cash，最后两者归零，现金和不带杠杆时相同。" },
+  { name: "2 倍杠杆做多", leverage: 2, steps: [{ size: 15, price: 10 }, { size: -5, price: 12 }, { size: -10, price: 12 }],
+    note: "100 元买 150 元的货：lazy 先花光自有现金，再借 50 计入 debt，locked_cash 100。12 元卖 5 股：按比例还 1/3 的债、释放 1/3 的 locked_cash。卖完后 debt 归零，现金 130，赚 15 × 2 = 30。" },
 ];
 function renderShort(p) {
-  let st = { cash: 100, position: 0, debt: 0, free_cash: 100, val_price: 10, value: 100 };
-  const rows = [`<tr><td class="mono">0</td><td>初始</td><td>—</td><td class="mono">100</td><td class="mono">0</td><td class="mono">0</td><td class="mono">100</td><td class="mono">100</td></tr>`];
+  let st = { cash: 100, position: 0, debt: 0, locked_cash: 0, free_cash: 100, val_price: 10, value: 100 };
+  const rows = [`<tr><td class="mono">0</td><td>初始</td><td>—</td><td class="mono">100</td><td class="mono">0</td><td class="mono">0</td><td class="mono">0</td><td class="mono">100</td><td class="mono">100</td></tr>`];
   p.steps.forEach((s, i) => {
-    const out = executeOrder(st, { ...baseOrder(), size: s.size, price: s.price, size_type: "Amount", direction: "Both" }, null);
+    const out = executeOrder(st, { ...baseOrder(), size: s.size, price: s.price, size_type: "Amount", direction: "Both", leverage: p.leverage ?? 1 }, null);
     const r = out.res;
     const n = out.state;
-    rows.push(`<tr><td class="mono">${i + 1}</td><td class="mono">${s.size > 0 ? "买" : "卖"} ${Math.abs(s.size)} @ ${s.price}</td><td>${r.status === "Filled" ? `<span class="yes">成交</span>` : r.info}</td><td class="mono">${show(n.cash)}</td><td class="mono">${show(n.position)}</td><td class="mono chg">${show(n.debt)}</td><td class="mono chg">${show(n.free_cash)}</td><td class="mono">${show(n.cash - n.debt)}</td></tr>`);
-    st = { ...n, val_price: s.price, value: n.cash + n.position * s.price };
+    const value = n.cash + n.position * s.price - (n.position > 0 ? n.debt : 0);
+    rows.push(`<tr><td class="mono">${i + 1}</td><td class="mono">${s.size > 0 ? "买" : "卖"} ${Math.abs(s.size)} @ ${s.price}</td><td>${r.status === "Filled" ? `<span class="yes">成交</span>` : r.info}</td><td class="mono">${show(n.cash)}</td><td class="mono">${show(n.position)}</td><td class="mono chg">${show(n.debt)}</td><td class="mono chg">${show(n.locked_cash)}</td><td class="mono chg">${show(n.free_cash)}</td><td class="mono">${show(value)}</td></tr>`);
+    st = { ...n, val_price: s.price, value };
   });
   document.getElementById("sh-rows").innerHTML = rows.join("");
   document.getElementById("sh-note").textContent = p.note;
@@ -1246,7 +1351,7 @@ function renderTolerance() {
   const cash = 50 * (1 - eps);
   const base = baseOrder();
   const o = { ...base, size: 5, price: 10, size_granularity: gran ? 1 : NaN };
-  const st = { cash, position: 0, debt: 0, free_cash: cash, val_price: 10, value: cash };
+  const st = { cash, position: 0, debt: 0, locked_cash: 0, free_cash: cash, val_price: 10, value: cash };
   const rows = [["is_close_or_less（实际代码）", {}], ["<=（变异）", { plainLe: true }]].map(([name, opt]) => {
     const out = executeOrder(st, o, null, opt);
     const r = out.res;

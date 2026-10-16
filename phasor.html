@@ -204,7 +204,7 @@
   </p>
   <div class="stats">
     <div class="stat"><b>400 例逐位一致</b><span>页面里 SignalSweep 的 JS 移植，对照一个只依赖 <code>phasor</code> 的临时 crate 生成的 400 个随机情形（含 NaN / ±inf、各种 delay）：信号、标签、展开后的收盘价全部相同，四条报错原文也相同</span></div>
-    <div class="stat"><b>prelude 67 个名字</b><span>来自 10 个 crate（打开 <code>polars</code> feature 再加 <code>PolarsBackend</code>）；phasor-generic 和 phasor-data 一个都没有进 prelude</span></div>
+    <div class="stat"><b>prelude 68 个名字</b><span>来自 10 个 crate（打开 <code>polars</code> feature 再加 <code>PolarsBackend</code>）；phasor-generic 和 phasor-data 一个都没有进 prelude</span></div>
     <div class="stat"><b>没有 crate 依赖它</b><span>工作区里它是叶子：phasor-py 直接依赖各个 crate。用到它的只有自己的 3 个测试文件、1 个例子——<code>cargo test -p phasor</code> 9 个测试全过</span></div>
   </div>
 
@@ -442,7 +442,7 @@ const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 /* ---------------- prelude ---------------- */
 const PRELUDE = [
   ["phasor-core", ["Columns", "Label", "Level", "FlexArray", "Error", "Result", "Matrix"], ["math::{is_close, add}"]],
-  ["phasor-model", ["SizeType", "Direction", "OrderSide", "OrderStatus", "StatusInfo", "AccumulationMode", "ConflictMode", "DirectionConflictMode", "OppositeEntryMode", "StopEntryPrice", "StopExitPrice", "StopExitMode", "StopUpdateMode", "TradeDirection", "TradeStatus", "TradesType", "CashFlowKind", "InstrumentId", "Symbol", "Venue", "Price", "Quantity"], ["OhlcvPanel", "BarType"]],
+  ["phasor-model", ["SizeType", "Direction", "LeverageMode", "OrderSide", "OrderStatus", "StatusInfo", "AccumulationMode", "ConflictMode", "DirectionConflictMode", "OppositeEntryMode", "StopEntryPrice", "StopExitPrice", "StopExitMode", "StopUpdateMode", "TradeDirection", "TradeStatus", "TradesType", "CashFlowKind", "InstrumentId", "Symbol", "Venue", "Price", "Quantity"], ["OhlcvPanel", "BarType"]],
   ["phasor-exec", ["ExecuteOrderState", "Order", "OrderResult", "ProcessOrderState"], ["execute_order"]],
   ["phasor-expr", ["ComputeBackend", "FactorInputs", "FactorSet", "FactorValues", "NativeBackend", "alpha158", "alpha360"], ["PolarsBackend（polars feature 时在 prelude 里）"]],
   ["phasor-indicators", ["MaParams", "combinations", "ma"], ["其余七个指标", "sweep::column_of"]],
@@ -465,14 +465,14 @@ function plRender() {
     return `<tr><td class="mono">${crate}</td><td class="mono" style="text-align:right">${names.length}</td><td><div class="chips">${hit.map((n) => `<code>${n}</code>`).join("") || '<span class="small">—</span>'}</div></td><td><span class="small">${miss.map(esc).join("、") || "—"}</span></td></tr>`;
   }).join("");
   const total = PRELUDE.reduce((a, [, n]) => a + n.length, 0);
-  document.getElementById("pl-foot").innerHTML = `共 ${total} 个名字${q ? `，匹配 ${shown} 个` : ""}。phasor-model 的 17 个枚举来自 <code>enums::*</code> 通配导入；“不在 prelude 里”一栏是挑出来的常用名字，不是穷举。`;
+  document.getElementById("pl-foot").innerHTML = `共 ${total} 个名字${q ? `，匹配 ${shown} 个` : ""}。phasor-model 的 18 个枚举来自 <code>enums::*</code> 通配导入；“不在 prelude 里”一栏是挑出来的常用名字，不是穷举。`;
 }
 
 /* ---------------- dependency graph ---------------- */
 const COLORS = { "lib.rs": "#3a7afe", "sweep.rs": "#c9a227" };
 const UP = [
   ["phasor-core", "core", ["lib.rs", "sweep.rs"], "Columns / Label / Level / FlexArray / Matrix / Error 进 prelude；sweep.rs 用它们建标签、信号视图和报错。"],
-  ["phasor-model", "model", ["lib.rs"], "17 个枚举（通配）、InstrumentId / Symbol / Venue、Price / Quantity。"],
+  ["phasor-model", "model", ["lib.rs"], "18 个枚举（通配）、InstrumentId / Symbol / Venue、Price / Quantity。"],
   ["phasor-exec", "exec", ["lib.rs"], "撮合内核的 Order、OrderResult 与两个状态结构体。"],
   ["phasor-generic", "generic", ["lib.rs"], "只重新导出模块，prelude 里没有它的名字。"],
   ["phasor-indicators", "indicators", ["lib.rs"], "MaParams、combinations、ma。"],

@@ -517,7 +517,7 @@
   <p>
     <code>Error</code> 只有五个变体，每个都把出问题的值写进消息（测试 <code>messages_name_the_offending_values</code>、<code>unknown_level_lists_the_alternatives</code> 钉住）。
     “订单没能成交”<b>从来不是</b> <code>Err</code>：它是 phasor-exec 的 <code>OrderResult</code>，<code>status = Ignored | Rejected</code>，原因写在 phasor-model 的
-    <code>StatusInfo</code>（14 种）里，并进入日志记录。
+    <code>StatusInfo</code>（15 种）里，并进入日志记录。
   </p>
   <div class="panel">
     <div class="cap">同一次模拟里的两条路</div>

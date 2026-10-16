@@ -228,7 +228,7 @@
   <div class="stats">
     <div class="stat"><b>110 格实测</b><span>参数路由表的每一格都来自对已编译模块的真实调用：10 类参数 × 11 种输入 × 两层（<code>phasor</code> 与 <code>phasor._phasor</code>），记录的是转换、结果或报错原文</span></div>
     <div class="stat"><b>235 通过 · 52 跳过</b><span><code>uv run --with pytest python -m pytest crates/phasor-py/tests</code>；跳过的是要装 vectorbt 1.1.0 才跑的对照测试。<code>cargo test -p phasor-py</code> 另有 10 个枚举映射测试</span></div>
-    <div class="stat"><b>只有 arrow.rs 有 unsafe</b><span>crate 根上 <code>#![deny(unsafe_code)]</code>，唯一的例外是 Arrow C Data 接口的导入导出。Rust 3,106 行（8 个文件），Python 1,693 行（10 个文件）</span></div>
+    <div class="stat"><b>只有 arrow.rs 有 unsafe</b><span>crate 根上 <code>#![deny(unsafe_code)]</code>，唯一的例外是 Arrow C Data 接口的导入导出。Rust 3,167 行（8 个文件），Python 1,723 行（10 个文件）</span></div>
   </div>
 
   <!-- ============================================================ -->
@@ -319,7 +319,7 @@
       <div id="rt-grid"></div>
       <div class="detail" id="rt-detail" style="margin-top:10px"><h3>点一格</h3><p class="muted" style="margin:0">共享资金的行用 <code>cash_sharing=True</code>，所有列一个组（<code>n_groups = 1</code>）。</p></div>
     </div>
-    <div class="foot"><p class="small" style="margin:0">“交易参数”一行用的是 <code>size</code>；<code>fees</code>、<code>price</code>、<code>slippage</code>、<code>min_size</code>、<code>max_size</code>、<code>size_granularity</code>、<code>cash_limit</code>、<code>reject_prob</code>、<code>val_price</code>、止损止盈走同一条路（<code>flex_or_f64</code> + <code>OneDim::PerColumn</code>）。bool 参数一行用的是 <code>lock_cash</code>，<code>allow_partial</code>、<code>raise_reject</code>、<code>log</code>、<code>sl_trail</code> 相同。</p></div>
+    <div class="foot"><p class="small" style="margin:0">“交易参数”一行用的是 <code>size</code>；<code>fees</code>、<code>price</code>、<code>slippage</code>、<code>min_size</code>、<code>max_size</code>、<code>size_granularity</code>、<code>leverage</code>、<code>cash_limit</code>、<code>reject_prob</code>、<code>val_price</code>、止损止盈走同一条路（<code>flex_or_f64</code> + <code>OneDim::PerColumn</code>）。bool 参数一行用的是 <code>lock_cash</code>，<code>allow_partial</code>、<code>raise_reject</code>、<code>log</code>、<code>sl_trail</code> 相同。</p></div>
   </div>
   <div class="grid2">
     <article class="card"><h3>一维的意思取决于参数</h3><p>交易参数和 <code>init_cash</code> 的一维数组是<b>每列一个</b>（长度 4 报 <code>per-column array has length 4, expected 3</code>）；<code>cash_deposits</code>、<code>cash_earnings</code> 是<b>每根 K 线一个</b>（长度 3 报 <code>per-row … expected 4</code>）。在 T = C 的方阵上两种长度都能过，读这张表是唯一的办法。</p></article>
@@ -419,7 +419,7 @@
     只是回测结果不同，下游没有任何东西能察觉。区分大小写，失败时同时列出可选值和传入的值。输入一个字符串试试。
   </p>
   <div class="panel">
-    <div class="cap">parse.rs + from_signals 的 size_type 限制，JS 移植（前五个参数 234 个、四个止损参数 64 个实测用例全部一致）</div>
+    <div class="cap">parse.rs + from_signals 的 size_type 限制，JS 移植（前五个参数 234 个、四个止损参数 64 个、leverage_mode 10 个实测用例全部一致）</div>
     <div class="body">
       <div class="seg" id="en-param"><span class="lbl">参数</span></div>
       <div class="seg" id="en-loop"><span class="lbl">循环</span></div>
@@ -432,6 +432,7 @@
     <article class="card"><h3>两个循环的不对称</h3><p><code>from_orders</code> 收六种 size type，<code>from_signals</code> 只收 Amount / Value / Percent：目标仓位说的是“该在哪里结束”，对每个元素是明确的，对一个只说“往哪边动”的信号是含糊的。参考实现拒绝同样三种，有测试钉住这一点。</p></article>
     <article class="card"><h3>止损的四个参数：<code>None</code> 才是默认</h3><p><code>stop_entry_price</code>、<code>stop_exit_price</code>、<code>upon_stop_exit</code>、<code>upon_stop_update</code> 在 Python 签名里默认 <code>None</code>，<code>lib.rs</code> 把 <code>None</code> 换成 <code>FromSignals::default()</code> 的对应字段，所以默认值只在引擎里写一次。取值是枚举名的小写连写；<code>"fill"</code>、<code>"market"</code> 这类缩写会被拒绝，错误里列出全部可选值。只收标量：一个运行一种模式。</p></article>
     <article class="card"><h3><code>direction</code> 默认值也不同</h3><p>订单默认 <code>both</code>（数量的正负已经说明方向），信号默认 <code>longonly</code>。<code>"long"</code>、<code>"short"</code> 作为 <code>"longonly"</code>、<code>"shortonly"</code> 的别名接受；Python 壳另把 <code>accumulate=True / False</code> 翻译成 <code>"both"</code> / <code>"disabled"</code>。</p></article>
+    <article class="card"><h3><code>leverage</code> 是数，<code>leverage_mode</code> 是词</h3><p><code>leverage</code> 和其他交易参数一样收标量、每列一维或矩阵，<code>None</code> 读作 1，不加杠杆。<code>leverage_mode</code> 只有 <code>"lazy"</code>、<code>"eager"</code> 两个值，签名里直接默认 <code>"lazy"</code>，只收标量，<code>lib.rs</code> 包成 <code>FlexArray::Scalar</code>。任何一列 leverage 大于 1，<code>pf.orders()</code> 就多出 <code>debt</code>、<code>locked_cash</code>；不带杠杆时这两个键不出现，而不是给空数组，所以字典里每个数组都是一笔成交一个值。<code>pf.logs()</code> 是 42 个字段，<code>req_leverage_mode</code> 里 0 是 lazy、1 是 eager。</p></article>
   </div>
 
   <!-- ============================================================ -->
@@ -528,7 +529,7 @@
     <li><b><code>src/array.rs</code></b>：模块文档讲为什么拒绝而不是转置；<code>columns_of</code>、<code>Borrowed</code>、<code>OneDim</code>、<code>flex_f64</code>、<code>borrow_opt_f64</code> 上关于默认值的注释。</li>
     <li><b><code>src/lib.rs</code> 的 <code>PyPortfolio</code></b>：结构体文档（为什么拥有数组）、<code>core()</code>（为什么每次重建）、<code>assemble()</code>（为什么只排一次序）。</li>
     <li><b><code>from_signals</code></b>：先借 <code>close</code> 定形状，止损必须配 <code>high</code>/<code>low</code>（一条与引擎不符的护栏，见<a href="#guards">护栏</a>），<code>account_inputs</code>、<code>deposits_view</code>、<code>market_optional</code>，最后 <code>py.detach</code> 里选四个入口之一。</li>
-    <li><b><code>src/params.rs</code>、<code>src/parse.rs</code></b>：两个循环共用的 14 个参数；字符串映射和它一行一行的测试。</li>
+    <li><b><code>src/params.rs</code>、<code>src/parse.rs</code></b>：两个循环共用的 15 个参数；字符串映射和它一行一行的测试。</li>
     <li><b><code>src/research.rs</code>、<code>python/phasor/_columns.py</code></b>：模块文档讲为什么这些函数不能喂回测；<code>EventPaths</code> 怎样把扁平路径 reshape 成 (事件数, 宽度)；<code>_columns.columns</code> / <code>restore</code> 怎样让一维进一维出。再看 <code>lib.rs</code> 的 <code>bar_field</code>、<code>bar_view</code>、<code>matrix_out</code>。</li>
     <li><b><code>src/expr.rs</code>、<code>python/phasor/strategy.py</code></b>：因子集和 <code>crossed_above</code> 怎么返回扁平的列优先数组；<code>sweep</code> 怎么拼列、映射收盘价、延迟信号。</li>
     <li><b><code>src/data.rs</code>、<code>src/arrow.rs</code></b>：数据层的绑定和唯一的 <code>unsafe</code>。</li>
@@ -588,6 +589,8 @@ const ENUMS = {
     err: (w) => `direction must be 'longonly', 'shortonly' or 'both'; got ${JSON.stringify(w)}` },
   accumulate: { map: { disabled: "Disabled", both: "Both", addonly: "AddOnly", removeonly: "RemoveOnly" },
     err: (w) => `accumulate must be 'disabled', 'both', 'addonly' or 'removeonly'; got ${JSON.stringify(w)}` },
+  leverage_mode: { map: { lazy: "Lazy", eager: "Eager" },
+    err: (w) => `leverage_mode must be 'lazy' or 'eager'; got ${JSON.stringify(w)}` },
   trades: { map: { exit: "ExitTrades", entry: "EntryTrades", position: "Positions", positions: "Positions" },
     err: (w) => `trades must be 'exit', 'entry' or 'positions'; got ${JSON.stringify(w)}` },
   call_seq: { map: { default: "CallSeq::Default", auto: "CallSeq::Auto" }, err: () => "call_seq must be 'default' or 'auto'" },
@@ -631,7 +634,7 @@ function seg(host, items, current, onPick) {
 const COLORS = { "lib.rs": "#3a7afe", "array.rs": "#2fbfa8", "params.rs": "#c9a227", "parse.rs": "#b07cd8", "expr.rs": "#d35d5d", "data.rs": "#4caf7a", "arrow.rs": "#e08a3c", "research.rs": "#c96fa0" };
 const UP = [
   { id: "phasor-core", sub: "FlexArray · Matrix · Error", mods: ["array.rs", "params.rs", "lib.rs", "expr.rs", "research.rs"], role: "FlexArray 是所有参数在引擎里的样子；array.rs 把 NumPy 借用变成它。Error 经 to_py_err 原样变成 ValueError。", page: "phasor-core.html" },
-  { id: "phasor-model", sub: "SizeType · Direction · BarType", mods: ["parse.rs", "lib.rs", "data.rs"], role: "parse.rs 把字符串映射到 SizeType、Direction、AccumulationMode、TradesType 和四个止损枚举（StopEntryPrice、StopExitPrice、StopExitMode、StopUpdateMode）；data.rs 包装 InstrumentId 与 BarType。", page: "phasor-model.html" },
+  { id: "phasor-model", sub: "SizeType · Direction · BarType", mods: ["parse.rs", "lib.rs", "data.rs"], role: "parse.rs 把字符串映射到 SizeType、Direction、LeverageMode、AccumulationMode、TradesType 和四个止损枚举（StopEntryPrice、StopExitPrice、StopExitMode、StopUpdateMode）；data.rs 包装 InstrumentId 与 BarType。", page: "phasor-model.html" },
   { id: "phasor-sim", sub: "FromSignals · FromOrders · Groups", mods: ["lib.rs"], role: "lib.rs 用借来的视图填 FromSignals / FromOrders，调四个入口之一（带日志或不带、串行或并行）；Groups、CallSeq 从 Python 参数构造。", page: "phasor-sim.html" },
   { id: "phasor-analysis", sub: "Portfolio · Cache · events · robust", mods: ["lib.rs", "research.rs"], role: "每个 PyPortfolio 方法用 Portfolio::from_borrowed 在自有副本上重建引擎视图，并把 pyclass 持有的 Cache 借给它；敞口、excursions、edge_ratio 也走这条路。research.rs 直接调 events::forward_paths 和 robust 的四个函数，不经过 Portfolio。", page: "phasor-analysis.html" },
   { id: "phasor-records", sub: "OrderRecords · LogRecords", mods: ["lib.rs"], role: "运行留下的成交和日志；共享资金时 assemble 调 sort_by_column 排一次序。orders()/logs()/trades() 以列式字典交出。", page: "phasor-records.html" },
@@ -642,17 +645,17 @@ const UP = [
   { id: "arrow-array/schema", sub: "ffi feature", mods: ["arrow.rs"], role: "Arrow C Data 接口的 FFI 结构体；arrow.rs 在这里用 unsafe 把胶囊转成 RecordBatch 再转回去。", page: null },
 ];
 const MODULES = [
-  { id: "lib.rs", sub: "Portfolio · from_signals · from_orders", blurb: "1,538 行。PyPortfolio（拥有收盘价副本、记录、Cache）、两个模拟入口、account_inputs / deposits_view / market_optional 这些形状规则，以及模块注册。敞口方法整张矩阵返回；excursions / edge_ratio 收调用方传的 high、low，bar_field 按下标复制，C 序也读得对。" },
+  { id: "lib.rs", sub: "Portfolio · from_signals · from_orders", blurb: "1,573 行。PyPortfolio（拥有收盘价副本、记录、Cache）、两个模拟入口、account_inputs / deposits_view / market_optional 这些形状规则，以及模块注册。敞口方法整张矩阵返回；excursions / edge_ratio 收调用方传的 high、low，bar_field 按下标复制，C 序也读得对。" },
   { id: "array.rs", sub: "columns_of · columns_out · OneDim", blurb: "NumPy → FlexArray。按 stride 拒绝 C 序，拒绝不连续与整数数组；一维数组的含义由调用者用 OneDim 声明；None → 引擎默认值。columns_out 把列优先的 Vec 原地 reshape 成 F 序二维数组交回去，不复制。" },
-  { id: "params.rs", sub: "Shared（14 个共用参数）", blurb: "from_signals 与 from_orders 共用的 14 个可选参数，一次借完；wants_logs 判断要不要走带日志的入口（标量 false 走不带日志的）。" },
-  { id: "parse.rs", sub: "字符串 → 枚举", blurb: "size_type / direction / accumulate / trades 和四个止损参数（stop_entry_price、stop_exit_price、upon_stop_exit、upon_stop_update）的映射。返回 Result<_, String>，所以不用 Python 解释器就能测；测试逐个变体写出。" },
+  { id: "params.rs", sub: "Shared（15 个共用参数）", blurb: "from_signals 与 from_orders 共用的 15 个可选参数，一次借完；wants_logs 判断要不要走带日志的入口（标量 false 走不带日志的）。" },
+  { id: "parse.rs", sub: "字符串 → 枚举", blurb: "size_type / direction / leverage_mode / accumulate / trades 和四个止损参数（stop_entry_price、stop_exit_price、upon_stop_exit、upon_stop_update）的映射。返回 Result<_, String>，所以不用 Python 解释器就能测；测试逐个变体写出。" },
   { id: "expr.rs", sub: "_FactorSet · crossed_above", blurb: "因子表达式的绑定：compile、names、required_fields、uses_future、evaluate；alpha158()、alpha360()；crossed_above。" },
   { id: "data.rs", sub: "InstrumentId · BarType · load_data", blurb: "数据层：标识类型、DecodeContext、_Dataset（prepare / batches / align）、catalog_files、load_data。" },
   { id: "research.rs", sub: "EventPaths · labels · robust · synthetic", blurb: "365 行。15 个函数和一个 EventPaths 类，每个都是一次引擎调用：columns_of 进、columns_out 出，计算在 py.detach 里。标签和事件路径读取未来数据，模块文档说明它们不能喂给回测。" },
   { id: "arrow.rs", sub: "Arrow C Data（唯一的 unsafe）", blurb: "只接受具体的 pyarrow.Schema / RecordBatch；导入时搬走数组所有权并清空胶囊，导出时用 _import_from_c_capsule。" },
 ];
 const DOWN = [
-  { id: "phasor/__init__.py", sub: "from_signals · from_orders · FactorSet", uses: ["lib.rs", "expr.rs", "data.rs"], role: "650 行。_matrix / _param / _flag / _signals 把输入整理成扩展要的形状和布局；FactorSet、Expression 包装；两个入口的长文档。" },
+  { id: "phasor/__init__.py", sub: "from_signals · from_orders · FactorSet", uses: ["lib.rs", "expr.rs", "data.rs"], role: "680 行。_matrix / _param / _flag / _signals 把输入整理成扩展要的形状和布局；FactorSet、Expression 包装；两个入口的长文档。" },
   { id: "phasor/strategy.py", sub: "@strategy · factors · crossed_above", uses: ["expr.rs", "lib.rs"], role: "@strategy 给函数加 run / sweep：拼列、column_map 平铺、group_lens、signal_delay。factors() 拒绝用到未来数据的表达式。" },
   { id: "phasor/data.py", sub: "Source · Catalog · BarPanel", uses: ["data.rs"], role: "DataSchema、Source、Catalog、Dataset（asof / window）、BarPanel；加载显式、只读。" },
   { id: "phasor/validation.py", sub: "rolling · expanding · purged_kfold", uses: [], role: "345 行纯 NumPy：切分器只返回行号；walk_forward 在 train 上选、在 test 上报。" },
@@ -856,6 +859,7 @@ const DEFAULTS = [
   ["min_size", "None", "1e-8（DEFAULT_MIN_SIZE）", "与参考实现相同；更小的单记为未达最小数量"],
   ["max_size / cash_limit", "None", "inf", "不设上限"],
   ["size_granularity", "None", "NaN", "不取整"],
+  ["leverage", "None", "1.0", "不加杠杆；大于 1 时 cash 可以为负，orders() 多出 debt、locked_cash"],
   ["reject_prob", "None", "0.0", "随机拒单关闭；抽签是 (seed, row, col) 的函数"],
   ["lock_cash / raise_reject / log", "None", "false", ""],
   ["allow_partial", "None", "true", "资金不足时允许部分成交"],
@@ -865,6 +869,7 @@ const DEFAULTS = [
   ["open / high / low", "None", "NaN", "没有 K 线范围"],
   ["size_type", '"amount"', "—", "签名里的字符串，两份（Python 壳与 #[pyo3(signature)]）"],
   ["direction", '"longonly"（信号）/ "both"（订单）', "—", "同上"],
+  ["leverage_mode", '"lazy"', "—", "同上；只收标量"],
   ["accumulate / trades / call_seq", '"disabled" / "exit" / "default"', "—", "同上"],
   ["ann_factor / risk_free / seed / threads", "365.0 / 0.0 / 0 / 1", "—", "普通标量，同样两份"],
 ];
@@ -941,7 +946,7 @@ function dlRender() {
 
 /* ---------------- enums ---------------- */
 let enParam = "size_type", enLoop = "from_signals";
-const EN_ACCEPT = { size_type: "amount, value, percent, targetamount, targetvalue, targetpercent", direction: "longonly | long, shortonly | short, both", accumulate: "disabled, both, addonly, removeonly（仅 from_signals）", trades: "exit, entry, position | positions", call_seq: "default, auto", stop_entry_price: "valprice, price, fillprice, close（仅 from_signals，默认 close）", stop_exit_price: "stoplimit, stopmarket, price, close（仅 from_signals，默认 stoplimit）", upon_stop_exit: "close, closereduce, reverse, reversereduce（仅 from_signals，默认 close）", upon_stop_update: "keep, override, overridenan（仅 from_signals，默认 override）" };
+const EN_ACCEPT = { size_type: "amount, value, percent, targetamount, targetvalue, targetpercent", direction: "longonly | long, shortonly | short, both", leverage_mode: "lazy, eager（默认 lazy）", accumulate: "disabled, both, addonly, removeonly（仅 from_signals）", trades: "exit, entry, position | positions", call_seq: "default, auto", stop_entry_price: "valprice, price, fillprice, close（仅 from_signals，默认 close）", stop_exit_price: "stoplimit, stopmarket, price, close（仅 from_signals，默认 stoplimit）", upon_stop_exit: "close, closereduce, reverse, reversereduce（仅 from_signals，默认 close）", upon_stop_update: "keep, override, overridenan（仅 from_signals，默认 override）" };
 function enRender() {
   const w = document.getElementById("en-in").value;
   const out = document.getElementById("en-out");
