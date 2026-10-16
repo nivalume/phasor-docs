@@ -434,6 +434,8 @@
         <tr><td>强平</td><td colspan="2">maintenance_margin = 0，liquidation_fee = 0；from_orders 的 open / high / low = NaN</td><td>只有保证金列且设了维持保证金的账户才检查；缺 OHLC 时按收盘价检查</td></tr>
         <tr><td>限价单</td><td>—</td><td>order_type = Market，limit_delta = NaN，delta_format = Percent，limit_reverse = false，limit_order_price = Limit，limit_delay = false，limit_tif / limit_expiry = NaN</td><td>没有限价单的账户组走 <code>prepare_order::&lt;false&gt;</code>，不含挂单代码</td></tr>
         <tr><td>挂单冲突</td><td>—</td><td>upon_adj_limit_conflict = KeepIgnore，upon_opp_limit_conflict = CancelExecute，upon_adj / opp_stop_conflict = KeepIgnore</td><td>止损冲突的默认值就是原来的行为：止损替换当根信号</td></tr>
+        <tr><td>价格选项</td><td colspan="2">price_type = Price，from_ago = 0，bid_price / ask_price = NaN，price_area_vio_mode = Ignore</td><td>都没用时 from_orders 按原来的方式读订单，from_signals 走不含这些代码的实例</td></tr>
+        <tr><td>更多止损</td><td>—</td><td>tsl_stop / tsl_th / td_stop / dt_stop = NaN，stop_ladder = Disabled，stop_order_type = Market，stop_limit_delta = NaN</td><td>没布置这些止损时仍是参考实现的止损逻辑</td></tr>
         <tr><td>合约乘数</td><td colspan="2">multiplier = 1</td><td>不为 1 时也走 <code>LEV</code> 实例：把该列按"价格 × 乘数"交给内核，记录和日志写回原价；同一列内不能变</td></tr>
       </tbody>
     </table>
@@ -450,7 +452,7 @@
     <article class="card"><h3>parity_cash_sharing.rs · cash_sharing.tsv</h3><p>24 个情形 × {布局顺序, 自动顺序}。另有一个测试要求“排序会改变成交”至少在一个情形上成立——否则一个完全忽略 <code>CallSeq::Auto</code> 的实现也能通过整套测试。</p></article>
     <article class="card"><h3>parity_from_signals.rs · from_signals.tsv</h3><p>181 例（120 个随机）：两种信号约定、各种冲突与反向进场模式、累积、止损的跳空 / 触及、止盈、跟踪、四种退出价、四种退出模式、三种更新模式、没有高低价的止损、两列分叉、按列止损。</p></article>
   </div>
-  <p class="small" style="margin-top:8px">另有 <code>order_controls.rs</code>（cash_limit、reject_prob、raise_reject 等参考实现没有或不同的控制），以及 phasor-analysis 的 <code>cash_flows.rs</code>：每条订单日志里的现金和可用现金，必须等于从记录重建出来的余额，独立账户与共享账户都测，线程数不影响结果。参考实现没有的账户功能各有手算测试：<code>leverage.rs</code>、<code>margin.rs</code>、<code>holding.rs</code>（四种持仓费、不封顶、费率为 0 时成交逐位不变）、<code>limit_orders.rs</code>（限价单和挂单冲突在五根 K 线上手算；限价等于订单价的限价单就是不加滑点的市价单）、<code>liquidation.rs</code>（精确强平价、跳空和穿仓核销、止损先于强平、全仓一起平、逐仓单独平且亏损封顶、对冲按标记价格）；phasor-analysis 的同名测试逐根检查重建出的权益等于循环里的权益。</p>
+  <p class="small" style="margin-top:8px">另有 <code>order_controls.rs</code>（cash_limit、reject_prob、raise_reject 等参考实现没有或不同的控制），以及 phasor-analysis 的 <code>cash_flows.rs</code>：每条订单日志里的现金和可用现金，必须等于从记录重建出来的余额，独立账户与共享账户都测，线程数不影响结果。参考实现没有的账户功能各有手算测试：<code>leverage.rs</code>、<code>margin.rs</code>、<code>holding.rs</code>（四种持仓费、不封顶、费率为 0 时成交逐位不变）、<code>limit_orders.rs</code>（限价单和挂单冲突在五根 K 线上手算；限价等于订单价的限价单就是不加滑点的市价单）、<code>price_options.rs</code> 和 <code>stop_extensions.rs</code>（价格选项、移动止损、时间止损、阶梯、止损限价单，逐项手算）、<code>liquidation.rs</code>（精确强平价、跳空和穿仓核销、止损先于强平、全仓一起平、逐仓单独平且亏损封顶、对冲按标记价格）；phasor-analysis 的同名测试逐根检查重建出的权益等于循环里的权益。</p>
 
   <!-- ============================================================ -->
   <h2 id="table">谁依赖它，用来做什么</h2>
@@ -474,6 +476,8 @@
         <tr><td class="mono">src/from_orders.rs</td><td>FromOrders 与默认值、build_order、updated_value（:254）、simulate_group（两遍、调用顺序、update_value）、串行 / 并行 / 带日志入口。</td></tr>
         <tr><td class="mono">src/from_signals.rs</td><td>FromSignals 与默认值、stop_price（:276）、should_update_stop、Stops、read_signals、prepare_order（:502，价格 → 止损 → 信号 → 冲突 → 数量）、simulate_group（:711，执行与重新布置止损）。之后：Stops 移进 state.rs；prepare_order 带 <code>const PENDING</code>，拆出 user_order（信号 → 冲突 → 数量）、signal_order、test_resting、route_limit、place_limit 和 follow_up（止损成交后按新持仓再执行信号）；执行循环对 follow_up 再走一遍。</td></tr>
         <tr><td class="mono">src/limit.rs</td><td>限价单的纯函数：limit_price（三种 delta_format 和 limit_reverse）、last_row（limit_tif、limit_expiry 按行数）、fill_price（从起点检查跳空，再看当根范围；Limit / HardLimit / Close）。</td></tr>
+        <tr><td class="mono">src/prices.rs</td><td>Quotes（price_type、买卖价、price_area_vio_mode）、order_price、buys（from_orders 按持仓判断目标类订单的方向）、source_row（from_ago）。</td></tr>
+        <tr><td class="mono">src/stops.rs</td><td>Inputs、test（时间止损在开盘，再依次是止损、移动止损、止盈）、trail（sl_trail 和移动止损的最好价、门槛）、arm / update（布置和加仓时更新）、ladder_exit（阶梯每级平掉的份额）。</td></tr>
         <tr><td class="mono">src/state.rs</td><td>ColumnState（两个循环共用：持仓、负债、locked_cash、估值价、StopState、LimitOrder），公开的纯数据结构；账户组的现金还在循环的局部变量里。</td></tr>
         <tr><td class="mono">src/signals.rs</td><td>Signals、from_direction_mode、from_stop、resolve_signal_conflict、resolve_dir_conflict、resolve_opposite_entry、signals_to_size。</td></tr>
         <tr><td class="mono">src/groups.rs</td><td>Groups（ungrouped、from_lens、range、chunks）、CallSeq（Default / Auto / Explicit）、approx_order_value、insert_argsort。</td></tr>
