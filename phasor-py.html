@@ -322,7 +322,7 @@
     <div class="foot"><p class="small" style="margin:0">“交易参数”一行用的是 <code>size</code>；<code>fees</code>、<code>price</code>、<code>slippage</code>、<code>min_size</code>、<code>max_size</code>、<code>size_granularity</code>、<code>cash_limit</code>、<code>reject_prob</code>、<code>val_price</code>、止损止盈走同一条路（<code>flex_or_f64</code> + <code>OneDim::PerColumn</code>）。bool 参数一行用的是 <code>lock_cash</code>，<code>allow_partial</code>、<code>raise_reject</code>、<code>log</code>、<code>sl_trail</code> 相同。</p></div>
   </div>
   <div class="grid2">
-    <article class="card"><h3>一维的意思取决于参数</h3><p>交易参数和 <code>init_cash</code> 的一维数组是<b>每列一个</b>（长度 4 报 <code>per-column array has length 4, expected 3</code>）；<code>cash_deposits</code>、<code>cash_earnings</code> 是<b>每根 K 线一个</b>（长度 3 报 <code>per-row … expected 4</code>）。在 T = C 的方阵上两种长度都能过，读这张表是唯一的办法。</p></article>
+    <article class="card"><h3>一维的意思取决于参数</h3><p>交易参数和 <code>init_cash</code> 的一维数组是<b>每列一个</b>（长度 4 报 <code>per-column array has length 4, expected 3</code>）；<code>cash_deposits</code>、<code>cash_earnings</code>、<code>debt_rate</code> 是<b>每根 K 线一个</b>（长度 3 报 <code>per-row … expected 4</code>）。在 T = C 的方阵上两种长度都能过，读这张表是唯一的办法。第三种是市场数据：<code>open</code>/<code>high</code>/<code>low</code>、<code>cash_dividends</code>、<code>mark_price</code>、<code>funding_rate</code>、两个 <code>*_financing_rate</code> 和 <code>borrow_rate</code> 属于标的，和 <code>close</code> 同形状、经过 <code>column_map</code>，一维数组读作一列；形状不对时报 <code>&lt;名字&gt; must have the source close shape</code>。</p></article>
     <article class="card"><h3>非共享 <code>init_cash</code> 收下矩阵，只读第 0 行</h3><p>传一个 4 × 3 的 <code>init_cash</code>，各行不同：运行成功，三列的起始净值是 <code>[1000, 2000, 3000]</code>，正好是第 0 行；后面三行被静默忽略。<code>account_inputs</code> 用 <code>balances.get(0, group)</code> 取值，没有检查行数。</p></article>
     <article class="card"><h3>共享账户：入金按组，收益按列</h3><p>共享时 <code>init_cash</code> 只能是标量或每组一个值；<code>cash_deposits</code> 的矩阵必须是 <code>(T, n_groups)</code>，经 <code>FlexArray::mapped</code> 映射到列上，不复制；<code>cash_earnings</code> 仍是 <code>(T, C)</code>。原因：引擎从组的第一列记一次入金，而收益（利息、费用）属于每一列的持仓。</p></article>
     <article class="card"><h3>bool 参数没有一维形式；信号不收标量</h3><p><code>_flag</code> 把一维 bool 数组重塑成一列，只有单列的运行才对得上。公开 API 的 <code>entries</code>/<code>exits</code> 经 <code>_signals</code>，标量直接报错；扩展本身却收 bool 标量——壳比 Rust 更严格。整数数组正相反：壳把它转成 float64（复制），扩展拒绝，理由是“悄悄当成 float 读就得复制”。</p></article>
@@ -817,7 +817,13 @@ const DEFAULTS = [
   ["sl_stop / tp_stop", "None", "NaN", "没有止损止盈；Python 层要求同时给 high、low（引擎本身不需要，见护栏）"],
   ["val_price", "None", "inf", "估值价取当根价格"],
   ["cash_deposits / cash_dividends / cash_earnings", "None", "0.0", "没有现金流"],
-  ["open / high / low", "None", "NaN", "没有 K 线范围"],
+  ["open / high / low", "None", "NaN", "没有 K 线范围；from_orders 也收，只用于强平检查（缺了按收盘价检查）"],
+  ["leverage / leverage_mode", 'None / "lazy"', "1.0 / Lazy", "不借钱"],
+  ["account_type / initial_margin / margin_basis", 'None / None / "notional"', "Cash / NaN / Notional", "现金账户；保证金列的 NaN 读作 1 / leverage。account_type 是字符串或每列一个"],
+  ["funding_rate / long_financing_rate / short_financing_rate / borrow_rate", "None", "0.0", "没有持仓费；市场数据，经过 column_map"],
+  ["debt_rate", "None", "0.0", "没有借款利息；一维表示每根 K 线一个值"],
+  ["mark_price", "None", "NaN", "持仓费按收盘价算，强平按 K 线的不利极值检查"],
+  ["margin_mode / maintenance_margin / liquidation_fee", "None", "Cross / 0.0 / 0.0", "不强平；margin_mode 是字符串或每列一个"],
   ["size_type", '"amount"', "—", "签名里的字符串，两份（Python 壳与 #[pyo3(signature)]）"],
   ["direction", '"longonly"（信号）/ "both"（订单）', "—", "同上"],
   ["accumulate / trades / call_seq", '"disabled" / "exit" / "default"', "—", "同上"],

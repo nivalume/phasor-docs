@@ -465,14 +465,14 @@ function plRender() {
     return `<tr><td class="mono">${crate}</td><td class="mono" style="text-align:right">${names.length}</td><td><div class="chips">${hit.map((n) => `<code>${n}</code>`).join("") || '<span class="small">—</span>'}</div></td><td><span class="small">${miss.map(esc).join("、") || "—"}</span></td></tr>`;
   }).join("");
   const total = PRELUDE.reduce((a, [, n]) => a + n.length, 0);
-  document.getElementById("pl-foot").innerHTML = `共 ${total} 个名字${q ? `，匹配 ${shown} 个` : ""}。phasor-model 的 17 个枚举来自 <code>enums::*</code> 通配导入；“不在 prelude 里”一栏是挑出来的常用名字，不是穷举。`;
+  document.getElementById("pl-foot").innerHTML = `共 ${total} 个名字${q ? `，匹配 ${shown} 个` : ""}。phasor-model 的 21 个枚举来自 <code>enums::*</code> 通配导入；“不在 prelude 里”一栏是挑出来的常用名字，不是穷举。`;
 }
 
 /* ---------------- dependency graph ---------------- */
 const COLORS = { "lib.rs": "#3a7afe", "sweep.rs": "#c9a227" };
 const UP = [
   ["phasor-core", "core", ["lib.rs", "sweep.rs"], "Columns / Label / Level / FlexArray / Matrix / Error 进 prelude；sweep.rs 用它们建标签、信号视图和报错。"],
-  ["phasor-model", "model", ["lib.rs"], "17 个枚举（通配）、InstrumentId / Symbol / Venue、Price / Quantity。"],
+  ["phasor-model", "model", ["lib.rs"], "21 个枚举（通配）、InstrumentId / Symbol / Venue、Price / Quantity。"],
   ["phasor-exec", "exec", ["lib.rs"], "撮合内核的 Order、OrderResult 与两个状态结构体。"],
   ["phasor-generic", "generic", ["lib.rs"], "只重新导出模块，prelude 里没有它的名字。"],
   ["phasor-indicators", "indicators", ["lib.rs"], "MaParams、combinations、ma。"],

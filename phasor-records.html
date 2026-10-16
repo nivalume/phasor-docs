@@ -192,7 +192,7 @@
     这个 crate 定义记录的结构（成交、现金流、日志），并从记录派生交易、回撤和 MAE/MFE，再提供按列分段归约。
   </p>
   <div class="stats">
-    <div class="stat"><b>7 / 38</b><span>成交记录 7 个字段（含 id），日志 38 个。日志默认关闭，按订单单独打开</span></div>
+    <div class="stat"><b>7 / 46</b><span>成交记录 7 个字段（含 id；带杠杆、保证金或持仓费的运行另有 5 列余额和标记），日志 46 个。日志默认关闭，按订单单独打开</span></div>
     <div class="stat"><b>3 种视图 · 1 套结构</b><span>entry_trades、exit_trades、positions 共用 TradeRecords，只是一条记录代表的东西不同</span></div>
     <div class="stat"><b>3 份 fixture</b><span>trades、drawdowns、mapped 三份 TSV 来自 vectorbt，cargo test 直接回放，不需要 Python</span></div>
   </div>
@@ -374,7 +374,7 @@
     <table>
       <thead><tr><th>第一性原理的问题</th><th>phasor 的回答</th><th>小节</th></tr></thead>
       <tbody>
-        <tr><td>事件长什么样</td><td><code>OrderRecords</code>（6 列 + 内嵌 <code>CashRecords</code>），结构数组</td><td><a href="#order">成交记录</a> · <a href="#types">类型</a></td></tr>
+        <tr><td>事件长什么样</td><td><code>OrderRecords</code>（6 列，可选 5 列余额，内嵌 <code>CashRecords</code>），结构数组</td><td><a href="#order">成交记录</a> · <a href="#types">类型</a></td></tr>
         <tr><td>顺序与身份</td><td>列主序，id = 合并后下标，无共享计数器；共享现金组用 <code>sort_by_column</code></td><td><a href="#order">成交记录</a></td></tr>
         <tr><td>写入接口与存储分离</td><td><code>RecordSink</code> / <code>LogSink</code> / <code>SinkBuffer</code>，<code>OrderRecords</code> 或 <code>Journal</code></td><td><a href="#flow">流程</a> · <a href="#class">类图</a></td></tr>
         <tr><td>配对规则</td><td><code>entry_trades</code>、<code>exit_trades</code>（平均成本，分别按入场/出场归因）和 <code>positions</code>；不提供 FIFO/LIFO</td><td><a href="#views">三种交易视图</a></td></tr>
@@ -617,6 +617,24 @@
     phasor-analysis 的 Portfolio 在构造时排序；phasor-py 只在组共享现金时另存一份排好序的副本。<code>CashRecords::sort_by_column</code> 同理，同列同一根 K 线上的入金和收益保持入账顺序。
   </p>
 
+  <h3>余额列：只在可能借钱的运行里有</h3>
+  <p>
+    不带杠杆、没有保证金列、没有持仓费的运行，余额由成交本身决定（多头不欠钱，空头占用两倍市值），不必存。否则可用现金依赖路径，成交之外还要记下每笔成交之后的状态：
+    模拟循环在 <code>push_order</code> 之后调一次 <code>push_balances(Balances)</code>，<code>Balances</code> 带五个字段，在 <code>OrderRecords</code> 里各是一列，要么每笔成交都有，要么全空。
+    <code>extend</code>、<code>concat</code>、<code>sort_by_column</code> 把它们和成交一起搬。
+  </p>
+  <div class="wrap"><table>
+    <thead><tr><th>列</th><th>现金列</th><th>保证金列</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">debt</td><td>多头借的钱，或空头的开仓所得</td><td>持仓成本 |position| × 开仓均价（全仓列每根 K 线移到估值价）</td></tr>
+      <tr><td class="mono">locked_cash</td><td>多头自己出的钱，或空头的抵押</td><td>已押的初始保证金</td></tr>
+      <tr><td class="mono">margin</td><td>false</td><td>true</td></tr>
+      <tr><td class="mono">isolated</td><td>false</td><td>逐仓列为 true：盈亏不结算进账户现金，分析层按成本而不是市值加回可用现金</td></tr>
+      <tr><td class="mono">liquidation</td><td colspan="2">这笔成交是强平，不是策略的订单</td></tr>
+    </tbody>
+  </table></div>
+  <p class="small">没有这些标记的手工记录按现金列、非强平处理，旧的记录不会出错。<code>CashRecords</code> 的 <code>kind</code> 现在有八种：入金、收益、分红、资金费、隔夜融资、利息、借券费、强平核销。</p>
+
   <h3>并行合并：每段拷进互不相交的区间</h3>
   <p>
     稠密的并行运行每个线程会产出几百万条成交，在 join 之后的单个线程上把它们全部拷一遍，会占掉明显的一段墙钟时间。
@@ -829,12 +847,12 @@
   </p>
   <div class="fields">
     <div class="card"><h3>位置 · 3</h3><p>group<br>col<br>idx</p></div>
-    <div class="card"><h3>下单前 · 6</h3><p>cash<br>position<br>debt<br>free_cash<br>val_price<br>value</p></div>
-    <div class="card"><h3>请求 · 15</h3><p>req_size · req_price<br>req_size_type<br>req_direction<br>req_fees · req_fixed_fees<br>req_slippage<br>req_min_size · req_max_size<br>req_size_granularity<br>req_reject_prob<br>req_lock_cash<br>req_allow_partial<br>req_raise_reject · req_log</p></div>
-    <div class="card"><h3>下单后 · 6</h3><p>new_cash<br>new_position<br>new_debt<br>new_free_cash<br>new_val_price<br>new_value</p></div>
-    <div class="card"><h3>结果 · 7</h3><p>res_size · res_price<br>res_fees<br>res_side（未成交 −1）<br>res_status<br>res_status_info（无 −1）<br>order_id（未成交 −1）</p></div>
+    <div class="card"><h3>下单前 · 7</h3><p>cash<br>position<br>debt<br>locked_cash<br>free_cash<br>val_price<br>value</p></div>
+    <div class="card"><h3>请求 · 20</h3><p>req_size · req_price<br>req_size_type<br>req_direction<br>req_fees · req_fixed_fees<br>req_slippage<br>req_min_size · req_max_size<br>req_size_granularity<br>req_leverage · req_leverage_mode<br>req_account_type<br>req_initial_margin · req_margin_basis<br>req_reject_prob<br>req_lock_cash<br>req_allow_partial<br>req_raise_reject · req_log</p></div>
+    <div class="card"><h3>下单后 · 7</h3><p>new_cash<br>new_position<br>new_debt<br>new_locked_cash<br>new_free_cash<br>new_val_price<br>new_value</p></div>
+    <div class="card"><h3>结果 · 8</h3><p>res_size · res_price<br>res_fees<br>res_side（未成交 −1）<br>res_status<br>res_status_info（无 −1）<br>order_id（未成交 −1）<br>liquidation（强平写的行）</p></div>
   </div>
-  <p class="small" style="margin-top:8px">37 列，加上不存储的 <code>id</code> 共 38 个字段，字段名和顺序跟参考实现的 schema 一一对应。模拟循环先填一个 <code>LogEntry</code> 结构体再交给 <code>push_log</code>，没有写成 38 个位置参数：<code>cash</code> 和 <code>free_cash</code> 挨着、都是 f64，最容易无声地传反。</p>
+  <p class="small" style="margin-top:8px">45 列：参考实现的 37 列，加上杠杆的 4 列（<code>locked_cash</code>、<code>new_locked_cash</code>、<code>req_leverage</code>、<code>req_leverage_mode</code>）、保证金的 3 列（<code>req_account_type</code>、<code>req_initial_margin</code>、<code>req_margin_basis</code>）和 <code>liquidation</code>；加上不存储的 <code>id</code> 共 46 个字段。参考实现有的字段，名字和顺序一一对应。模拟循环先填一个 <code>LogEntry</code> 结构体再交给 <code>push_log</code>，没有写成 38 个位置参数：<code>cash</code> 和 <code>free_cash</code> 挨着、都是 f64，最容易无声地传反。</p>
 
   <div class="grid2" style="margin-top:12px">
     <div class="panel" style="margin:0">
