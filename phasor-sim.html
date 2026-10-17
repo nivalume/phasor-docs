@@ -192,7 +192,7 @@
   <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
   <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
   <div class="grp"><div class="gh">L3 · 记录</div><ul><li><a class="pg" href="phasor-records.html">phasor-records</a></li></ul></div>
-  <div class="grp"><div class="gh">L4 · 模拟</div><ul><li class="cur"><a class="pg" href="phasor-sim.html" aria-current="page">phasor-sim</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|bar:一根 K 线|pipeline:信号管线|stops:止损|orders:from_orders|sharing:共享资金|parallel:并行|callbacks:回调|defaults:默认值|verify:验证|rules:规则"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#bar">一根 K 线</a></li><li><a href="#pipeline">信号管线</a></li><li><a href="#stops">止损</a></li><li><a href="#orders">from_orders</a></li><li><a href="#sharing">共享资金</a></li><li><a href="#parallel">并行</a></li><li><a href="#callbacks">回调</a></li><li><a href="#defaults">默认值</a></li><li><a href="#verify">验证</a></li><li><a href="#rules">规则</a></li></ol></li></ul></div>
+  <div class="grp"><div class="gh">L4 · 模拟</div><ul><li class="cur"><a class="pg" href="phasor-sim.html" aria-current="page">phasor-sim</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|bar:一根 K 线|pipeline:信号管线|stops:止损|orders:from_orders|sharing:共享资金|parallel:并行|callbacks:回调|resume:续跑|defaults:默认值|verify:验证|rules:规则"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#bar">一根 K 线</a></li><li><a href="#pipeline">信号管线</a></li><li><a href="#stops">止损</a></li><li><a href="#orders">from_orders</a></li><li><a href="#sharing">共享资金</a></li><li><a href="#parallel">并行</a></li><li><a href="#callbacks">回调</a></li><li><a href="#resume">续跑</a></li><li><a href="#defaults">默认值</a></li><li><a href="#verify">验证</a></li><li><a href="#rules">规则</a></li></ol></li></ul></div>
   <div class="grp"><div class="gh">L5 · 分析</div><ul><li><a class="pg" href="phasor-analysis.html">phasor-analysis</a></li></ul></div>
   <div class="grp"><div class="gh">L6 · 门面</div><ul><li><a class="pg" href="phasor-py.html">phasor-py</a></li><li><a class="pg" href="phasor.html">phasor（门面）</a></li></ul></div>
 </aside>
@@ -266,7 +266,7 @@
 
   <!-- ============================================================ -->
   <h2 id="graph">依赖图</h2>
-  <p>上游是 core（FlexArray、容差、错误）、exec（内核）、model（枚举）、records（sink 与记录）。中间是十个主要模块（prices、stops、limit、state、stop_exits、initial 没画），右边是使用者。点任一节点，只保留相关的线。</p>
+  <p>上游是 core（FlexArray、容差、错误）、exec（内核）、model（枚举）、records（sink 与记录）。中间是十一个主要模块（prices、stops、limit、state、stop_exits、initial 没画），右边是使用者。点任一节点，只保留相关的线。</p>
   <div class="legend" id="legend"></div>
   <div class="panel">
     <div class="cap">线的颜色 = 被用到的模块。margin、holding、liquidation、random 是私有模块</div>
@@ -418,7 +418,7 @@
   <p>
     回调不是事件驱动。循环还是逐根 K 线的那个循环，用同一个撮合内核、写同样的记录；<code>callbacks.rs</code> 只是在每根 K 线的固定位置调用用户代码，让它改掉循环在那里本来要做的事。
     回调通过只读的 <code>Context</code> 看账户，改变账户只能靠下单：改变现金或持仓的东西仍然经过内核、落成记录。
-    入口是 <code>simulate_from_order_func</code>（<code>OrderFunc</code>）和 <code>simulate_from_signal_func</code>（<code>SignalFunc</code>），返回记录（<code>OrderRecords</code> 或带日志的 <code>Journal</code>）和每组的回调状态。
+    入口是 <code>simulate_from_order_func</code>（<code>OrderFunc</code>）和 <code>simulate_from_signal_func</code>（<code>SignalFunc</code>），返回 <code>Run</code>：记录（<code>OrderRecords</code> 或带日志的 <code>Journal</code>）、每组的回调状态和结束时的 <code>SimState</code>。
   </p>
   <div class="wrap types">
     <table>
@@ -444,8 +444,8 @@
   </div>
   <h3>row_wise 与 Group::run_rows</h3>
   <p>
-    from_orders 的 K 线循环拆成了结构体 <code>Group</code>：<code>Group::new</code> 建好一个组第一根之前的状态（现金、各列 <code>ColumnState</code>、每列的 <code>ValidatedOrder</code>、保证金和乘数，并开好初始持仓），<code>Group::run_rows</code> 跑一段行。
-    <code>group_loop</code> 对一个组只调一次 <code>run_rows(0..n_rows)</code>。<code>Schedule::RowWise</code>（<code>row_wise</code> 函数）先为每组建一个 <code>Group</code>，再对每根 i 依次调各组的 <code>run_rows(i..i + 1)</code>：单线程，每组写自己的缓冲区，最后按组顺序合并，和并行路径合并线程块一样，所以回调不跨组共享状态时，记录和 <code>Schedule::Groups</code> 相同。
+    from_orders 的 K 线循环拆成了结构体 <code>Group</code>：<code>Group::new</code> 建好一个组第一根之前的状态（现金、各列 <code>ColumnState</code>、每列的 <code>ValidatedOrder</code>、保证金和乘数，并开好初始持仓；续跑时现金和列状态取自 <code>resume</code>，见<a href="#resume">续跑</a>），<code>Group::run_rows</code> 跑一段行，<code>Group::finish</code> 交出结束时的 <code>GroupState</code>。
+    <code>group_loop</code> 对一个组只调一次 <code>run_rows(start..n_rows)</code>，<code>start</code> 不续跑时是 0。<code>Schedule::RowWise</code>（<code>row_wise</code> 函数）先为每组建一个 <code>Group</code>，再对每根 i 依次调各组的 <code>run_rows(i..i + 1)</code>：单线程，每组写自己的缓冲区，最后按组顺序合并，和并行路径合并线程块一样，所以回调不跨组共享状态时，记录和 <code>Schedule::Groups</code> 相同。
     <code>run_rows</code> 接受一段行而不是一根，是为了把账户和各个开关在一次调用里只读进局部变量一次，并先把各个 <code>Vec</code> 取成切片，让指针和长度留在寄存器里。
   </p>
   <h3>fill! 宏</h3>
@@ -455,6 +455,46 @@
     <code>execute</code> 本身 <code>#[inline(always)]</code>，把 <code>post_order</code> 留在里面，成交结果不带出去。加上 <code>FlexArray::get</code> 的标量快路径（见 <a href="phasor-core.html#flex">phasor-core</a>），功能全关时 from_orders 的指令数比 c0fc6b2 多 2.47%，回到 3% 的约束以内，from_signals 少 14.30%（<code>docs/plan.md</code> 的性能记录）。
   </p>
   <p class="small">按风险算仓位：<code>risk_size(value, risk, entry, stop, multiplier)</code> = <code>risk × value / (|entry − stop| × multiplier)</code>，距离为 0 或不是有限数时是 NaN（内核忽略）。在 <code>order</code> 或 <code>signals</code> 里把订单的 size 设成它，size_type 用 Amount。</p>
+
+  <!-- ============================================================ -->
+  <h2 id="resume">续跑与状态：从上一次结束的地方接着跑</h2>
+  <p>
+    一次运行在 K 线之间带着的只有两样东西：每个账户组的现金和可用现金，每列的 <code>ColumnState</code>（持仓、负债、锁定现金、估值价、止损、挂着的限价单）。
+    <code>snapshot.rs</code> 把它们收成 <code>SimState</code> 交回来；下一次运行把它传进 <code>resume</code>，从它的 <code>next_row</code> 开始，不再读 <code>init_cash</code> 和 <code>init_position</code>（初始持仓也不再开）。
+    在任意一行切开、这样接起来的两段，写出的记录和一次跑完逐位相同，用 <code>OrderRecords::chain</code> 拼好之后顺序也相同（见 <a href="phasor-records.html#chain">phasor-records · 拼接</a>）。
+  </p>
+  <div class="wrap types">
+    <table>
+      <thead><tr><th>字段</th><th>内容</th><th>为什么</th></tr></thead>
+      <tbody>
+        <tr><td><code>source: Loop</code></td><td><code>FromOrders</code>（也是 from_order_func）或 <code>FromSignals</code></td><td>状态只能续写它的那个循环：from_orders 的列状态里估值价乘过合约乘数，from_signals 存的是价格，互相换算不精确</td></tr>
+        <tr><td><code>next_row</code></td><td>续跑的第一行，等于 <code>row_offset + n_rows</code></td><td>整次运行的行号，不是数组的下标</td></tr>
+        <tr><td><code>levered</code></td><td>前一段的记录带不带余额</td><td>续跑沿用它，记录要么每笔都带余额、要么都不带。前一段不带、这一段却要借钱、保证金或持仓费，报错：要在第一段就带上这些设置（<code>run_levered</code>）</td></tr>
+        <tr><td><code>groups: Vec&lt;GroupState&gt;</code></td><td>每组 <code>cash</code>、<code>free_cash</code>、按组内顺序的 <code>columns</code>、<code>stopped</code></td><td><code>stopped</code> 是回调停掉了这一组的交易；续跑的那段仍然不下单</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="grid2">
+    <article class="card"><h3>行号是绝对的</h3><p>状态里的行号都是整次运行的：时间止损的 <code>td_row</code>、<code>dt_row</code>，挂单的 <code>created</code>、<code>last_row</code>。循环仍从 0 读自己的数组，只在状态和记录进出时换算：<code>group_for</code> 减去 <code>row_offset</code>（早于数组起点的变成 0），<code>Group::finish</code> / <code>snapshot::finish</code> 加回去，记录在 <code>finish_run</code> 里 <code>shift_rows(row_offset)</code>。表示“永不”的 <code>usize::MAX</code> 不动；挂单槽位空着时它的两个行号只是占位，也不动，只有挂着的限价单的行号会移。</p></article>
+    <article class="card"><h3>resume 与 row_offset</h3><p>两种续法。只给 <code>resume</code>：数组还是整段历史，从 <code>next_row</code> 跑到末尾，前面的行只被回看。再给 <code>row_offset</code>：数组覆盖 <code>row_offset..row_offset + n_rows</code>，长历史可以一段一段跑，不必整段放进内存。这时数组要带上 <code>next_row</code> 之前被回看的几行：<code>price = −inf</code> 读上一根收盘，<code>from_ago</code> 读更早的；不带的话，这一段开头几根读到 NaN。<code>start_in</code> 检查来源循环、组数，以及 <code>next_row</code> 落在数组覆盖的行内；<code>group_for</code> 检查每组的列数。</p></article>
+    <article class="card"><h3>随机数用整次运行的行</h3><p>随机拒单的抽签是 <code>uniform(seed, i + row_offset, col)</code>。用数组下标 <code>i</code> 的话，同一根 K 线在分段运行里会抽到另一个数，被拒的单就不同了。这和“串行与多线程逐位相同”是同一条规则：随机数只能是 (seed, 行, 列) 的函数。</p></article>
+    <article class="card"><h3>不在状态里的</h3><p>回调自己的状态：带回调的运行续跑时再调一次 <code>pre_group</code>，带状态的回调在那里重建。记录也不在：状态是下一根要的，记录是过去做的。</p></article>
+    <article class="card"><h3>Run</h3><p><code>simulate_from_orders_run</code> / <code>simulate_from_signals_run</code>（按组分到 n_threads 个线程）返回 <code>Run { records, states, last_state }</code>；<code>simulate_from_order_func</code> / <code>simulate_from_signal_func</code> 也改成返回 <code>Run</code>，<code>states</code> 是每组的回调状态，没有回调时是 <code>()</code>。原来的四个入口仍然只返回记录。</p></article>
+    <article class="card"><h3>字节</h3><p><code>to_bytes</code> 写小端二进制：魔数 <code>PHSS</code>、版本 1、来源、<code>next_row</code>、<code>levered</code>，然后每组、每列的每个字段。<code>from_bytes</code> 拒绝别的魔数或版本、截断的、后面还多出字节的。库 crate 不写文件，字节写到哪里是调用方的事（Python 的 <code>phasor.save</code>）。</p></article>
+  </div>
+  <h3>怎么证明逐位相同：tests/resume.rs</h3>
+  <p>
+    90 行 × 6 列的随机行情，两个循环各 4 组功能。from_orders：默认；共享现金、Auto 调用顺序、update_value、<code>price = −inf</code>、收益；杠杆、随机拒单、<code>from_ago = 1</code>、借款利息；保证金列、维持保证金、资金费、合约乘数和会触发强平的大单。
+    from_signals：默认；止损、止盈、移动止损、时间止损，双向；限价单、有效期、随机拒单；共享现金的保证金组、强平、收益。
+    每组在 5 个切点（1、2、23、57、89）切成两段，后一段用两种续法各跑一次：整段数组从切点续（用 2 或 3 个线程），数组从切点前 2 行开始（<code>LOOKBACK = 2</code>：上一根收盘和 <code>from_ago = 1</code>）。
+    比较 <code>Journal::chain</code> 拼好的记录（比 Debug 字符串，NaN 也算相等）和最终状态的字节，必须和一次跑完的相同。
+    <code>many_pieces_are_one_run</code> 把 90 行切成每段 7 行一路续下去，最后的状态经过字节往返也不变；<code>a_state_that_does_not_fit_is_refused</code> 检查数组不够长、分组不同、换了循环、后一段才要杠杆都报错。
+  </p>
+  <p class="small">
+    变异：去掉 <code>rebase</code> 里时间止损的两行，或把随机数的行号改回 <code>i</code>，测试都失败（<code>docs/plan.md</code> 2.8 的验收；在 72eb15c 上复跑过：前者在 from_signals 情形 1、切点 23、数组从第 21 行起的那次比较失败，后者三个双段 / 多段测试都失败）。
+    两种错误只在 <code>row_offset</code> 不为 0 时才出现，所以第二种续法不能省。
+    代价：功能全关时，指令数比 6aa71f9 多 from_orders +1.01%、from_signals +1.58%（<code>docs/plan.md</code> 的性能记录）。
+  </p>
 
   <!-- ============================================================ -->
   <h2 id="defaults">默认值</h2>
@@ -485,6 +525,7 @@
         <tr><td>初始持仓</td><td colspan="2">init_position = 0，init_price = NaN（= 第一根收盘价）</td><td><code>initial.rs</code>：第一根上一笔无手续费、无滑点的成交，经过内核；现金列另记一条 <code>InitialPosition</code> 现金流抵掉成本，现金仍是 init_cash。不为它布置止损</td></tr>
         <tr><td>负价格</td><td colspan="2">allow_negative_price = false</td><td>打开时价格 ≤ 0 也是价格（内核的 <code>signed_price_trade</code> 和 <code>margin_trade</code>，见 <a href="phasor-exec.html#negative">phasor-exec</a>）；运行结束时写进记录的 <code>allow_negative_price</code>，交易视图才接受这样的价格</td></tr>
         <tr><td>回调</td><td colspan="2"><code>NoCallbacks</code></td><td>普通入口都传它，回调的代码不在实例里；有回调时用 <code>simulate_from_order_func</code> / <code>simulate_from_signal_func</code>，见<a href="#callbacks">回调</a></td></tr>
+        <tr><td>续跑</td><td colspan="2">resume = None，row_offset = 0</td><td>从头跑一次运行；给了状态就从它的 <code>next_row</code> 接着跑，不读 init_cash、init_position，见<a href="#resume">续跑</a></td></tr>
       </tbody>
     </table>
   </div>
@@ -500,7 +541,7 @@
     <article class="card"><h3>parity_cash_sharing.rs · cash_sharing.tsv</h3><p>24 个情形 × {布局顺序, 自动顺序}。另有一个测试要求“排序会改变成交”至少在一个情形上成立——否则一个完全忽略 <code>CallSeq::Auto</code> 的实现也能通过整套测试。</p></article>
     <article class="card"><h3>parity_from_signals.rs · from_signals.tsv</h3><p>181 例（120 个随机）：两种信号约定、各种冲突与反向进场模式、累积、止损的跳空 / 触及、止盈、跟踪、四种退出价、四种退出模式、三种更新模式、没有高低价的止损、两列分叉、按列止损。</p></article>
   </div>
-  <p class="small" style="margin-top:8px">另有 <code>order_controls.rs</code>（cash_limit、reject_prob、raise_reject 等参考实现没有或不同的控制），以及 phasor-analysis 的 <code>cash_flows.rs</code>：每条订单日志里的现金和可用现金，必须等于从记录重建出来的余额，独立账户与共享账户都测，线程数不影响结果。参考实现没有的账户功能各有手算测试：<code>leverage.rs</code>、<code>margin.rs</code>、<code>holding.rs</code>（四种持仓费、不封顶、费率为 0 时成交逐位不变）、<code>limit_orders.rs</code>（限价单和挂单冲突在五根 K 线上手算；限价等于订单价的限价单就是不加滑点的市价单）、<code>price_options.rs</code> 和 <code>stop_extensions.rs</code>（价格选项、移动止损、时间止损、阶梯、止损限价单，逐项手算）、<code>liquidation.rs</code>（精确强平价、跳空和穿仓核销、止损先于强平、全仓一起平、逐仓单独平且亏损封顶、对冲按标记价格）；phasor-analysis 的同名测试逐根检查重建出的权益等于循环里的权益。之后：<code>order_extensions.rs</code>（按根的 from_ago、显式调用顺序决定谁拿到现金、Auto 让保证金列先平后开）、<code>account_extensions.rs</code>（初始持仓是第一根的成交加抵消它的现金流、两个循环和保证金列、与线程数无关；负价格只在允许时成交）、<code>callbacks.rs</code>（什么都不改的回调不改任何记录；回调做出的决定和数组做出同样决定时逐笔相同；flex 订单、停止的组照常记收益；row_wise；回调做不到的事报错；不论乘数，回调看到的都是策略的价格；按风险定仓和保本止损；回调里的动态阶梯）。</p>
+  <p class="small" style="margin-top:8px">另有 <code>order_controls.rs</code>（cash_limit、reject_prob、raise_reject 等参考实现没有或不同的控制），以及 phasor-analysis 的 <code>cash_flows.rs</code>：每条订单日志里的现金和可用现金，必须等于从记录重建出来的余额，独立账户与共享账户都测，线程数不影响结果。参考实现没有的账户功能各有手算测试：<code>leverage.rs</code>、<code>margin.rs</code>、<code>holding.rs</code>（四种持仓费、不封顶、费率为 0 时成交逐位不变）、<code>limit_orders.rs</code>（限价单和挂单冲突在五根 K 线上手算；限价等于订单价的限价单就是不加滑点的市价单）、<code>price_options.rs</code> 和 <code>stop_extensions.rs</code>（价格选项、移动止损、时间止损、阶梯、止损限价单，逐项手算）、<code>liquidation.rs</code>（精确强平价、跳空和穿仓核销、止损先于强平、全仓一起平、逐仓单独平且亏损封顶、对冲按标记价格）；phasor-analysis 的同名测试逐根检查重建出的权益等于循环里的权益。之后：<code>order_extensions.rs</code>（按根的 from_ago、显式调用顺序决定谁拿到现金、Auto 让保证金列先平后开）、<code>account_extensions.rs</code>（初始持仓是第一根的成交加抵消它的现金流、两个循环和保证金列、与线程数无关；负价格只在允许时成交）、<code>callbacks.rs</code>（什么都不改的回调不改任何记录；回调做出的决定和数组做出同样决定时逐笔相同；flex 订单、停止的组照常记收益；row_wise；回调做不到的事报错；不论乘数，回调看到的都是策略的价格；按风险定仓和保本止损；回调里的动态阶梯）、<code>resume.rs</code>（任意切点分两段或分成多段，记录和最终状态与一次跑完逐位相同，见<a href="#resume">续跑</a>）。</p>
 
   <!-- ============================================================ -->
   <h2 id="table">谁依赖它，用来做什么</h2>
@@ -508,7 +549,7 @@
 
   <h2 id="rules">不能绕开的规则</h2>
   <div class="grid2">
-    <article class="card"><h3>串行与多线程逐位相同</h3><p>每个组写自己的缓冲区，记录 id 在按组顺序合并之后才分配；随机拒单的随机数是 <code>(seed, row, col)</code> 的函数，只在概率不为 0 时生成。任何依赖线程交错的东西都会破坏这一点。</p></article>
+    <article class="card"><h3>串行与多线程逐位相同</h3><p>每个组写自己的缓冲区，记录 id 在按组顺序合并之后才分配；随机拒单的随机数是 <code>(seed, row, col)</code> 的函数（row 是整次运行的行号，分段运行也一样），只在概率不为 0 时生成。任何依赖线程交错的东西都会破坏这一点。</p></article>
     <article class="card"><h3>现金的变化必须是记录</h3><p>入金、分红、收益、持仓费、穿仓核销和初始持仓的成本都写成 <code>CashRecords</code>，强平写成带 <code>liquidation</code> 标记的成交，因为分析层只从记录重建余额。只改了循环里的 cash 而不写记录，净值曲线会悄悄错。保证金结算是例外：它只在持仓和现金之间挪钱，不改变权益，所以不留记录。</p></article>
     <article class="card"><h3>阶段的顺序是语义</h3><p>先多头进出冲突、再空头进出冲突、再多空冲突、最后反向进场；先测止损再跟踪；先确定全组价格再执行。换顺序就会换掉留下来的信号或成交，fixture 会抓到。<code>tests/fixtures/*.tsv</code> 不能为了让改动通过而重新生成。</p></article>
     <article class="card"><h3>保持 Send、无全局状态</h3><p>参考的事件驱动引擎把状态放在进程全局的 <code>Rc&lt;RefCell&lt;..&gt;&gt;</code> 后面，只能顺序扫描；这里每个引擎实例都必须 <code>Send</code>，这是代码库的硬约束（<code>lib.rs</code> 模块文档）。</p></article>
@@ -519,10 +560,11 @@
     <table>
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
-        <tr><td colspan="2" class="small">行号对应 6aa71f9；其余条目只写符号名。</td></tr>
-        <tr><td class="mono">crates/phasor-sim/src/lib.rs</td><td>账户组独立、为什么不用 SIMD；count_where（成交上界）；any_levered（也数乘数不为 1 的列）、margin_columns、isolated_columns、multipliers、unscale_log；DEFAULT_MIN_SIZE = 1e-8；再导出入口和 callbacks 的公开类型。公开模块：callbacks、cash、from_orders、from_signals、groups、limit、signals、state、stop_exits。</td></tr>
-        <tr><td class="mono">src/from_orders.rs</td><td>FromOrders 与默认值（:39）、build_order（:362）、updated_value（:491）、simulate_group（:544）→ group_loop（:573）；Group（:587）、fill!（:623，一笔订单的执行，循环和 flex 路径共用）、Group::new（:778，建账户、开初始持仓）、Group::run_rows（:913，一段行：开盘现金流、两遍、强平、调用顺序、回调、收盘现金流）；execute（:1389，flex 路径）、callback_order（:1453）、post_order（:1510）、order_at（:1581，force_exit 的 K 线上换成 Both 方向的 TargetAmount 0）、liquidate（:1613，分轮的部分强平、ADL）；串行 / 并行 / 带日志入口；Schedule（:1904）、simulate_from_order_func（:1931）、row_wise（:1953）。</td></tr>
-        <tr><td class="mono">src/from_signals.rs</td><td>FromSignals 与默认值（:77）、stop_price（:486）、should_update_stop、read_signals（:539）、prepare_order（:845，<code>const EXTENDED</code>，价格 → 止损 → 信号 → 冲突 → 数量）、user_order（:1146，信号 → 冲突 → 数量，回调的 Decision 在这里代替数组）、signal_order、follow_up（:1269，止损成交后按新持仓再执行信号）、test_resting、route_limit、stop_limit_order、place_limit；simulate_group（:1522）→ group_loop（:1553，逐根：决定、结算、强平、按调用顺序执行与重新布置止损、收盘现金流）；decide（:2192）、segment_end（:2216）、liquidate（:2289）；simulate_from_signal_func（:2558）。Stops 在 state.rs；force_exit 在扩展实例里：这根没有止损触发时，丢掉信号和挂着的限价单、清掉止损，按订单价平掉持仓。</td></tr>
+        <tr><td colspan="2" class="small">行号对应 72eb15c；其余条目只写符号名。</td></tr>
+        <tr><td class="mono">crates/phasor-sim/src/lib.rs</td><td>账户组独立、为什么不用 SIMD；count_where（成交上界）；any_levered（也数乘数不为 1 的列）、margin_columns、isolated_columns、multipliers、unscale_log；DEFAULT_MIN_SIZE = 1e-8；再导出入口、callbacks 和 snapshot 的公开类型。公开模块：callbacks、cash、from_orders、from_signals、groups、limit、signals、snapshot、state、stop_exits。</td></tr>
+        <tr><td class="mono">src/from_orders.rs</td><td>FromOrders 与默认值（:40；resume :224、row_offset :228）、start_row（:351）、run_levered（:364）、last_state（:378）、build_order（:409）、updated_value（:540）、simulate_group（:593）→ group_loop（:622，从 start_row 跑到最后一根）；Group（:637）、fill!（:673，一笔订单的执行，循环和 flex 路径共用；随机数用 i + row_offset，:701）、Group::new（:828，建账户、开初始持仓；续跑时从状态里的组开始，不开初始持仓）、Group::finish（:964）、Group::run_rows（:983，一段行：开盘现金流、两遍、强平、调用顺序、回调、收盘现金流）；execute（:1459，flex 路径）、callback_order（:1523）、post_order（:1580）、order_at（:1651，force_exit 的 K 线上换成 Both 方向的 TargetAmount 0）、liquidate（:1683，分轮的部分强平、ADL）；finish_run（:1902，标记 allow_negative_price、shift_rows、交出状态）；串行 / 并行 / 带日志入口；Schedule（:1991）、simulate_from_order_func（:2018，返回 Run）、row_wise（:2040）、simulate_from_orders_run（:2159）。</td></tr>
+        <tr><td class="mono">src/from_signals.rs</td><td>FromSignals 与默认值（:78；resume :350、row_offset :354）、stop_price（:497）、should_update_stop、read_signals（:550）、start_row（:720）、run_levered（:728）、finish_run（:742）、prepare_order（:901，<code>const EXTENDED</code>，价格 → 止损 → 信号 → 冲突 → 数量）、user_order（:1202，信号 → 冲突 → 数量，回调的 Decision 在这里代替数组）、signal_order、follow_up（:1325，止损成交后按新持仓再执行信号）、test_resting、route_limit、stop_limit_order、place_limit；simulate_group（:1578）→ group_loop（:1609，续跑时从状态里的组开始，:1629；逐根 start..n_rows，:1771：决定、结算、强平、按调用顺序执行与重新布置止损、收盘现金流；结束时 snapshot::finish，:2250）；decide（:2258）、segment_end（:2282）、liquidate（:2355）；simulate_from_signal_func（:2624，返回 Run）、simulate_from_signals_run（:2638）。Stops 在 state.rs；force_exit 在扩展实例里：这根没有止损触发时，丢掉信号和挂着的限价单、清掉止损，按订单价平掉持仓。</td></tr>
+        <tr><td class="mono">src/snapshot.rs</td><td>GroupState（:43）、Loop（:59）、SimState（:68，source、next_row、levered、groups）、MAGIC（:80）、VERSION（:81）、group_for（:87，换成数组的行号并检查列数）、start_in（:115，检查来源、组数、行）、to_bytes（:147）、from_bytes（:173）、Run（:227）、finish（:238，行号换回整次运行的）、rebase（:259，只移时间止损和挂着的限价单的行，不动 usize::MAX）。</td></tr>
         <tr><td class="mono">src/callbacks.rs</td><td>Flow、Context（只读，价格不含乘数）、OrderFunc（pre_group、pre_segment、order、flex_order、post_order、post_segment；<code>ON</code>、<code>FLEX</code>）、Decision、SignalFunc（pre_group、adjust、signals、post_order、post_segment）、NoCallbacks、risk_size。</td></tr>
         <tr><td class="mono">src/initial.rs</td><td>init_position / init_price：any、Columns、open——第一根按 init_price 的成交，无手续费和滑点，经过内核；现金列再记一条 InitialPosition 现金流抵掉成本，保证金列的保证金从可用现金出。</td></tr>
         <tr><td class="mono">src/limit.rs</td><td>公开模块。限价单的纯函数：limit_price（四种 delta_format 和 limit_reverse）、last_row（limit_tif、limit_expiry 按行数）、fill_price（从起点检查跳空，再看当根范围；Limit / HardLimit / Close）。</td></tr>
@@ -535,9 +577,9 @@
         <tr><td class="mono">src/cash.rs · src/random.rs</td><td>cash 是公开模块：开盘的入金与分红（deposit、pay_dividends、at_open）、收盘的收益（earn，负数封顶于可用现金）；book 给自定义循环记任意一种现金流并写记录。random：不内联的 uniform，转调 <code>phasor_core::random::uniform(seed, row, col)</code>，只在 reject_prob &gt; 0 时用到。</td></tr>
         <tr><td class="mono">src/margin.rs</td><td>保证金列的 owed、unsettled、settle：每根 K 线把盈亏结算进现金，成本移到估值价；逐仓列不结算。</td></tr>
         <tr><td class="mono">src/holding.rs</td><td>Rates、Held、charge：收盘按订单之后的持仓收资金费、隔夜融资、借款利息、借券费，不封顶，按 mark_price（否则收盘价）乘合约乘数算名义价值。逐仓列从自己的保证金（locked_cash）付，可用现金不变；账户现金低于 0、超出现金列多头借款的部分按第一列的 debt_rate 计息，记到第一列。</td></tr>
-        <tr><td class="mono">src/liquidation.rs</td><td>Inputs、Column、test（路径从开盘到不利极值或标记价格，权益和维持保证金按 α 线性，求第一次跌破的点；分档 maintenance_margin_tiers 时维持保证金分段线性，用二分法求）、fill（TargetAmount(0) 或部分平仓、liquidation_fee、记录标记）、ROUNDS = 64 与 step_size（liquidation_step 的部分强平，沿 K 线剩下的路径继续检查）、write_off / write_off_account（穿仓核销）。cash_maintenance_margin 让借钱或借券的现金列和保证金列一起强平。路径上的价格乘合约乘数。两个循环各有一个不内联的 liquidate，ADL（auto_deleverage 标记的 K 线上按标记价格、不收手续费平掉保证金列）也在那里。</td></tr>
-        <tr><td class="mono">tests/*.rs · examples/bench.rs · examples/scaling.rs</td><td>四份差分测试与订单控制测试；callbacks.rs、order_extensions.rs、account_extensions.rs 等手算测试；对比 vectorbt 的基准与线程扩展。</td></tr>
-        <tr><td class="mono">docs/plan.md 2.1–2.7、3</td><td>模拟各功能的已有和还缺；约束和性能记录。</td></tr>
+        <tr><td class="mono">src/liquidation.rs</td><td>Inputs、Column、test（路径从开盘到不利极值或标记价格，权益和维持保证金按 α 线性，求第一次跌破的点；分档 maintenance_margin_tiers 时维持保证金分段线性，用二分法求）、fill（TargetAmount(0) 或部分平仓、liquidation_fee、记录标记）、ROUNDS = 64 与 step_size（liquidation_step 的部分强平，沿 K 线剩下的路径继续检查）、write_off / write_off_account（穿仓核销）。cash_maintenance_margin 让借钱或借券的现金列和保证金列一起强平。路径上的价格乘合约乘数。两个循环各有一个不内联的 liquidate，ADL（auto_deleverage 标记的 K 线上按标记价格、不收手续费平掉保证金列开着的仓位，不看盈亏；交易所先平哪些仓位，由调用方标哪些 K 线表达）也在那里。</td></tr>
+        <tr><td class="mono">tests/*.rs · examples/bench.rs · examples/scaling.rs</td><td>四份差分测试与订单控制测试；callbacks.rs、order_extensions.rs、account_extensions.rs 等手算测试；resume.rs（分段续跑与一次跑完逐位相同）；对比 vectorbt 的基准与线程扩展。</td></tr>
+        <tr><td class="mono">docs/plan.md 2.1–2.8、3</td><td>模拟各功能的已有和还缺；约束和性能记录。</td></tr>
       </tbody>
     </table>
   </div>
@@ -1125,10 +1167,10 @@ const decodeFlex = (t, conv, nr) => { const k = t.slice(0, t.indexOf(":")), vals
 const sideOf = (x) => x;
 
 /* ---------------- dependency graph ---------------- */
-const COLORS = { from_orders: "#3a7afe", from_signals: "#2fbfa8", callbacks: "#5ec8e0", signals: "#c9a227", groups: "#e07a3d", cash: "#8fbf4a", margin: "#b07ad8", holding: "#d8a05a", liquidation: "#e05a6a", random: "#9a9a9a" };
+const COLORS = { from_orders: "#3a7afe", from_signals: "#2fbfa8", callbacks: "#5ec8e0", signals: "#c9a227", groups: "#e07a3d", cash: "#8fbf4a", margin: "#b07ad8", holding: "#d8a05a", liquidation: "#e05a6a", random: "#9a9a9a", snapshot: "#e07ab8" };
 const MODULES = [
-  { id: "from_orders", sub: "FromOrders · Group · simulate_from_order_func", blurb: "一个元素一笔请求；K 线循环是 Group::run_rows：两遍、调用顺序、估值价与 update_value；普通 / 带日志 / 串行 / 并行四个入口，加上带回调的 simulate_from_order_func（Groups 或 RowWise）。" },
-  { id: "from_signals", sub: "FromSignals · simulate_from_signal_func", blurb: "信号进、成交出：价格 → 止损 → 信号 → 冲突 → 数量 → 执行 → 重新布置止损。带回调时 adjust / signals 的决定走同一条管线。" },
+  { id: "from_orders", sub: "FromOrders · Group · simulate_from_order_func", blurb: "一个元素一笔请求；K 线循环是 Group::run_rows：两遍、调用顺序、估值价与 update_value；普通 / 带日志 / 串行 / 并行四个入口，加上带回调的 simulate_from_order_func（Groups 或 RowWise）和返回状态的 simulate_from_orders_run；resume / row_offset 续跑。" },
+  { id: "from_signals", sub: "FromSignals · simulate_from_signal_func", blurb: "信号进、成交出：价格 → 止损 → 信号 → 冲突 → 数量 → 执行 → 重新布置止损。带回调时 adjust / signals 的决定走同一条管线。simulate_from_signals_run 返回状态；resume / row_offset 续跑。" },
   { id: "callbacks", sub: "OrderFunc · SignalFunc · Context", blurb: "回调 trait、只读的 Context、Flow、Decision、NoCallbacks（ON = false，调用点全部编译掉）、risk_size。" },
   { id: "signals", sub: "五个纯函数", blurb: "from_stop、三种冲突解决、signals_to_size；单独对参考实现穷举测试。" },
   { id: "groups", sub: "Groups · CallSeq · chunks", blurb: "账户组的布局、组内调用顺序（先卖后买）、按列数均分线程块。" },
@@ -1136,18 +1178,19 @@ const MODULES = [
   { id: "margin", sub: "settle · unsettled（私有）", blurb: "保证金列每根 K 线把盈亏结算进组的现金，成本移到估值价；不是现金流，不留记录。逐仓列不结算。" },
   { id: "holding", sub: "资金费 · 融资 · 利息 · 借券费（私有）", blurb: "收盘按订单之后的持仓收付，按 mark_price 算名义价值，写成 CashRecords；不封顶，所以用了它的运行走 LEV 实例。" },
   { id: "liquidation", sub: "维持保证金 · 强平（私有）", blurb: "估值前按这根 K 线的路径检查账户：全仓一起平、逐仓单独平，止损先算；成交带 liquidation 标记，付不起的亏损记为 Liquidation 现金记录。" },
-  { id: "random", sub: "uniform(seed,row,col)（私有）", blurb: "随机拒单用的 SplitMix64 抽样，是 (seed, row, col) 的纯函数，与线程数无关。" },
+  { id: "random", sub: "uniform(seed,row,col)（私有）", blurb: "随机拒单用的 SplitMix64 抽样，是 (seed, row, col) 的纯函数，与线程数无关；row 是整次运行的行号（i + row_offset），与怎么分段无关。" },
+  { id: "snapshot", sub: "SimState · GroupState · Run", blurb: "一次运行结束时的账户：每组现金、可用现金、各列 ColumnState、是否被回调停止，行号是整次运行的。resume 从它接着跑；to_bytes / from_bytes 是带版本号的二进制。Run 是 *_run 和 *_func 入口的返回值：记录、每组回调状态、last_state。" },
 ];
 const UP = [
-  { id: "phasor-core", sub: "FlexArray · math · Error", mods: ["from_orders", "from_signals", "callbacks", "signals", "cash", "holding", "liquidation"], role: "所有参数都是 FlexArray（count_where 不展开地数单元）；signals_to_size 用 is_less 判断负数量；错误是 Invariant。" },
-  { id: "phasor-exec", sub: "execute_validated · ValidatedOrder", mods: ["from_orders", "from_signals", "callbacks", "liquidation"], role: "每列构建一次 ValidatedOrder（from_signals 另建一个无滑点的给 StopLimit 用），每根 K 线 set_bar 后调用 execute_validated。回调读写的是 Order，看到的是 OrderResult。" },
-  { id: "phasor-model", sub: "撮合与信号枚举", mods: ["from_signals", "signals", "groups", "holding", "liquidation"], role: "AccumulationMode、ConflictMode、DirectionConflictMode、OppositeEntryMode、四个 Stop* 枚举、SizeType、Direction、StatusInfo::describe。" },
-  { id: "phasor-records", sub: "RecordSink · LogEntry · Journal", mods: ["from_orders", "from_signals", "cash", "holding", "liquidation"], role: "循环对 SinkBuffer 泛型：OrderRecords 丢弃日志，Journal 保留；push_order / push_log / 现金记录；LEV 实例里每笔成交再 push_balances 一个 Balances（debt、locked_cash、margin、isolated、liquidation）。" },
+  { id: "phasor-core", sub: "FlexArray · math · Error", mods: ["from_orders", "from_signals", "callbacks", "signals", "cash", "holding", "liquidation", "snapshot"], role: "所有参数都是 FlexArray（count_where 不展开地数单元）；signals_to_size 用 is_less 判断负数量；错误是 Invariant。" },
+  { id: "phasor-exec", sub: "execute_validated · ValidatedOrder", mods: ["from_orders", "from_signals", "callbacks", "liquidation", "snapshot"], role: "每列构建一次 ValidatedOrder（from_signals 另建一个无滑点的给 StopLimit 用），每根 K 线 set_bar 后调用 execute_validated。回调读写的是 Order，看到的是 OrderResult。snapshot 把挂单的 SizeType、Direction 写成字节。" },
+  { id: "phasor-model", sub: "撮合与信号枚举", mods: ["from_signals", "signals", "groups", "holding", "liquidation", "snapshot"], role: "AccumulationMode、ConflictMode、DirectionConflictMode、OppositeEntryMode、四个 Stop* 枚举、SizeType、Direction、StatusInfo::describe；snapshot 读写 DeltaFormat、LimitOrderPrice。" },
+  { id: "phasor-records", sub: "RecordSink · LogEntry · Journal", mods: ["from_orders", "from_signals", "cash", "holding", "liquidation"], role: "循环对 SinkBuffer 泛型：OrderRecords 丢弃日志，Journal 保留；push_order / push_log / 现金记录；LEV 实例里每笔成交再 push_balances 一个 Balances（debt、locked_cash、margin、isolated、liquidation）；结束时 SinkBuffer::shift_rows 把记录移到整次运行的行。" },
 ];
 const DOWN = [
   { id: "phasor-analysis", sub: "Portfolio::from_orders/signals", uses: ["from_orders", "from_signals", "groups"], role: "Portfolio 的两个便利构造器直接跑模拟（可选线程数）；Groups 描述共享资金的账户分组。" },
   { id: "phasor", sub: "门面 · prelude · SignalSweep", uses: ["from_signals", "groups"], role: "prelude 放 CallSeq、Groups、FromSignals、simulate_from_signals(_parallel)；sweep.rs 的 SignalSweep 生成 FromSignals 的信号数组，其余设置原样交给它。" },
-  { id: "phasor-py", sub: "Python 入口", uses: ["from_orders", "from_signals", "callbacks", "groups"], role: "lib.rs 把 NumPy 数组借成 FlexArray，调用四个入口（带日志 / 不带、串行 / 并行），CallSeq / Groups 从 Python 参数构造；有 Python 回调时 callbacks.rs 的 PyCallbacks 实现 OrderFunc / SignalFunc，走 simulate_from_order_func / simulate_from_signal_func。" },
+  { id: "phasor-py", sub: "Python 入口", uses: ["from_orders", "from_signals", "callbacks", "groups", "snapshot"], role: "lib.rs 把 NumPy 数组借成 FlexArray，CallSeq / Groups 从 Python 参数构造。from_signals 走 simulate_from_signals_run，有 Python 回调时走 simulate_from_signal_func；from_orders 一律走 simulate_from_order_func（没有回调时传 NoCallbacks）。每次都拿回 last_state 存进 PyPortfolio；resume.rs 把 SimState 包成 phasor.SimState，把 resume=pf / resume=state 读成 FromOrders / FromSignals 的 resume。" },
 ];
 const depSvg = document.getElementById("dep-graph"), detail = document.getElementById("detail");
 let pinned = null;
@@ -1156,7 +1199,7 @@ function nodeBox(id) {
   const ui = UP.findIndex((u) => u.id === id);
   if (ui >= 0) return { x: 16, y: 60 + ui * 112, w: 220, h: 56 };
   const mi = MODULES.findIndex((m) => m.id === id);
-  if (mi >= 0) return { x: 320, y: 38 + mi * 47, w: 290, h: 42 };
+  if (mi >= 0) return { x: 320, y: 38 + mi * 43, w: 290, h: 38 };
   const di = DOWN.findIndex((d) => d.id === id);
   return { x: 790, y: 100 + di * 130, w: 234, h: 60 };
 }

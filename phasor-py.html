@@ -216,7 +216,7 @@
   <div class="grp"><div class="gh">L3 · 记录</div><ul><li><a class="pg" href="phasor-records.html">phasor-records</a></li></ul></div>
   <div class="grp"><div class="gh">L4 · 模拟</div><ul><li><a class="pg" href="phasor-sim.html">phasor-sim</a></li></ul></div>
   <div class="grp"><div class="gh">L5 · 分析</div><ul><li><a class="pg" href="phasor-analysis.html">phasor-analysis</a></li></ul></div>
-  <div class="grp"><div class="gh">L6 · 门面</div><ul><li class="cur"><a class="pg" href="phasor-py.html" aria-current="page">phasor-py</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|order:内存序|routing:参数路由|defaults:默认值|life:一次调用|callbacks:回调|sweep:扫描布局|ranking:排名陷阱|enums:字符串|guards:护栏|validation:交叉验证|helpers:期货与时间|data:数据边界|docs:文档出入|reading:读码顺序"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#order">内存序</a></li><li><a href="#routing">参数路由</a></li><li><a href="#defaults">默认值</a></li><li><a href="#life">一次调用</a></li><li><a href="#callbacks">回调</a></li><li><a href="#sweep">扫描布局</a></li><li><a href="#ranking">排名陷阱</a></li><li><a href="#enums">字符串</a></li><li><a href="#guards">护栏</a></li><li><a href="#validation">交叉验证</a></li><li><a href="#helpers">期货与时间</a></li><li><a href="#data">数据边界</a></li><li><a href="#docs">文档出入</a></li><li><a href="#reading">读码顺序</a></li></ol></li><li><a class="pg" href="phasor.html">phasor（门面）</a></li></ul></div>
+  <div class="grp"><div class="gh">L6 · 门面</div><ul><li class="cur"><a class="pg" href="phasor-py.html" aria-current="page">phasor-py</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|order:内存序|routing:参数路由|defaults:默认值|life:一次调用|callbacks:回调|resume:续跑与存取|sweep:扫描布局|ranking:排名陷阱|enums:字符串|guards:护栏|validation:交叉验证|helpers:期货与时间|data:数据边界|docs:文档出入|reading:读码顺序"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#order">内存序</a></li><li><a href="#routing">参数路由</a></li><li><a href="#defaults">默认值</a></li><li><a href="#life">一次调用</a></li><li><a href="#callbacks">回调</a></li><li><a href="#resume">续跑与存取</a></li><li><a href="#sweep">扫描布局</a></li><li><a href="#ranking">排名陷阱</a></li><li><a href="#enums">字符串</a></li><li><a href="#guards">护栏</a></li><li><a href="#validation">交叉验证</a></li><li><a href="#helpers">期货与时间</a></li><li><a href="#data">数据边界</a></li><li><a href="#docs">文档出入</a></li><li><a href="#reading">读码顺序</a></li></ol></li><li><a class="pg" href="phasor.html">phasor（门面）</a></li></ul></div>
 </aside>
 <main>
   <h1>phasor-py</h1>
@@ -275,7 +275,7 @@
 
   <!-- ============================================================ -->
   <h2 id="graph">依赖图</h2>
-  <p>左边是引擎 crate，中间是 <code>_phasor</code> 的八个 Rust 模块（research.rs 没画），右边是 Python 壳。点任一节点，只保留相关的线。</p>
+  <p>左边是引擎 crate，中间是 <code>_phasor</code> 的九个 Rust 模块（research.rs 没画），右边是 Python 壳。点任一节点，只保留相关的线。</p>
   <div class="legend" id="legend"></div>
   <div class="panel">
     <div class="cap">线的颜色 = 被用到的 Rust 模块。虚线框的 Python 文件是纯 NumPy（或加 zoneinfo / pandas），不碰扩展</div>
@@ -394,6 +394,51 @@
     <article class="card"><h3>row_wise 与 threads</h3><p><code>row_wise=True</code> 走 <code>Schedule::RowWise</code>：所有组的第 i 根跑完才进下一根，单线程，跨组共享状态的回调看到的顺序是对的，记录和不开时相同。否则按 <code>threads</code> 分组并行，和没有回调时一样（每次调用都要拿 GIL）。<code>flexible</code>、<code>row_wise</code> 只属于 from_order_func，扩展里的 <code>from_signals</code> 收到它们报错。</p></article>
   </div>
   <p class="small">测试：<code>tests/test_callbacks.py</code>——order_func 和做出同样决定的数组逐笔相同；状态、flex 订单和停止；skip 和 stop；row_wise 按 K 线顺序跨组共享状态；回调的异常就是调用方看到的异常；signal_func 和数组相同；按风险定仓和保本止损。</p>
+
+  <!-- ============================================================ -->
+  <h2 id="resume">续跑、存取和逐根推进：<code>resume=</code>、<code>save</code> / <code>load</code>、<code>Stepper</code></h2>
+  <p>
+    三件事都建立在 phasor-sim 的状态快照上（见 <a href="phasor-sim.html#resume">phasor-sim · 续跑</a>）：每个 <code>Portfolio</code> 都带着 <code>pf.last_state</code>，即这次运行最后一根之后的 <code>SimState</code>。
+    绑定层的代码在 <code>src/resume.rs</code>，<code>Stepper</code> 在纯 Python 的 <code>python/phasor/stepper.py</code>。
+  </p>
+  <div class="wrap types">
+    <table>
+      <thead><tr><th>用法</th><th>怎么调</th><th>得到什么</th></tr></thead>
+      <tbody>
+        <tr><td>续跑（<code>pf.update</code>）</td><td><code>from_signals(..., resume=pf)</code>、<code>from_orders(..., resume=pf)</code>，<code>from_order_func</code> 也一样</td><td>传完整历史（旧 K 线加新 K 线）和同样的参数，只模拟 pf 之后的 K 线。返回整段历史的一个 <code>Portfolio</code>：pf 的记录接上新的（<code>Journal::chain</code>），和一次跑完相同，顺序也相同；起始现金用 pf 的</td></tr>
+        <tr><td>分段</td><td><code>resume=state</code>（一个 <code>phasor.SimState</code>）加 <code>row_offset=r</code>，数组从历史的第 r 行开始，带上回看的几行</td><td><code>phasor.Segment</code>：<code>orders()</code>、<code>cash_records()</code>（行号是整段历史的）和 <code>last_state</code>。不是组合：它从运行中间开始，不知道之前的现金</td></tr>
+        <tr><td>存取</td><td><code>phasor.save(pf, path)</code> / <code>phasor.load(path)</code>；底下是 <code>pf.to_bytes()</code> / <code>Portfolio.from_bytes()</code></td><td>载入的组合照常分析，也能再 <code>resume=</code></td></tr>
+        <tr><td>逐根推进</td><td><code>phasor.Stepper</code></td><td>见下</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="grid2">
+    <article class="card"><h3>resume=pf 检查什么</h3><p><code>prior</code>：pf 要有状态；列数、源列数、<code>column_map</code> 相同；分组和 <code>cash_sharing</code> 相同；<code>close</code> 的行数不少于 pf 跑过的；pf 跑过的每一根收盘价逐位相同，否则报 “close differs from the portfolio's at bar r of column c”。其余参数不检查，用同样的参数是调用方的事。另外：<code>resume=pf</code> 不能带 <code>row_offset</code>（整段历史从第 0 行开始）；没有 <code>resume</code> 却给了 <code>row_offset</code> 报错；<code>init_cash="auto"</code> 不能续跑（壳里的 <code>_resume</code>）；<code>resume</code> 不是 Portfolio 或 SimState 是 TypeError；from_signals 的状态续不了 from_orders。</p></article>
+    <article class="card"><h3>绑定里怎么接</h3><p><code>resume::resolve</code> 把参数读成 <code>Resumed::Portfolio</code> 或 <code>Resumed::State</code>，状态交给 <code>FromSignals</code> / <code>FromOrders</code> 的 <code>resume</code>。运行统一走 <code>signals_run</code> / <code>orders_run</code>，有无回调、有无日志的四种结果都换成同一个 <code>PyRun</code>（<code>Run&lt;Journal, Py&lt;PyAny&gt;&gt;</code>）。<code>resume=state</code> 时直接返回 <code>Segment</code>；否则 <code>finished</code> 用 <code>Journal::chain</code> 把 pf 的记录和新记录接起来、起始现金取 pf 的，组合存下 <code>last_state</code>。所以两个函数的返回类型是 <code>Py&lt;PyAny&gt;</code>。</p></article>
+    <article class="card"><h3>phasor.SimState</h3><p>冻结的 pyclass：<code>next_row</code>、每组的 <code>cash</code> 和 <code>free_cash</code>、按列的 <code>position</code>，<code>to_bytes()</code> 和 <code>SimState.from_bytes()</code>（版本不对是 ValueError）。它只是 Rust 的 <code>SimState</code> 的包装，列状态的其余字段（止损、挂单）不单独暴露。</p></article>
+    <article class="card"><h3>字节里有什么</h3><p><code>resume::to_bytes</code>：魔数 <code>PHPF</code>、版本 1，然后 n_rows、n_cols、source_cols、column_map、每列起始现金、组长度、cash_sharing、ann_factor、risk_free、incl_open、trades_type、源宽度的收盘价、<code>Journal</code> 的字节、状态的字节（可以没有）。回调状态 <code>in_outputs</code> 是 Python 对象，不存。<code>phasor.save</code> 只是把 <code>pf.to_bytes()</code> 写进文件：库不写文件。没有用 Arrow IPC。</p></article>
+  </div>
+  <h3><code>phasor.Stepper</code>：一根一根地推进 from_orders</h3>
+  <p>
+    给实盘用：策略决定这一根的订单，<code>propose</code> 说回测会怎么成交；执行层下单、回报实际成交，<code>commit</code> 按回报记下，记录就是实际发生的而不是模拟的；<code>reconcile</code> 和券商的持仓对账。
+    <code>Stepper(n_cols, *, lookback=1, **params)</code>：<code>params</code> 是对每一根都成立的 <code>from_orders</code> 参数（init_cash、fees、leverage、group_lens……）；<code>size</code>、<code>close</code>、<code>resume</code>、<code>row_offset</code>、<code>from_ago</code> 不能在这里给。
+  </p>
+  <div class="wrap types">
+    <table>
+      <thead><tr><th>方法</th><th>做什么</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">propose(close, size=nan, **bar)</td><td>用这一根和之前 <code>lookback</code> 根跑一次 <code>from_orders(resume=上一根的状态, row_offset=)</code>，返回这一根的 <code>orders()</code>。什么都不记下。<code>bar</code> 是这一根的其他输入：price、open、high、low、费率等；回看的几根带着它们自己的行情，没有订单</td></tr>
+        <tr><td class="mono">commit(fills=None)</td><td>不给 fills：按提议记下。给 fills（每列 <code>size</code> 有符号、NaN 或 0 是没有，<code>price</code>，<code>fees</code> 是金额）：把这一根按回报重跑一次，订单换成 amount、both、回报的价格，<code>fixed_fees</code> 是回报的手续费，fees 和 slippage 为 0，数量限制、cash_limit、reject_prob、lock_cash 都关掉，<code>allow_partial=False</code>、<code>raise_reject=True</code>（<code>_FILL_ORDER</code>）。这一根的现金流和持仓费照常记。账户放不下的回报（现金不够、方向或保证金不允许）报错：phasor 的账户和券商的已经对不上了。然后存下状态，进到下一根</td></tr>
+        <tr><td class="mono">reconcile(positions)</td><td>券商的持仓减去 phasor 的，按列；一致的地方是 0</td></tr>
+        <tr><td class="mono">position / cash</td><td>最后提交的一根之后每列的持仓、每组的现金（读 <code>state</code>）</td></tr>
+        <tr><td class="mono">orders() / cash_records()</td><td>提交过的全部成交和现金流，行号是整段历史的，按账户组稳定排序，和一次 from_orders 写出的顺序相同</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    每一根只跑这一根和回看的几根，所以成本不随历史变长。<code>lookback=1</code> 够 <code>price=-inf</code>（上一根收盘）用；不支持 <code>from_ago</code>，因为决定就是这一根的。同一列在一根里的几笔成交要合成一笔报：总数量、均价、总手续费。只支持 from_orders。
+  </p>
+  <p class="small">测试：<code>tests/test_resume.py</code>——from_signals 在 1、30、79 切开（止损、收益、共享现金、日志）续跑后，成交、净值、现金、日志和状态字节都和一次跑完相同；from_orders 和 from_order_func 带杠杆和随机拒单续跑相同；save / load 后统计相同、还能续跑，坏字节报错；状态字节往返和版本检查；resume 拒绝的各种情形；<code>resume=state, row_offset=39</code> 得到 Segment，成交等于一次跑完的后半段。<code>tests/test_stepper.py</code>——三组参数（price=-inf；杠杆加共享现金；随机拒单加收益）逐根 propose、commit() 之后，成交、现金流、持仓和状态字节与一次 from_orders 相同；回报的成交按回报记，下一根从记下的接着跑；没 propose 就 commit、放不下的回报都报错。</p>
 
   <!-- ============================================================ -->
   <h2 id="sweep">扫描布局：<code>@phasor.strategy</code></h2>
@@ -535,9 +580,10 @@
     <li><b><code>python/phasor/__init__.py</code></b>：模块文档的 Layout / Shapes 两节，然后 <code>_matrix</code>、<code>_param</code>、<code>_flag</code>、<code>_signals</code>——四个函数决定了路由表的“公开 API”一半。</li>
     <li><b><code>src/array.rs</code></b>：模块文档讲为什么拒绝而不是转置；<code>columns_of</code>、<code>Borrowed</code>、<code>OneDim</code>、<code>flex_f64</code>、<code>borrow_opt_f64</code> 上关于默认值的注释。</li>
     <li><b><code>src/lib.rs</code> 的 <code>PyPortfolio</code></b>：结构体文档（为什么拥有数组）、<code>core()</code>（为什么每次重建）、<code>assemble()</code>（为什么只排一次序）。</li>
-    <li><b><code>from_signals</code></b>：先借 <code>close</code> 定形状，止损必须配 <code>high</code>/<code>low</code>（一条与引擎不符的护栏，见<a href="#guards">护栏</a>），<code>account_inputs</code>、<code>deposits_view</code>、<code>market_optional</code>，最后 <code>py.detach</code> 里选四个入口之一。</li>
+    <li><b><code>from_signals</code></b>：先借 <code>close</code> 定形状，止损必须配 <code>high</code>/<code>low</code>（一条与引擎不符的护栏，见<a href="#guards">护栏</a>），<code>account_inputs</code>、<code>deposits_view</code>、<code>market_optional</code>，<code>resume::resolve</code>，最后 <code>py.detach</code> 里的 <code>signals_run</code>（有无回调、有无日志）和 <code>finished</code>。</li>
     <li><b><code>src/params.rs</code>、<code>src/parse.rs</code></b>：两个循环共用的 14 个参数；字符串映射和它一行一行的测试。</li>
     <li><b><code>src/callbacks.rs</code>、<code>from_order_func</code></b>：<code>PyContext</code>、<code>PyCallbacks::call</code>（拿 GIL、存第一个异常）、<code>apply_order</code> / <code>apply_decision</code> / <code>apply_stops</code> 怎么把 Python 的返回值读成 Order、Decision 和 StopState；lib.rs 里有回调时怎么选 <code>Schedule</code>、把状态放进 <code>in_outputs</code>。</li>
+    <li><b><code>src/resume.rs</code>、<code>python/phasor/stepper.py</code></b>：模块文档（resume=pf 是什么、字节里有什么）、<code>prior</code> 的检查、<code>Segment</code>；Stepper 的 <code>_run</code> 怎么拼回看的几行、<code>commit</code> 怎么把回报变成订单。</li>
     <li><b><code>src/expr.rs</code>、<code>python/phasor/strategy.py</code></b>：因子集和 <code>crossed_above</code> 怎么返回扁平的列优先数组；<code>sweep</code> 怎么拼列、映射收盘价、延迟信号。</li>
     <li><b><code>src/data.rs</code>、<code>src/arrow.rs</code></b>：数据层的绑定和唯一的 <code>unsafe</code>。</li>
     <li><b>测试</b>：<code>test_bindings.py</code> 里 <code>test_a_c_ordered_array_is_refused_rather_than_transposed</code>、<code>test_the_engine_does_not_write_through_a_borrowed_array</code>；<code>test_column_map.py</code> 证明映射与铺开在执行和分析上逐项一致，且改写或释放原数组不影响已返回的组合。</li>
@@ -627,21 +673,21 @@ function seg(host, items, current, onPick) {
 }
 
 /* ---------------- dependency graph ---------------- */
-const COLORS = { "lib.rs": "#3a7afe", "array.rs": "#2fbfa8", "params.rs": "#c9a227", "parse.rs": "#b07cd8", "callbacks.rs": "#5ec8e0", "expr.rs": "#d35d5d", "data.rs": "#4caf7a", "arrow.rs": "#e08a3c" };
+const COLORS = { "lib.rs": "#3a7afe", "array.rs": "#2fbfa8", "params.rs": "#c9a227", "parse.rs": "#b07cd8", "callbacks.rs": "#5ec8e0", "expr.rs": "#d35d5d", "data.rs": "#4caf7a", "arrow.rs": "#e08a3c", "resume.rs": "#e07ab8" };
 const UP = [
-  { id: "phasor-core", sub: "FlexArray · Matrix · Error", mods: ["array.rs", "params.rs", "lib.rs", "expr.rs", "callbacks.rs"], role: "FlexArray 是所有参数在引擎里的样子；array.rs 把 NumPy 借用变成它。Error 经 to_py_err 原样变成 ValueError。", page: "phasor-core.html" },
-  { id: "phasor-model", sub: "SizeType · Direction · BarType", mods: ["parse.rs", "lib.rs", "data.rs", "callbacks.rs"], role: "parse.rs 把字符串映射到 SizeType、Direction、AccumulationMode、TradesType 等；data.rs 包装 InstrumentId 与 BarType；callbacks.rs 把 OrderSide、OrderStatus 写成字符串交给回调。", page: "phasor-model.html" },
+  { id: "phasor-core", sub: "FlexArray · Matrix · Error", mods: ["array.rs", "params.rs", "lib.rs", "expr.rs", "callbacks.rs", "resume.rs"], role: "FlexArray 是所有参数在引擎里的样子；array.rs 把 NumPy 借用变成它。Error 经 to_py_err 原样变成 ValueError。", page: "phasor-core.html" },
+  { id: "phasor-model", sub: "SizeType · Direction · BarType", mods: ["parse.rs", "lib.rs", "data.rs", "callbacks.rs", "resume.rs"], role: "parse.rs 把字符串映射到 SizeType、Direction、AccumulationMode、TradesType 等；data.rs 包装 InstrumentId 与 BarType；callbacks.rs 把 OrderSide、OrderStatus 写成字符串交给回调；resume.rs 把 TradesType 写进组合的字节。", page: "phasor-model.html" },
   { id: "phasor-exec", sub: "Order · OrderResult", mods: ["callbacks.rs"], role: "只有 callbacks.rs 用：Python 回调返回的字典改的是 Order 的字段，post_order_func 收到的 result 是 OrderResult 转成的字典。", page: "phasor-exec.html" },
-  { id: "phasor-sim", sub: "FromSignals · FromOrders · callbacks", mods: ["lib.rs", "callbacks.rs"], role: "lib.rs 用借来的视图填 FromSignals / FromOrders，调四个入口之一（带日志或不带、串行或并行），有回调时调 simulate_from_order_func / simulate_from_signal_func；Groups、CallSeq（含 Explicit）从 Python 参数构造。callbacks.rs 实现 OrderFunc 和 SignalFunc。", page: "phasor-sim.html" },
+  { id: "phasor-sim", sub: "FromSignals · FromOrders · SimState", mods: ["lib.rs", "callbacks.rs", "resume.rs"], role: "lib.rs 用借来的视图填 FromSignals / FromOrders：from_signals 走 simulate_from_signals_run，有回调时走 simulate_from_signal_func；from_orders 一律走 simulate_from_order_func（没有回调时传 NoCallbacks）；都返回带 last_state 的 Run。Groups、CallSeq（含 Explicit）从 Python 参数构造。callbacks.rs 实现 OrderFunc 和 SignalFunc。resume.rs 包装 SimState，检查 resume=pf 能否续上。", page: "phasor-sim.html" },
   { id: "phasor-analysis", sub: "Portfolio · Cache · Scoring", mods: ["lib.rs"], role: "每个 PyPortfolio 方法用 Portfolio::from_borrowed 在自有副本上重建引擎视图，并把 pyclass 持有的 Cache 借给它。", page: "phasor-analysis.html" },
-  { id: "phasor-records", sub: "OrderRecords · LogRecords", mods: ["lib.rs"], role: "运行留下的成交和日志；共享资金时 assemble 调 sort_by_column 排一次序。orders()/logs()/trades() 以列式字典交出。", page: "phasor-records.html" },
+  { id: "phasor-records", sub: "OrderRecords · LogRecords · bytes", mods: ["lib.rs", "resume.rs"], role: "运行留下的成交和日志；共享资金时 assemble 调 sort_by_column 排一次序。orders()/logs()/trades() 以列式字典交出。resume=pf 用 Journal::chain 接上旧记录；resume.rs 用 bytes 的 Put / Reader 和 Journal::to_bytes 写组合的字节。", page: "phasor-records.html" },
   { id: "phasor-expr", sub: "FactorSet · alpha158/360", mods: ["expr.rs"], role: "编译好的因子集；evaluate 在 py.detach 里跑，返回扁平的列优先数组，壳用 order=\"F\" 还原。", page: "phasor-expr.html" },
   { id: "phasor-generic", sub: "crossed_above_1d", mods: ["expr.rs"], role: "crossed_above 按列调用 crossed_above_1d，结果作为一个扁平 bool 数组返回——嵌套 list 曾是扫描里最慢的一步。", page: "phasor-generic.html" },
   { id: "phasor-data", sub: "load · Dataset · align", mods: ["data.rs"], role: "本地 Arrow 源的加载、准备、按可用时间对齐；没有独立页面。", page: null },
   { id: "arrow-array/schema", sub: "ffi feature", mods: ["arrow.rs"], role: "Arrow C Data 接口的 FFI 结构体；arrow.rs 在这里用 unsafe 把胶囊转成 RecordBatch 再转回去。", page: null },
 ];
 const MODULES = [
-  { id: "lib.rs", sub: "Portfolio · from_signals · from_orders", blurb: "2,472 行。PyPortfolio（拥有收盘价副本、记录、Cache，有回调时还有 in_outputs）、两个模拟入口、account_inputs / deposits_view / market_optional 这些形状规则，以及模块注册。" },
+  { id: "lib.rs", sub: "Portfolio · from_signals · from_orders", blurb: "2,601 行。PyPortfolio（拥有收盘价副本、记录、Cache、last_state，有回调时还有 in_outputs；to_bytes / from_bytes）、两个模拟入口和它们共用的 signals_run / orders_run / finished、account_inputs / deposits_view / market_optional 这些形状规则、orders_dict / cash_dict，以及模块注册。" },
   { id: "array.rs", sub: "columns_of · Borrowed · OneDim", blurb: "NumPy → FlexArray。按 stride 拒绝 C 序，拒绝不连续与整数数组；一维数组的含义由调用者用 OneDim 声明；None → 引擎默认值。" },
   { id: "params.rs", sub: "Shared（14 个共用参数）", blurb: "from_signals 与 from_orders 共用的 14 个可选参数，一次借完；wants_logs 判断要不要走带日志的入口（标量 false 走不带日志的）。" },
   { id: "parse.rs", sub: "字符串 → 枚举", blurb: "size_type / direction / accumulate / trades 的映射。返回 Result<_, String>，所以不用 Python 解释器就能测；测试逐个变体写出。" },
@@ -649,9 +695,10 @@ const MODULES = [
   { id: "expr.rs", sub: "_FactorSet · crossed_above", blurb: "因子表达式的绑定：compile、names、required_fields、uses_future、evaluate；alpha158()、alpha360()；crossed_above。" },
   { id: "data.rs", sub: "InstrumentId · BarType · load_data", blurb: "数据层：标识类型、DecodeContext、_Dataset（prepare / batches / align）、catalog_files、load_data。" },
   { id: "arrow.rs", sub: "Arrow C Data（唯一的 unsafe）", blurb: "只接受具体的 pyarrow.Schema / RecordBatch；导入时搬走数组所有权并清空胶囊，导出时用 _import_from_c_capsule。" },
+  { id: "resume.rs", sub: "SimState · Segment · 组合的字节", blurb: "362 行。PySimState（phasor.SimState）、resolve 把 resume 读成组合或状态、prior 检查 resume=pf 是这次运行的前半段（形状、分组、column_map、跑过的收盘价逐位相同）、PySegment（phasor.Segment）、组合的 to_bytes / from_bytes（魔数 PHPF）。" },
 ];
 const DOWN = [
-  { id: "phasor/__init__.py", sub: "from_signals · from_orders · from_order_func", uses: ["lib.rs", "expr.rs", "data.rs", "callbacks.rs"], role: "1,656 行。_matrix / _param / _flag / _signals 把输入整理成扩展要的形状和布局；_price_option、_from_ago、_next_valid、_call_seq、_tiers；init_cash=\"auto\" 的两遍运行（_auto_cash）；FactorSet、Expression 包装；三个入口的长文档，from_order_func 是带回调的 from_orders。" },
+  { id: "phasor/__init__.py", sub: "from_signals · from_orders · from_order_func", uses: ["lib.rs", "expr.rs", "data.rs", "callbacks.rs", "resume.rs"], role: "1,725 行。_matrix / _param / _flag / _signals 把输入整理成扩展要的形状和布局；_price_option、_from_ago、_next_valid、_call_seq、_tiers；init_cash=\"auto\" 的两遍运行（_auto_cash）；FactorSet、Expression 包装；三个入口的长文档，from_order_func 是带回调的 from_orders；resume= / row_offset= 和 _resume 的检查，save / load 把 pf.to_bytes() 写进文件、读回来。" },
   { id: "phasor/strategy.py", sub: "@strategy · factors · crossed_above", uses: ["expr.rs", "lib.rs"], role: "@strategy 给函数加 run / sweep：拼列、column_map 平铺、group_lens、signal_delay。factors() 拒绝用到未来数据的表达式。" },
   { id: "phasor/data.py", sub: "Source · Catalog · BarPanel", uses: ["data.rs"], role: "DataSchema、Source、Catalog、Dataset（asof / window）、BarPanel（drop_missing 只留每个品种都有 K 线的时刻）；加载显式、只读。" },
   { id: "phasor/resolution.py", sub: "align · resample", uses: [], role: "纯 NumPy：align 把粗周期的值放到它可用时刻当时或之后的第一根细 K 线上；resample 把细周期序列按 last / sum / compound 聚合回粗周期。" },
@@ -661,6 +708,7 @@ const DOWN = [
   { id: "phasor/_timing.py", sub: "duration_rows · deadline_rows", uses: [], role: "time_delta_format=\"index\" 时把按时间给的 td_stop、dt_stop、limit_tif、limit_expiry 换算成引擎数的行；时长、时刻、周期末和每天的某个时刻。" },
   { id: "phasor/futures.py", sub: "roll_by_* · continuous · CONTRACTS", uses: [], role: "纯 NumPy：每根持有哪个合约（按成交量或到期日）、换月的 K 线、差值或比例复权的连续序列；常用合约的乘数和最小变动价位，spec_params。" },
   { id: "phasor/fx.py", sub: "convert · cross", uses: [], role: "纯 NumPy：按每根 K 线的汇率把价格换成账户货币，以及经第三种货币求交叉汇率。" },
+  { id: "phasor/stepper.py", sub: "Stepper · propose · commit", uses: ["lib.rs", "resume.rs"], role: "220 行。每根跑一次 from_orders(resume=上一根的状态, row_offset=)，只带这一根和回看的几根；commit 按券商回报重跑这一根，reconcile 对账；读 Segment 的 orders / cash_records / last_state 和 SimState 的 position / cash。" },
 ];
 const depSvg = document.getElementById("dep-graph"), detail = document.getElementById("detail");
 let pinned = null;
@@ -669,7 +717,7 @@ function nodeBox(id) {
   const ui = UP.findIndex((u) => u.id === id);
   if (ui >= 0) return { x: 16, y: 30 + ui * 46, w: 220, h: 40 };
   const mi = MODULES.findIndex((m) => m.id === id);
-  if (mi >= 0) return { x: 330, y: 44 + mi * 55, w: 290, h: 46 };
+  if (mi >= 0) return { x: 330, y: 44 + mi * 49, w: 290, h: 42 };
   const di = DOWN.findIndex((d) => d.id === id), step = Math.min(96, 456 / DOWN.length);
   return { x: 760, y: 40 + di * step, w: 264, h: Math.min(60, step - 6) };
 }
@@ -897,6 +945,7 @@ const DEFAULTS = [
   ["direction", '"longonly"（信号）/ "both"（订单）', "—", "同上"],
   ["accumulate / trades / call_seq", '"disabled" / "exit" / "default"', "—", "同上；call_seq 也可以是 (n_bars, n_cols) 的非负整数数组：每行每组按组内下标给出执行顺序（CallSeq::Explicit）"],
   ["回调：pre_group_func / signal_func / adjust_func / post_order_func / post_segment_func", "None", "NoCallbacks", "from_signals：都没给时走普通入口；from_order_func 另有 order_func、pre_segment_func、flexible、row_wise，见<a href=\"#callbacks\">回调</a>"],
+  ["resume / row_offset", "None / 0", "None / 0", "从头跑；resume=pf 续跑一个组合，resume=SimState 加 row_offset 跑一段并返回 Segment，见<a href=\"#resume\">续跑与存取</a>"],
   ["ann_factor / risk_free / seed / threads", "365.0 / 0.0 / 0 / 1", "—", "普通标量，同样两份"],
 ];
 
@@ -913,8 +962,8 @@ function buildLife() {
   const steps = [
     [0, 120, "① _matrix / _param / _flag", "asarray + asfortranarray\nF 序 float64：原样；否则复制"],
     [1, 300, "② borrow_f64 · columns_of", "PyReadonlyArray 只读借用\n检查 stride → FlexArray 视图"],
-    [2, 480, "③ simulate_from_signals", "四个入口之一\n串行 / threads 个线程"],
-    [3, 660, "④ assemble", "close 按源宽度复制一份\ninit_cash 逐列；共享时排序成交"],
+    [2, 480, "③ signals_run", "simulate_from_signals_run\n（有回调：*_signal_func）"],
+    [3, 660, "④ finished · assemble", "续跑时接上 pf 的记录\nclose 复制；共享时排序成交"],
     [0, 840, "⑤ pf.sharpe_ratio()", "方法调用"],
     [2, 840, "⑥ core() + 派生", "from_borrowed(&副本, &cache)\n缓存命中就跳过派生"],
     [1, 660, "⑦ into_pyarray", "结果 Vec 交给 NumPy\n（交出所有权，不再复制）"],

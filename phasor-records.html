@@ -23,6 +23,7 @@
     --drawdowns: #d35d5d;
     --excursions: #8fbf4a;
     --logs: #c084fc;
+    --bytes: #e07ab8;
     --good: #4caf7a;
     --bad: #d35d5d;
   }
@@ -179,7 +180,7 @@
   <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
   <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
   <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
-  <div class="grp"><div class="gh">L3 · 记录</div><ul><li class="cur"><a class="pg" href="phasor-records.html" aria-current="page">phasor-records</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|flow:流程|order:成交记录|views:三种交易视图|drawdowns:回撤|excursions:MAE/MFE|mapped:分段归约|logs:日志|class:类图|types:类型|table:对照表|parity:vectorbt"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#flow">流程</a></li><li><a href="#order">成交记录</a></li><li><a href="#views">三种交易视图</a></li><li><a href="#drawdowns">回撤</a></li><li><a href="#excursions">MAE/MFE</a></li><li><a href="#mapped">分段归约</a></li><li><a href="#logs">日志</a></li><li><a href="#class">类图</a></li><li><a href="#types">类型</a></li><li><a href="#table">对照表</a></li><li><a href="#parity">vectorbt</a></li></ol></li></ul></div>
+  <div class="grp"><div class="gh">L3 · 记录</div><ul><li class="cur"><a class="pg" href="phasor-records.html" aria-current="page">phasor-records</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|flow:流程|order:成交记录|chain:拼接与字节|views:三种交易视图|drawdowns:回撤|excursions:MAE/MFE|mapped:分段归约|logs:日志|class:类图|types:类型|table:对照表|parity:vectorbt"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#flow">流程</a></li><li><a href="#order">成交记录</a></li><li><a href="#chain">拼接与字节</a></li><li><a href="#views">三种交易视图</a></li><li><a href="#drawdowns">回撤</a></li><li><a href="#excursions">MAE/MFE</a></li><li><a href="#mapped">分段归约</a></li><li><a href="#logs">日志</a></li><li><a href="#class">类图</a></li><li><a href="#types">类型</a></li><li><a href="#table">对照表</a></li><li><a href="#parity">vectorbt</a></li></ol></li></ul></div>
   <div class="grp"><div class="gh">L4 · 模拟</div><ul><li><a class="pg" href="phasor-sim.html">phasor-sim</a></li></ul></div>
   <div class="grp"><div class="gh">L5 · 分析</div><ul><li><a class="pg" href="phasor-analysis.html">phasor-analysis</a></li></ul></div>
   <div class="grp"><div class="gh">L6 · 门面</div><ul><li><a class="pg" href="phasor-py.html">phasor-py</a></li><li><a class="pg" href="phasor.html">phasor（门面）</a></li></ul></div>
@@ -390,7 +391,7 @@
   <p>
     左边是上游：phasor-core 提供容差、FlexArray、Matrix 和 Error；phasor-model 提供写进记录的 <code>repr(i8)</code> 枚举；
     phasor-exec 只出现在日志里，<code>LogEntry</code> 原样持有请求 <code>Order</code> 和结果 <code>OrderResult</code>。
-    中间是七个模块，右边是依赖它的 crate。线按模块着色。点任一节点，只保留相关的线，图下面会写出它用来做什么。
+    中间是八个模块，右边是依赖它的 crate。线按模块着色。点任一节点，只保留相关的线，图下面会写出它用来做什么。
   </p>
   <div class="legend" id="legend"></div>
   <div class="panel">
@@ -469,14 +470,14 @@
         <text x="430" y="206" font-size="10" fill="#b8b8b8">读 TradeRecords</text>
       </svg>
     </div>
-    <div class="foot"><p class="small" style="margin:0">trades 是 <code>mod trades</code>（私有模块），对外只通过 crate 根的 <code>pub use</code> 暴露 <code>TradeRecords</code>、<code>entry_trades</code>、<code>exit_trades</code>、<code>positions</code>。其余六个模块都是 <code>pub mod</code>。</p></div>
+    <div class="foot"><p class="small" style="margin:0">trades 是 <code>mod trades</code>（私有模块），对外只通过 crate 根的 <code>pub use</code> 暴露 <code>TradeRecords</code>、<code>entry_trades</code>、<code>exit_trades</code>、<code>positions</code>。其余七个模块都是 <code>pub mod</code>。bytes 没有画：它只给 <code>OrderRecords</code> 和 <code>Journal</code> 加上 <code>to_bytes</code> / <code>from_bytes</code>，见<a href="#chain">拼接与字节</a>。</p></div>
   </div>
 
-  <h2>七个模块做什么</h2>
+  <h2>八个模块做什么</h2>
   <div class="grid2">
     <article class="card">
       <h3><span class="dot" style="background:var(--lib)"></span> lib.rs：成交记录与写入口</h3>
-      <p><code>OrderRecords</code> 是结构数组：<code>col、idx、size、price、fees、side</code> 六列，加一个内嵌的 <code>cash</code>。<code>id</code> 不存储，就是记录在合并后数组里的位置。<code>RecordSink</code> 是模拟循环写成交和现金流的接口，<code>SinkBuffer</code> 再加上 <code>with_capacity</code> 和 <code>merge</code>，让同一份线程代码同时服务普通运行和带日志的运行；<code>records_mut</code> 让循环在结束时把运行的 <code>allow_negative_price</code> 写进成交记录。这个标志是整份记录一个，不是一列，<code>extend</code> 和 <code>concat</code> 取“或”。</p>
+      <p><code>OrderRecords</code> 是结构数组：<code>col、idx、size、price、fees、side</code> 六列，加一个内嵌的 <code>cash</code>。<code>id</code> 不存储，就是记录在合并后数组里的位置。<code>RecordSink</code> 是模拟循环写成交和现金流的接口，<code>SinkBuffer</code> 再加上 <code>with_capacity</code> 和 <code>merge</code>，让同一份线程代码同时服务普通运行和带日志的运行；<code>records_mut</code> 让循环在结束时把运行的 <code>allow_negative_price</code> 写进成交记录，<code>shift_rows</code> 把分段运行的行号移回整次运行的行号。这个标志是整份记录一个，不是一列，<code>extend</code> 和 <code>concat</code> 取“或”。<code>chain</code> 把分段运行的记录排成一次运行写出的顺序。</p>
     </article>
     <article class="card">
       <h3><span class="dot" style="background:var(--cash)"></span> cash：不是成交的现金流</h3>
@@ -502,6 +503,10 @@
   <article class="card" style="margin-top:12px">
     <h3><span class="dot" style="background:var(--logs)"></span> logs：一张订单的前后全貌</h3>
     <p>成交记录只说明发生了什么。日志记下“要求的是什么”，以及订单前后的账户状态，这样才能回答回测让人意外时最常见的问题：<b>这根 K 线为什么没成交？</b>没有日志时，唯一的证据是“没有成交记录”，可能的原因有十几种；有了日志，原因就是一个字段。<code>Journal</code> 把成交和日志放在一起，合并时负责重定位 <code>order_id</code>。</p>
+  </article>
+  <article class="card" style="margin-top:12px">
+    <h3><span class="dot" style="background:var(--bytes)"></span> bytes：记录存成字节</h3>
+    <p>带魔数和版本号的小端二进制，给 <code>OrderRecords</code> 和 <code>Journal</code> 加上 <code>to_bytes</code> / <code>from_bytes</code>，读的时候拒绝别的版本、截断和长度对不上的列。<code>Put</code>、<code>Get</code>、<code>Reader</code> 是公开的，phasor-py 用它们写整个组合。库只产出字节，不写文件。见<a href="#chain">拼接与字节</a>。</p>
   </article>
 
   <h2 id="flow">记录从哪来，到哪去</h2>
@@ -664,6 +669,58 @@
       </svg>
     </div>
   </div>
+
+  <h2 id="chain">分段拼接与字节格式</h2>
+  <p>
+    一次运行可以切成几段，每段从上一段的状态接着跑（见 <a href="phasor-sim.html#resume">phasor-sim · 续跑</a>）。要让几段的记录等于一次跑完的记录，记录层要做两件事：
+    把每段的行号放回整次运行的行号上，再把几段的记录排成一次运行会写出的顺序。
+  </p>
+  <div class="grid2">
+    <article class="card"><h3>shift_rows：行号放回原处</h3><p>一段的数组可以从历史的第 <code>row_offset</code> 行开始，循环按数组下标写 <code>idx</code>。<code>OrderRecords::shift_rows(by)</code> 给每笔成交和每条现金流（<code>CashRecords::shift_rows</code>）的 <code>idx</code> 加上 <code>by</code>，<code>LogRecords::shift_rows</code> 对日志做同样的事；<code>by</code> 为 0 时什么都不做。<code>SinkBuffer</code> 多了一个 <code>shift_rows</code>，两个循环在运行结束时对整个缓冲调一次，所以 <code>Journal</code> 的成交和日志一起移。</p></article>
+    <article class="card"><h3>chain：排成一次运行的顺序</h3><p>一次运行按账户组的顺序写：串行时一个缓冲里一组接一组，并行时每个线程写一段连续的组、最后按顺序拼接；组内按 K 线，同一根按执行顺序。几段接起来就是“段 1 的组 0、组 1……段 2 的组 0、组 1……”。<code>OrderRecords::chain(parts, group_of)</code> 先拼接，再按 <code>group_of[col]</code> <b>稳定</b>排序（<code>chain_order</code>），每组保持“先段 1、后段 2”，正好是一次运行写出的顺序；成交和现金流各排各的（<code>permute</code>）。因为顺序也相同，测试可以逐位比较。</p></article>
+  </div>
+  <div class="panel">
+    <div class="cap">两段、两个组（组 0 = 列 0、1，组 1 = 列 2）：拼接 → 按组稳定排序</div>
+    <div class="body">
+      <div class="grid2">
+        <table class="vt">
+          <thead><tr><th>拼接后</th><th>段</th><th>col</th><th>idx</th></tr></thead>
+          <tbody>
+            <tr><td class="num">0</td><td>1</td><td class="num">1</td><td class="num">3</td></tr>
+            <tr><td class="num">1</td><td>1</td><td class="num">0</td><td class="num">5</td></tr>
+            <tr><td class="num">2</td><td>1</td><td class="num">2</td><td class="num">4</td></tr>
+            <tr><td class="num">3</td><td>2</td><td class="num">0</td><td class="num">8</td></tr>
+            <tr><td class="num">4</td><td>2</td><td class="num">2</td><td class="num">9</td></tr>
+          </tbody>
+        </table>
+        <table class="vt">
+          <thead><tr><th>chain 之后</th><th>段</th><th>col</th><th>idx</th></tr></thead>
+          <tbody>
+            <tr><td class="num">0</td><td>1</td><td class="num">1</td><td class="num">3</td></tr>
+            <tr><td class="num">1</td><td>1</td><td class="num">0</td><td class="num">5</td></tr>
+            <tr><td class="num">2</td><td>2</td><td class="num">0</td><td class="num">8</td></tr>
+            <tr><td class="num">3</td><td>1</td><td class="num">2</td><td class="num">4</td></tr>
+            <tr><td class="num">4</td><td>2</td><td class="num">2</td><td class="num">9</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="foot"><p class="small" style="margin:0">排序键是组，不是列：共享组里的成交按 K 线、同一根按执行顺序写，按列排就不是一次运行写出的顺序了（例子里组 0 先写了列 1）。要按列读的地方（交易派生、分析层）照常再 <code>sort_by_column</code>。</p></div>
+  </div>
+  <p>
+    <code>Journal::chain</code> 对日志做同样的排序，并重编 <code>order_id</code>：先 <code>Journal::concat</code>（各段的 order_id 加上之前的成交数，−1 不变），再按成交的排序算出每笔成交的新位置，把日志里不为 −1 的 order_id 换成新位置，最后按组稳定排序日志。只排成交、不改 order_id，日志就会指向别的成交，而且长度、范围都对，看不出来。
+  </p>
+  <h3>字节格式：bytes.rs</h3>
+  <p>
+    <code>OrderRecords::to_bytes</code> / <code>from_bytes</code> 和 <code>Journal::to_bytes</code> / <code>from_bytes</code>，用来把一次运行的结果存下来再读回。小端二进制：4 字节魔数（成交 <code>PHOR</code>、带日志 <code>PHJN</code>）、u32 版本号 1，然后每一列写成长度（u64）加上各个值。
+    成交依次是 col、idx、size、price、fees、side、六个余额列、现金流的四列、<code>allow_negative_price</code>；Journal 在成交之后写日志的 46 列。库 crate 不写文件，字节交给调用方（phasor-py 的 <code>phasor.save</code> 写到文件里）。
+  </p>
+  <div class="grid3">
+    <article class="card"><h3>Put / Get / Reader</h3><p>两个 trait：<code>Put</code> 把值追加到 <code>Vec&lt;u8&gt;</code>，<code>Get</code> 从 <code>Reader</code> 读回；f64、i64、i8、u8、bool、usize（按 u64 写）和它们的 <code>Vec</code> 都实现了。<code>Reader</code> 有 <code>take</code>、<code>get</code>、<code>header</code>、<code>end</code>，<code>put_header</code> 写魔数和版本。它们是公开的，phasor-py 用同一套写整个组合的格式。</p></article>
+    <article class="card"><h3>读的时候拒绝什么</h3><p>别的魔数或版本、读到一半没有字节了、读完还有剩下的；成交列长度不一致，余额列不是全空就要和成交一样长；日志各列长度不一致（<code>LogRecords::lens</code>）；bool 不是 0 或 1。都是 <code>Error::Invariant</code>。</p></article>
+    <article class="card"><h3>坏的长度不会先分配</h3><p>读 <code>Vec</code> 时按读到的长度预留空间，但不超过剩下的字节数，所以一个损坏的长度字段不会先申请一大块内存，而是在读值时报“cut short”。</p></article>
+  </div>
+  <p class="small">phasor-sim 的 <code>SimState</code> 有自己的字节格式（魔数 <code>PHSS</code>），在 <code>snapshot.rs</code> 里，不依赖这个模块。</p>
 
   <h2 id="views">三种交易视图</h2>
   <p>
@@ -895,7 +952,7 @@ journal.logs.reason_counts(col, n_cols)?
   <div class="panel">
     <div class="cap">sink 与成交、现金流、日志的结构</div>
     <div class="body">
-      <svg width="1040" height="540" viewBox="0 0 1040 540" role="img" aria-label="写入侧类图">
+      <svg width="1040" height="570" viewBox="0 0 1040 570" role="img" aria-label="写入侧类图">
         <defs>
           <marker id="real" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11" orient="auto">
             <path d="M1,1 L11,6 L1,11 z" fill="#1e1e1e" stroke="#b8b8b8" stroke-width="1.1"/>
@@ -923,10 +980,10 @@ journal.logs.reason_counts(col, n_cols)?
           <text x="736" y="36" fill="#9ec1ff">«trait» SinkBuffer: RecordSink + LogSink + Send</text>
           <text x="736" y="62" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ with_capacity(capacity) -&gt; Self</text>
           <text x="736" y="80" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ merge(parts: Vec&lt;Self&gt;) -&gt; Self</text>
-          <text x="736" y="98" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ records_mut() -&gt; &amp;mut OrderRecords</text>
+          <text x="736" y="98" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ records_mut() · shift_rows(by)</text>
 
           <!-- OrderRecords -->
-          <rect x="16" y="176" width="300" height="196" rx="6" fill="#262626" stroke="#3a7afe"/>
+          <rect x="16" y="176" width="300" height="214" rx="6" fill="#262626" stroke="#3a7afe"/>
           <rect x="16" y="176" width="300" height="30" rx="6" fill="#1a2744"/><rect x="16" y="194" width="300" height="12" fill="#1a2744"/>
           <text x="28" y="196" fill="#9ec1ff">«struct» OrderRecords</text>
           <text x="28" y="224" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ col, idx: Vec&lt;i64&gt;</text>
@@ -936,22 +993,24 @@ journal.logs.reason_counts(col, n_cols)?
           <text x="28" y="296" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ allow_negative_price: bool</text>
           <text x="28" y="318" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ len / ids / extend · sort_by_column()</text>
           <text x="28" y="336" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ concat(&amp;[Self]) · PARALLEL_CONCAT</text>
-          <text x="28" y="358" fill="#909090">impl RecordSink · LogSink（空）· SinkBuffer</text>
+          <text x="28" y="354" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ shift_rows · permute · chain · to_bytes</text>
+          <text x="28" y="378" fill="#909090">impl RecordSink · LogSink（空）· SinkBuffer</text>
 
           <!-- Journal -->
-          <rect x="370" y="176" width="300" height="196" rx="6" fill="#262626" stroke="#c084fc"/>
+          <rect x="370" y="176" width="300" height="214" rx="6" fill="#262626" stroke="#c084fc"/>
           <rect x="370" y="176" width="300" height="30" rx="6" fill="#2a1f3a"/><rect x="370" y="194" width="300" height="12" fill="#2a1f3a"/>
           <text x="382" y="196" fill="#d8b8ff">«struct» Journal</text>
           <text x="382" y="224" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ orders: OrderRecords</text>
           <text x="382" y="242" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ logs: LogRecords</text>
           <text x="382" y="266" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ extend(&amp;other)  // 重定位 order_id</text>
           <text x="382" y="284" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ concat(&amp;[Self])</text>
-          <text x="382" y="310" fill="#909090">push_order / push_cash 转给 orders</text>
-          <text x="382" y="328" fill="#909090">push_log 写 logs</text>
-          <text x="382" y="358" fill="#909090">impl RecordSink · LogSink · SinkBuffer</text>
+          <text x="382" y="302" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ chain(parts, group_of) · to_bytes</text>
+          <text x="382" y="328" fill="#909090">push_order / push_cash 转给 orders</text>
+          <text x="382" y="346" fill="#909090">push_log 写 logs</text>
+          <text x="382" y="378" fill="#909090">impl RecordSink · LogSink · SinkBuffer</text>
 
           <!-- LogRecords -->
-          <rect x="724" y="176" width="300" height="196" rx="6" fill="#262626" stroke="#c084fc"/>
+          <rect x="724" y="176" width="300" height="214" rx="6" fill="#262626" stroke="#c084fc"/>
           <rect x="724" y="176" width="300" height="30" rx="6" fill="#2a1f3a"/><rect x="724" y="194" width="300" height="12" fill="#2a1f3a"/>
           <text x="736" y="196" fill="#d8b8ff">«struct» LogRecords</text>
           <text x="736" y="224" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ group, col, idx</text>
@@ -961,15 +1020,17 @@ journal.logs.reason_counts(col, n_cols)?
           <text x="736" y="296" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ res_* · order_id      (7)</text>
           <text x="736" y="318" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ push(&amp;LogEntry) / col_map</text>
           <text x="736" y="336" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ reasons() / reason_counts()</text>
-          <text x="736" y="358" fill="#909090">PartialEq 遇 NaN 不自反</text>
+          <text x="736" y="354" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ shift_rows / permute</text>
+          <text x="736" y="378" fill="#909090">PartialEq 遇 NaN 不自反</text>
 
           <!-- CashRecords -->
-          <rect x="16" y="430" width="300" height="94" rx="6" fill="#262626" stroke="#2fbfa8"/>
+          <rect x="16" y="430" width="300" height="112" rx="6" fill="#262626" stroke="#2fbfa8"/>
           <rect x="16" y="430" width="300" height="30" rx="6" fill="#143430"/><rect x="16" y="448" width="300" height="12" fill="#143430"/>
           <text x="28" y="450" fill="#8fe0d2">«struct» CashRecords</text>
           <text x="28" y="478" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ col, idx: Vec&lt;i64&gt; · amount: Vec&lt;f64&gt;</text>
           <text x="28" y="496" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ kind: Vec&lt;i8&gt;  // CashFlowKind</text>
           <text x="28" y="514" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ push / extend / sort_by_column / is_deposit</text>
+          <text x="28" y="532" font-family="ui-monospace, Menlo, monospace" fill="#d0d0d0">+ shift_rows / permute</text>
 
           <!-- LogEntry -->
           <rect x="724" y="430" width="300" height="94" rx="6" fill="#262626" stroke="#c084fc"/>
@@ -996,14 +1057,14 @@ journal.logs.reason_counts(col, n_cols)?
         <polygon points="670,250 682,244 694,250 682,256" fill="#c084fc"/>
         <path d="M694 250 H724" fill="none" stroke="#c084fc"/>
         <text x="694" y="240" font-size="10" fill="#d8b8ff">logs</text>
-        <polygon points="166,372 160,384 166,396 172,384" fill="#3a7afe"/>
-        <path d="M166 396 V430" fill="none" stroke="#3a7afe"/>
-        <text x="174" y="414" font-size="10" fill="#9ec1ff">cash</text>
-        <path d="M874 430 V372" fill="none" stroke="#b8b8b8" stroke-dasharray="4 3" marker-end="url(#dep)"/>
-        <text x="882" y="404" font-size="10" fill="#b8b8b8">push(&amp;LogEntry)</text>
+        <polygon points="166,390 160,402 166,414 172,402" fill="#3a7afe"/>
+        <path d="M166 414 V430" fill="none" stroke="#3a7afe"/>
+        <text x="174" y="420" font-size="10" fill="#9ec1ff">cash</text>
+        <path d="M874 430 V390" fill="none" stroke="#b8b8b8" stroke-dasharray="4 3" marker-end="url(#dep)"/>
+        <text x="882" y="414" font-size="10" fill="#b8b8b8">push(&amp;LogEntry)</text>
       </svg>
     </div>
-    <div class="foot"><p class="small" style="margin:0">来源：<code>lib.rs:55</code>（RecordSink）、<code>lib.rs:128</code>（SinkBuffer）、<code>lib.rs:192</code>（OrderRecords）、<code>cash.rs:24</code>、<code>logs.rs:60</code>（LogEntry）、<code>logs.rs:126</code>（LogRecords）、<code>logs.rs:494</code>（Journal）。</p></div>
+    <div class="foot"><p class="small" style="margin:0">来源：<code>lib.rs:56</code>（RecordSink）、<code>lib.rs:129</code>（SinkBuffer）、<code>lib.rs:216</code>（OrderRecords）、<code>lib.rs:418</code>（chain）、<code>cash.rs:24</code>、<code>logs.rs:60</code>（LogEntry）、<code>logs.rs:126</code>（LogRecords）、<code>logs.rs:614</code>（Journal）、<code>logs.rs:668</code>（Journal::chain）。</p></div>
   </div>
 
   <div class="panel">
@@ -1098,7 +1159,7 @@ journal.logs.reason_counts(col, n_cols)?
         <tr><td class="mono">TradeRecords</td><td class="mono">14 列，见类图</td><td>三种视图一个结构。pnl 乘了合约乘数，ret 不受影响（分母的入场价值也乘了）。direction：Long=0, Short=1；status：Open=0, Closed=1。open 交易的 exit_idx 是最后一根，exit_price 是那根的收盘价。parent_id 跨列全局编号，单独就能标识一个仓位。</td></tr>
         <tr><td class="mono">DrawdownRecords</td><td class="mono">9 列，见类图</td><td><code>drawdown()</code> 是负数：(valley − peak) / peak。<code>recovery_duration_ratio</code> 大于 1 表示爬回来比跌下去慢，这是常态，也是回撤代价高于其深度的原因。</td></tr>
         <tr><td class="mono">Excursions</td><td class="mono">mae mfe mae_ret mfe_ret</td><td>顺序与输入交易相同。乘以 size 得到金额尺度。</td></tr>
-        <tr><td class="mono">LogRecords / LogEntry</td><td class="mono">37 列 / 结构体</td><td>见上节。<code>Journal</code> 是打开日志时传入的 sink。</td></tr>
+        <tr><td class="mono">LogRecords / LogEntry</td><td class="mono">46 列 / 结构体</td><td>见上节。<code>Journal</code> 是打开日志时传入的 sink。</td></tr>
       </tbody>
     </table>
   </div>
@@ -1128,7 +1189,8 @@ journal.logs.reason_counts(col, n_cols)?
 记录顺序 = (col, idx) 列主序             // 交易派生要求，ColMap 快路径依赖
 pnl  = add(exit_val, -entry_val) …       // 同价往返恰好 0.0，且不是 -0.0
 dur  = exit - entry + (status == Open)   // 交易与回撤同一条开闭规则
-Journal::extend: order_id += offset      // -1 保持 -1</pre>
+Journal::extend: order_id += offset      // -1 保持 -1
+chain = 拼接后按组稳定排序                // 分段运行 = 一次运行，顺序也相同</pre>
 
   <h3>与参考实现刻意保持一致的细节</h3>
   <div class="wrap types">
@@ -1174,14 +1236,15 @@ Journal::extend: order_id += offset      // -1 保持 -1</pre>
     <table>
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
-        <tr><td colspan="2" class="small">本页引用的行号对应 6aa71f9。</td></tr>
-        <tr><td class="mono">crates/phasor-records/src/lib.rs</td><td>契约说明（两层统一输出）、RecordSink、SinkBuffer（含 records_mut）、OrderRecords（含 allow_negative_price 标志）、并行 concat。</td></tr>
-        <tr><td class="mono">src/cash.rs</td><td>CashRecords：九种不是成交的现金流；is_deposit 把入金和初始持仓的成本算作投入的资本。</td></tr>
+        <tr><td colspan="2" class="small">本页引用的行号对应 72eb15c。</td></tr>
+        <tr><td class="mono">crates/phasor-records/src/lib.rs</td><td>契约说明（两层统一输出）、RecordSink（:56）、SinkBuffer（:129，含 records_mut 和 shift_rows）、chain_order（:152）、OrderRecords（:216，含 allow_negative_price 标志）、shift_rows（:390）、permute（:401）、chain（:418）、并行 concat。</td></tr>
+        <tr><td class="mono">src/cash.rs</td><td>CashRecords：九种不是成交的现金流；shift_rows（:99）、permute（:108）；is_deposit 把入金和初始持仓的成本算作投入的资本。</td></tr>
         <tr><td class="mono">src/trades.rs</td><td>TradeRecords、trade_stats、entry_trades、exit_trades、positions、duration。价格检查读记录的 allow_negative_price；ret 除以入场价值的绝对值。</td></tr>
         <tr><td class="mono">src/mapped.rs</td><td>ColMap、MappedArray、各命名归约、top/bottom_n_mask、arg_extreme。</td></tr>
         <tr><td class="mono">src/drawdowns.rs</td><td>DrawdownStatus、DrawdownRecords 及其派生量、find_drawdowns。</td></tr>
         <tr><td class="mono">src/excursions.rs</td><td>Excursions、excursions、edge_ratio。</td></tr>
-        <tr><td class="mono">src/logs.rs</td><td>LogEntry、LogRecords、LogSink、Journal。</td></tr>
+        <tr><td class="mono">src/logs.rs</td><td>LogEntry、LogRecords（shift_rows :433、lens :442、permute :497）、LogSink、Journal（concat :656、chain :668，日志的 order_id 跟着成交的新位置走）。</td></tr>
+        <tr><td class="mono">src/bytes.rs</td><td>Put（:19）、Reader（:71）、Get（:77）、put_header（:154）；OrderRecords 的 to_bytes（:287）/ from_bytes（:300），Journal 的 to_bytes（:312）/ from_bytes（:334）；魔数 PHOR、PHJN，版本 1。</td></tr>
         <tr><td class="mono">tests/parity_*.rs</td><td>三份差分测试，回放 tests/fixtures/ 下的 TSV。</td></tr>
       </tbody>
     </table>
@@ -1192,11 +1255,11 @@ Journal::extend: order_id += offset      // -1 保持 -1</pre>
 /* ---------------- dependency graph ---------------- */
 const COLORS = {
   lib: "#3a7afe", cash: "#2fbfa8", trades: "#e07a3d", mapped: "#c9a227",
-  drawdowns: "#d35d5d", excursions: "#8fbf4a", logs: "#c084fc",
+  drawdowns: "#d35d5d", excursions: "#8fbf4a", logs: "#c084fc", bytes: "#e07ab8",
 };
 const MODULES = [
   { id: "lib", name: "lib.rs", up: { "phasor-model": "OrderSide、CashFlowKind；把 StatusInfo 再导出为 StatusInfoLookup" },
-    blurb: "OrderRecords 与写入口。RecordSink 是模拟循环写成交和现金流的接口；SinkBuffer 增加 with_capacity 和 merge，让一份线程代码同时服务 OrderRecords 和 Journal。" },
+    blurb: "OrderRecords 与写入口。RecordSink 是模拟循环写成交和现金流的接口；SinkBuffer 增加 with_capacity、merge 和 shift_rows，让一份线程代码同时服务 OrderRecords 和 Journal。chain 把分段运行的记录按组稳定排序成一次运行的顺序。" },
   { id: "cash", name: "cash", up: { "phasor-model": "CashFlowKind（九种，Deposit 到 InitialPosition）" },
     blurb: "不是成交的现金流。实际入账额和路径有关，事后无法重算，所以记成记录，放在 OrderRecords.cash 里跟着成交走。" },
   { id: "trades", name: "trades", up: { "phasor-core": "math::{add, is_close, is_close_or_less, is_less}、FlexArray（收盘价）、Error::Invariant", "phasor-model": "OrderSide、TradeDirection、TradeStatus" },
@@ -1208,7 +1271,9 @@ const MODULES = [
   { id: "excursions", name: "excursions", up: { "phasor-core": "FlexArray（high / low / close）、Error::Invariant", "phasor-model": "TradeDirection、TradeStatus" },
     blurb: "每笔交易的 MAE / MFE 以及 edge_ratio。目前工作区内没有 src 调用方。" },
   { id: "logs", name: "logs", up: { "phasor-core": "Result", "phasor-model": "OrderSide、OrderStatus、StatusInfo、CashFlowKind", "phasor-exec": "Order、OrderResult（LogEntry 原样持有）" },
-    blurb: "38 字段的订单日志，Journal 把成交和日志放在一起并在合并时重定位 order_id；reasons / reason_counts 把状态翻回文字。" },
+    blurb: "46 列的订单日志，Journal 把成交和日志放在一起并在合并时重定位 order_id，chain 拼接分段运行时按成交的新位置重编 order_id；reasons / reason_counts 把状态翻回文字。" },
+  { id: "bytes", name: "bytes", up: { "phasor-core": "Error::Invariant（版本不对、截断、多余字节、列长度不一致）" },
+    blurb: "OrderRecords 和 Journal 的 to_bytes / from_bytes：魔数、版本号、每列长度加值。Put / Get / Reader 公开，phasor-py 用它们写整个组合的字节。" },
 ];
 const UPSTREAM = [
   { id: "phasor-core", role: "math 的容差和 add 只在 trades 里用：判断全平、部分平、反手，计算剩余量，把 PnL 差值吸附成 0。FlexArray 用来读价格（trades 的期末标价，excursions 的 high/low/close）。Matrix 只出现在 mapped 的两个返回值里。Error::Invariant 是这层所有校验失败的出口；find_drawdowns 形状不对返回 Error::Broadcast。" },
@@ -1216,10 +1281,10 @@ const UPSTREAM = [
   { id: "phasor-exec", role: "只有 logs 用到：LogEntry 持有请求 phasor_exec::Order 和结果 OrderResult，LogRecords::push 把它们的成员展开成 req_* 和 res_* 列。成交记录本身不依赖执行内核的类型。" },
 ];
 const DOWN = [
-  { id: "phasor-sim", uses: ["lib", "cash", "logs"], role: "from_orders、from_signals 的循环对 S: SinkBuffer 泛型：每个组（并行时每个线程）with_capacity 一个缓冲，push_order 写成交，push_cash 写入金、收益、分红，订单要求记日志时 push_log，最后 SinkBuffer::merge 按组序拼回。cash.rs 只依赖 RecordSink::push_cash。" },
+  { id: "phasor-sim", uses: ["lib", "cash", "logs"], role: "from_orders、from_signals 的循环对 S: SinkBuffer 泛型：每个组（并行时每个线程）with_capacity 一个缓冲，push_order 写成交，push_cash 写入金、收益、分红，订单要求记日志时 push_log，最后 SinkBuffer::merge 按组序拼回，分段运行再 shift_rows(row_offset)。cash.rs 只依赖 RecordSink::push_cash。" },
   { id: "phasor-analysis", uses: ["lib", "cash", "trades", "mapped", "drawdowns"], role: "Portfolio 构造时 sort_by_column，并用 ColMap::build 一次性校验列号。series.rs 只从记录重建现金（add_cash_records；deposits 用 is_deposit 挑出入金）。trades() 按 TradesType 调 entry_trades / exit_trades；Positions 是 exit_trades 再 positions。回撤用 find_drawdowns；trade_stats 用 col_map + mapped 按列归约；stats 读 duration() 和 drawdown()。" },
   { id: "phasor", uses: ["lib", "trades"], role: "门面：pub use phasor_records as records 整体再导出；prelude 只放 OrderRecords 和 exit_trades。" },
-  { id: "phasor-py", uses: ["lib", "cash", "logs", "trades"], role: "Python 边界：共享现金时另存一份 sort_by_column 后的 OrderRecords；把成交、cash_records、LogRecords 转成 NumPy 数组的 dict；暴露 logs.reasons() 和 reason_counts(col)；trades 导出时附带 duration()。Journal 在调用后拆成 orders 和 logs 两半。" },
+  { id: "phasor-py", uses: ["lib", "cash", "logs", "trades", "bytes"], role: "Python 边界：共享现金时另存一份 sort_by_column 后的 OrderRecords；把成交、cash_records、LogRecords 转成 NumPy 数组的 dict；暴露 logs.reasons() 和 reason_counts(col)；trades 导出时附带 duration()。Journal 在调用后拆成 orders 和 logs 两半。resume=pf 用 Journal::chain 把旧记录和新记录接成一份；Portfolio.to_bytes 用 bytes 的 Put / Reader 和 Journal::to_bytes 写整个组合。" },
 ];
 
 const svg = document.getElementById("dep-graph");
@@ -1232,7 +1297,7 @@ function nodeBox(id) {
   const ui = UPSTREAM.findIndex((u) => u.id === id);
   if (ui >= 0) return { x: 16, y: 172 + ui * 80, w: 170, h: 56 };
   const mi = MODULES.findIndex((m) => m.id === id);
-  if (mi >= 0) return { x: 316, y: 72 + mi * 64, w: 228, h: 52 };
+  if (mi >= 0) return { x: 316, y: 72 + mi * 58, w: 228, h: 52 };
   const di = DOWN.findIndex((d) => d.id === id);
   return { x: 780, y: 144 + di * 72, w: 244, h: 56 };
 }
@@ -1277,7 +1342,7 @@ function buildGraph() {
   };
   svg.appendChild(el("rect", { x: 300, y: 24, width: 260, height: 512, rx: 10, fill: "#181818", stroke: "#303030" }));
   svg.appendChild(el("text", { x: 430, y: 46, "text-anchor": "middle", "font-size": 12, "font-weight": 650, fill: "#f0f0f0" })).textContent = "phasor-records";
-  svg.appendChild(el("text", { x: 430, y: 62, "text-anchor": "middle", "font-size": 10, fill: "#909090" })).textContent = "src/ 七个模块";
+  svg.appendChild(el("text", { x: 430, y: 62, "text-anchor": "middle", "font-size": 10, fill: "#909090" })).textContent = "src/ 八个模块";
   svg.appendChild(el("text", { x: 101, y: 150, "text-anchor": "middle", "font-size": 10, fill: "#909090" })).textContent = "上游";
   svg.appendChild(el("text", { x: 902, y: 122, "text-anchor": "middle", "font-size": 10, fill: "#909090" })).textContent = "下游";
 
@@ -1318,7 +1383,7 @@ function buildGraph() {
   };
   const SUBS = {
     lib: "OrderRecords · RecordSink · SinkBuffer", cash: "CashRecords", trades: "TradeRecords · 三种视图",
-    mapped: "ColMap · MappedArray", drawdowns: "DrawdownRecords", excursions: "Excursions · edge_ratio", logs: "LogRecords · Journal",
+    mapped: "ColMap · MappedArray", drawdowns: "DrawdownRecords", excursions: "Excursions · edge_ratio", logs: "LogRecords · Journal", bytes: "to_bytes · from_bytes",
     "phasor-core": "math · flex · matrix · error", "phasor-model": "repr(i8) 枚举", "phasor-exec": "Order · OrderResult",
     "phasor-sim": "写记录", "phasor-analysis": "读记录、派生、归约", phasor: "门面再导出", "phasor-py": "转成 NumPy",
   };
