@@ -186,7 +186,7 @@
   <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li></ul></div>
   <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
   <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
-  <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li class="cur"><a class="pg" href="phasor-expr.html" aria-current="page">phasor-expr</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|pipeline:流水线|lang:语言|compiler:编译器|eval:求值|kernels:计算核心|backends:后端|alpha:Alpha158/360|verify:验证|rules:规则"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#pipeline">流水线</a></li><li><a href="#lang">语言</a></li><li><a href="#compiler">编译器</a></li><li><a href="#eval">求值</a></li><li><a href="#kernels">计算核心</a></li><li><a href="#backends">后端</a></li><li><a href="#alpha">Alpha158/360</a></li><li><a href="#verify">验证</a></li><li><a href="#rules">规则</a></li></ol></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
+  <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li class="cur"><a class="pg" href="phasor-expr.html" aria-current="page">phasor-expr</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|pipeline:流水线|lang:语言|compiler:编译器|eval:求值|cross:截面与分阶段|batches:分批与窄面板|kernels:计算核心|backends:后端|alpha:Alpha158/360|wq101:WorldQuant 101|verify:验证|rules:规则"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#pipeline">流水线</a></li><li><a href="#lang">语言</a></li><li><a href="#compiler">编译器</a></li><li><a href="#eval">求值</a></li><li><a href="#cross">截面与分阶段</a></li><li><a href="#batches">分批与窄面板</a></li><li><a href="#kernels">计算核心</a></li><li><a href="#backends">后端</a></li><li><a href="#alpha">Alpha158/360</a></li><li><a href="#wq101">WorldQuant 101</a></li><li><a href="#verify">验证</a></li><li><a href="#rules">规则</a></li></ol></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
   <div class="grp"><div class="gh">L3 · 记录</div><ul><li><a class="pg" href="phasor-records.html">phasor-records</a></li></ul></div>
   <div class="grp"><div class="gh">L4 · 模拟</div><ul><li><a class="pg" href="phasor-sim.html">phasor-sim</a></li></ul></div>
   <div class="grp"><div class="gh">L5 · 分析</div><ul><li><a class="pg" href="phasor-analysis.html">phasor-analysis</a></li></ul></div>
@@ -197,6 +197,7 @@
   <p class="muted">
     因子表达式。把 Qlib 风格的字符串——<code>$close / Mean($close, 20) - 1</code>——编译一次，然后对任意多个面板求值，结果直接是列主序的 <code>Matrix</code>（时间 × 标的），
     可以交给信号层和模拟层。它不是一个通用的解释器：整个因子集被编译成<b>一张</b>去重的依赖图，按标的并行求值，每个标的只需要几条暂存序列。
+    图里有截面算子（<code>CSRank</code>、<code>CSZScore</code>……一行读所有标的）时，图在这些节点处切成阶段，阶段内仍按标的并行，阶段之间逐行做截面。自带三套因子库：Alpha158、Alpha360、WorldQuant 101。
   </p>
   <div class="stats">
     <div class="stat"><b>158 → 357 节点 / 17 槽位</b><span>Alpha158 编译后的图：148 个节点直接写进输出；Alpha360 是 722 个节点，只要 1 个槽位（354 个 <code>Ref</code> 是不占内存的视图）</span></div>
@@ -244,6 +245,12 @@
     一个手写的高速后端，和一个尽量直接地翻译成 Polars Lazy 的后端，在同一份 qlib fixture 上都必须通过。两者实现完全不同（增量累加器 vs 逐窗 UDF），同时出错的概率很小。
   </p>
 
+  <h3>7. 有的因子要读同一行的所有标的</h3>
+  <p>
+    “今天的收益在所有股票里排第几”是截面运算：一行的输出读这一行每个标的的值。它打破了上面第 3 点的前提——一个标的不能再单独算完。
+    但它只在这些节点上打破：截面节点之前的部分可以照旧按标的并行算完，存成整块面板，逐行做截面，再把结果当成新的字段交给后面的逐标的部分。所以图要在截面节点处<b>分阶段</b>，而不是整个退回逐行计算。
+  </p>
+
   <div class="wrap types">
     <table>
       <thead><tr><th>第一性原理的问题</th><th>phasor-expr 的回答</th><th>小节</th></tr></thead>
@@ -256,6 +263,7 @@
         <tr><td>逐标的并行</td><td><code>rayon</code>：每个标的列一个任务，每个工作线程一份 <code>Scratch</code>，写各输出中互不相交的列切片</td><td><a href="#eval">求值</a></td></tr>
         <tr><td>快</td><td>O(1) 增量累加器（定期重建、平移求和、常量窗口检测）、有序环 / 树状数组、单调队列</td><td><a href="#kernels">计算核心</a></td></tr>
         <tr><td>互相检验</td><td><code>ComputeBackend</code> trait：<code>NativeBackend</code> 与 <code>PolarsBackend</code>（feature）</td><td><a href="#backends">后端</a></td></tr>
+        <tr><td>截面</td><td><code>Op::Cross</code>；<code>Staged::plan</code> 给每个节点一个层号，跨层的序列存成面板；<code>run_staged</code> 逐层执行，截面节点逐行并行</td><td><a href="#cross">截面与分阶段</a></td></tr>
       </tbody>
     </table>
   </div>
@@ -264,7 +272,7 @@
   <h2 id="graph">依赖图</h2>
   <p>
     左边是上游：phasor-core 的 <code>Matrix</code> / <code>Error</code>，phasor-generic 的 <code>rolling_mean / max / min_1d</code>，phasor-model 的 <code>OhlcvPanel</code>，外部的 rayon 和可选的 polars。
-    中间是八个私有模块（lib.rs 定义 <code>FactorSet</code> 并再导出公开项），右边是使用者。点任一节点，只保留相关的线。
+    中间是十一个私有模块（lib.rs 定义 <code>FactorSet</code> 并再导出公开项；<code>stage</code>、<code>cross</code>、<code>wq101</code> 是 943ef91 加的），右边是使用者。点任一节点，只保留相关的线。
   </p>
   <div class="legend" id="legend"></div>
   <div class="panel">
@@ -356,21 +364,25 @@
       <thead><tr><th>类别</th><th>函数</th><th>语义</th></tr></thead>
       <tbody>
         <tr><td>逐元素</td><td><code>Abs Sign Log Not</code>；<code>Add Sub Mul Div Power Gt Ge Lt Le Eq Ne And Or</code>；<code>Greater Less</code>；<code>If(c, a, b)</code></td><td>函数写法和运算符写法编译成同一个节点。比较是 NumPy 式的精确比较：和 NaN 比较得 0。<code>Greater / Less</code> 遇 NaN 得 NaN。</td></tr>
+        <tr><td>逐元素（943ef91）</td><td><code>Exp Sqrt IsNan</code>；<code>FillNa(x, v)</code>、<code>Mask(x, c)</code>、<code>SignedPower(x, p)</code>；<code>Clip(x, lo, hi)</code></td><td><code>FillNa</code>：x 是 NaN 时取 v。<code>Mask</code>：c 为真（非 0 且非 NaN）时取 x，否则 NaN。<code>SignedPower</code> = sign(x)·|x|^p，x = 0 得 0。<code>Clip</code> 不是新节点，编译成 <code>Less(Greater(x, lo), hi)</code>：NaN 仍是 NaN，下限高于上限时得上限，和 NumPy 的 clip 一样。</td></tr>
         <tr><td>平移</td><td><code>Ref(x, n)</code>、<code>Delta(x, n)</code></td><td><code>Ref</code> 正数读过去（视图），负数读未来；<code>Delta = x − Ref(x, n)</code>，n 不能为负。</td></tr>
         <tr><td>平滑</td><td><code>EMA(x, p)</code></td><td><code>p &lt; 1</code> 是 alpha，<code>p ≥ 1</code> 是 span（alpha = 2/(p+1)），<code>0</code> 是扩展窗口（每行重新加权，O(n)）。</td></tr>
         <tr><td>滚动 <code>(x, N)</code></td><td><code>Mean Sum Std Var Max Min Med Mad Count Skew Kurt WMA Rank IdxMax IdxMin Slope Rsquare Resi</code></td><td><code>min_periods = 1</code>（qlib 语义：第 0 行就有值）；<code>N = 0</code> 是扩展窗口；NaN 占窗口位置但不参与计算。<code>Std/Var</code> 是样本（ddof = 1）；<code>Rank</code> 是最后一个值在窗口里的分位；<code>IdxMax/IdxMin</code> 从 1 开始。</td></tr>
         <tr><td>滚动 <code>(x, N, q)</code></td><td><code>Quantile</code></td><td>线性插值，q ∈ [0, 1]。</td></tr>
         <tr><td>成对 <code>(x, y, N)</code></td><td><code>Corr Cov</code></td><td>只用两边都不是 NaN 的行；<code>Corr</code> 在任一边的标准差 ≤ 2e-5 时为 NaN（qlib 的规则）。</td></tr>
+        <tr><td>滚动（943ef91）<code>(x, N)</code></td><td><code>DecayLinear Prod</code></td><td><code>DecayLinear</code> 是 WorldQuant 的 decay_linear：权重 1..=N，最新的最重，只在有值的位置上归一化。<code>Prod</code> 是窗口里有值的数之积，全 NaN 为 NaN。两者都和其它滚动算子一样 minp = 1。</td></tr>
+        <tr><td>截面</td><td><code>CSRank CSZScore CSDemean</code>（x）；<code>Scale(x[, a])</code>；<code>IndNeutralize(x, g)</code>；<code>CSResi(y, x)</code></td><td>一行进、一行出，NaN 不参与统计、输出 NaN。<code>CSRank</code> 是百分位排名，并列取平均（pandas <code>rank(pct=True)</code>）；<code>CSZScore</code> 用样本标准差；<code>Scale</code> 让一行的绝对值之和等于 a（默认 1）；<code>IndNeutralize</code> 减去同组均值，组是 g 在这一行的精确值；<code>CSResi</code> 是 y 对 x 的截面最小二乘残差。</td></tr>
       </tbody>
     </table>
   </div>
-  <p class="small">还不支持：截面算子（一行读所有标的，例如截面排名）、跨标的引用、掩码（docs/plan.md 2.10）。正因为所有算子都只读本标的，图才可以按标的并行。</p>
+  <p class="small">截面算子以外的算子都只读本标的，所以没有截面算子的图仍按标的并行；有截面算子的图怎么执行见<a href="#cross">截面与分阶段</a>。新算子的元数在 <code>parse.rs</code> 的 <code>validate</code>（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/parse.rs#L244">:244</a>）登记，名字到节点的映射在 <code>graph.rs</code> 的 <code>Builder::call</code>（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L376">:376</a>）。</p>
 
   <!-- ============================================================ -->
   <h2 id="compiler">编译器实验台</h2>
   <p>
     下面是 <code>parse.rs</code> 和 <code>graph.rs</code> 的移植：词法、Pratt 解析、元数检查、哈希合并、常量折叠、参数校验、视图解析和槽位调度。每行一个 <code>名字 = 表达式</code>。
     它对 Alpha158 给出 357 个节点、17 个槽位、148 个直接写输出，对 Alpha360 是 722 个节点、1 个槽位。
+    移植只有逐标的的原有算子：截面算子和 943ef91 新加的算子（<code>Exp</code>、<code>DecayLinear</code> 等）在这里会报 unsupported operator，分阶段的执行看下面<a href="#cross">截面与分阶段</a>一节。
   </p>
   <div class="panel">
     <div class="cap">FactorSet::compile，JS 移植</div>
@@ -441,6 +453,84 @@
     <article class="card"><h3>峰值内存就是输出</h3><p>中间结果是单个标的的序列（2,520 行约 20 KB），每个线程只有 <code>graph.slots</code> 条。2520 × 500 的 Alpha158 峰值 RSS 约 1.6 GB，几乎全是 158 个输出矩阵。</p></article>
   </div>
 
+
+  <!-- ============================================================ -->
+  <h2 id="cross">截面算子与分阶段执行</h2>
+  <p>
+    从 <code>stage.rs</code> 的模块注释和 <code>Staged::plan</code>（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/stage.rs#L66">:66</a>）读起。<code>FactorSet::compile</code> 编完整张图之后调一次 <code>plan</code>：图里没有 <code>Op::Cross</code> 节点就返回 None，求值走原来的路径，一点代价都没有；有，就把图切成阶段，存在 <code>FactorSet.plan</code> 里。
+  </p>
+  <div class="panel">
+    <div class="cap">Staged::plan 的三步，以 <code>Ref(CSRank(Mean($close, 3)), 1) + $close</code> 为例</div>
+    <div class="body">
+      <svg width="1040" height="190" viewBox="0 0 1040 190" role="img" aria-label="分阶段执行">
+        <defs><marker id="sarr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a8a8a" /></marker></defs>
+        <g font-size="11">
+          <text x="16" y="20" fill="#909090">层 0：逐标的</text>
+          <rect x="16" y="30" width="250" height="70" rx="6" fill="#1a2744" stroke="#3a7afe"/>
+          <text x="141" y="54" text-anchor="middle" font-weight="600" fill="#f0f0f0">Step::Columns（stage 0 的图）</text>
+          <text x="141" y="72" text-anchor="middle" font-size="10" fill="#9ec1ff">Mean($close, 3) → 面板 #0</text>
+          <text x="141" y="88" text-anchor="middle" font-size="10" fill="#9ec1ff">按标的并行，同 run_graph</text>
+          <text x="300" y="20" fill="#909090">层 1：截面</text>
+          <rect x="300" y="30" width="230" height="70" rx="6" fill="#262626" stroke="#5ec8e0"/>
+          <text x="415" y="54" text-anchor="middle" font-weight="600" fill="#f0f0f0">Step::Cross（CSRank）</text>
+          <text x="415" y="72" text-anchor="middle" font-size="10" fill="#a8e4f0">读面板 #0 → 写面板 #1</text>
+          <text x="415" y="88" text-anchor="middle" font-size="10" fill="#a8e4f0">按行并行，每行按标的顺序</text>
+          <text x="564" y="20" fill="#909090">层 1：逐标的</text>
+          <rect x="564" y="30" width="270" height="70" rx="6" fill="#1a2744" stroke="#3a7afe"/>
+          <text x="699" y="54" text-anchor="middle" font-weight="600" fill="#f0f0f0">Step::Columns（stage 1 的图）</text>
+          <text x="699" y="72" text-anchor="middle" font-size="10" fill="#9ec1ff">Ref($#1, 1) + $close → 输出</text>
+          <text x="699" y="88" text-anchor="middle" font-size="10" fill="#9ec1ff">#1 在这张图里是字段，Ref 照样是视图</text>
+          <rect x="868" y="30" width="156" height="70" rx="6" fill="#262626" stroke="#4caf7a"/>
+          <text x="946" y="54" text-anchor="middle" font-weight="600" fill="#f0f0f0">release</text>
+          <text x="946" y="72" text-anchor="middle" font-size="10" fill="#9be0b6">#0 在 Cross 之后丢</text>
+          <text x="946" y="88" text-anchor="middle" font-size="10" fill="#9be0b6">#1 在最后一步之后丢</text>
+          <text x="16" y="134" fill="#b8b8b8">层号：节点的层 = 输入的最高层 + (截面节点 ? 1 : 0)。同一层里，截面节点先跑（它们读的是上一层的结果），然后是这一层的逐标的节点。</text>
+          <text x="16" y="152" fill="#b8b8b8">面板：被截面节点读、或被更高层读的序列，存成 n_rows × n_cols 的整块；字段和字面量原地读，从不变成面板。$close 在两层里都是同一个字段。</text>
+          <text x="16" y="170" fill="#b8b8b8">每个阶段的图用 graph::Builder 重新 intern、重新 schedule：阶段内照样哈希合并、照样有视图和槽位复用。</text>
+        </g>
+        <path d="M266 65 H300" stroke="#8a8a8a" marker-end="url(#sarr)"/>
+        <path d="M530 65 H564" stroke="#8a8a8a" marker-end="url(#sarr)"/>
+        <path d="M834 65 H868" stroke="#8a8a8a" marker-end="url(#sarr)"/>
+      </svg>
+    </div>
+  </div>
+  <div class="grid2">
+    <article class="card"><h3>plan 里的数据</h3><p><code>Step::Columns { graph, sources, dests }</code>：一张阶段图，<code>sources</code> 说它的每个字段是原图的字段、常数还是面板，<code>dests</code> 说每个输出写到因子位置还是面板。<code>Step::Cross { op, inputs, panel, outputs }</code>：一个截面节点。<code>release[i]</code> 是第 i 步之后再没有人读的面板。</p></article>
+    <article class="card"><h3>run_staged（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L312">eval.rs:312</a>）</h3><p>按顺序执行每一步：Columns 步把面板借成字段调 <code>run_graph</code>（还是按标的并行），Cross 步调 <code>cross_panel</code>（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L381">eval.rs:381</a>）。之后按 <code>release</code> 把面板置 None。因子既可能是阶段图的输出，也可能直接是截面节点（例如整个因子就是 <code>CSRank($close)</code>）。</p></article>
+    <article class="card"><h3>cross_panel：先转成行，再转回列</h3><p>面板是列主序的，一行分散在 n_cols 个位置。<code>cross_panel</code> 先 <code>par_chunks_mut(n_cols)</code> 按行并行：每行把 x、y 收进连续的缓冲区，调 <code>cross::row</code> 写进一块行主序的结果；再按列并行转置回列主序。</p></article>
+    <article class="card"><h3>为什么和线程数无关</h3><p>一行的结果只由这一行决定，行内的和按标的顺序累加（<code>cross.rs</code> 的模块注释）；排名和分组用 <code>total_cmp</code> 再按下标排序，稳定。测试 <code>thread_count_does_not_change_staged_results</code> 在 1、2、4、7 个线程上逐位比较。</p></article>
+  </div>
+  <div class="wrap types" style="margin-top:12px">
+    <table>
+      <thead><tr><th>截面核心（cross.rs）</th><th>读法</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">row（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/cross.rs#L17">cross.rs:17</a>）</td><td>按 <code>Cross</code> 分派；x 是第一个输入这一行的值，y 是第二个（IndNeutralize 的组、CSResi 的自变量），没有第二个输入时是 NaN。</td></tr>
+        <tr><td class="mono">rank（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/cross.rs#L72">cross.rs:72</a>）</td><td>有值的下标按值排序，相等的一段取平均名次 (start+1+end)/2，再除以有值的个数。相等是精确相等（局部 <code>#[allow(clippy::float_cmp)]</code>，和 pandas 一样）。</td></tr>
+        <tr><td class="mono">mean_std（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/cross.rs#L45">cross.rs:45</a>）</td><td>ZScore 和 Demean 共用；少于两个值时标准差为 NaN，所以只有一个标的有值的行，ZScore 全是 NaN。</td></tr>
+        <tr><td class="mono">neutralize（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/cross.rs#L96">cross.rs:96</a>）</td><td>组标签是 g 在这一行的值，按 (g, 下标) 排序后一段一段地减组均值；g 是 NaN 的标的输出 NaN。组标签逐行读，所以行业可以随时间变。</td></tr>
+        <tr><td class="mono">residual（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/cross.rs#L125">cross.rs:125</a>）</td><td>只用两边都有值的标的；少于两个时整行 NaN。</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small" style="margin-top:8px">
+    代价：有截面算子时，跨层的序列都是整块面板，峰值内存不再只是输出；<code>evaluate_batches</code> 也只能先整块算完再分批交出（下一节）。
+    面板在最后一个读者之后就释放，所以只在一个截面节点附近用到的中间结果不会一直占着。
+  </p>
+
+  <!-- ============================================================ -->
+  <h2 id="batches">分批输出与窄面板</h2>
+  <p>
+    <code>FactorSet::evaluate</code>（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/lib.rs#L126">lib.rs:126</a> → <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L199">eval.rs:199</a>）现在在三条路径里选：有 plan 走 <code>run_staged</code>；没有 plan、标的数少于 rayon 线程数且不止一个因子，走 <code>run_parts</code>；其余走 <code>run_graph</code>（就是上面“每个标的一个任务”）。
+    另有 <code>evaluate_batches</code> 控制输出的峰值内存。
+  </p>
+  <div class="grid2">
+    <article class="card"><h3>evaluate_batches（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/lib.rs#L154">lib.rs:154</a>）</h3><p>每次取 <code>batch</code> 个标的，把每个字段的那几列切出来（列主序，切片就是连续的一段）建一个小的 <code>FactorInputs</code>，求值后连同标的区间交给 <code>sink</code>。没有截面算子时同时只有一批在内存里。有截面算子时每一行都要全部标的，所以先整块求值，再用 <code>FactorValues::columns</code>（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L162">eval.rs:162</a>）切成批交出。sink 返回 Err 就停。</p></article>
+    <article class="card"><h3>窄面板：按因子切（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L234-L308">eval.rs:234–308</a>）</h3><p>只有一两个标的时，按标的并行只有一两个任务。<code>split</code> 把因子按原顺序切成至多 16 段，每段单独编译成一张图（<code>Part</code>）；<code>run_parts</code> 把每个（段，标的）当成一个任务。相邻的因子常共用子表达式（MA5、MA10 都读 close），所以按顺序切重复算得少。分段在第一次用到时建，存在 <code>FactorSet.parts</code>（<code>OnceLock</code>）。</p></article>
+    <article class="card"><h3>为什么切了还逐位相同</h3><p>一个节点在哪张图里算，输入和运算都一样，值就一样；切分只是让一些共享节点多算几次。测试 <code>a_narrow_panel_split_by_factor_matches_the_whole_graph</code> 在 1 个和 4 个线程上跑一两个标的的 Alpha158，逐位比较。单标的 5 万行的 Alpha158：1 线程 111 ms，4 线程 40 ms（docs/plan.md 2.10）。</p></article>
+    <article class="card"><h3>顺带修的一个 panic</h3><p><code>run_column</code> 原来用 <code>map_or(fields[0].len(), …)</code> 取行数，参数先求值，一个没有字段的因子集（例如只有 <code>1 + 1</code>）会在 <code>fields[0]</code> 上越界；现在是 <code>map_or_else</code>。<code>stages_compose_and_match_the_factors_computed_one_at_a_time</code> 单独求值 <code>1 + 1</code> 时就会走到这里。</p></article>
+  </div>
+  <p class="small">Python：<code>FactorSet.evaluate_batches(fields, batch, sink)</code> 调 <code>sink(start, stop, values)</code>；<code>FactorSet.to_parquet(path, fields, batch=256, index=, symbols=)</code> 每批写一个 row group，长格式（symbol、row 或 time、每个因子一列），要 pyarrow。见 <a href="phasor-py.html#research">phasor-py</a>。</p>
+
   <!-- ============================================================ -->
   <h2 id="kernels">计算核心：每行 O(1) 的窗口</h2>
   <div class="wrap types">
@@ -453,6 +543,7 @@
         <tr><td><code>Quantile Med Rank Mad</code></td><td><code>order.rs</code>：窗口 ≤ 256 用有序环（二分 + 移位），更长或扩展窗口用按排序位置建的树状数组</td><td>O(window) 移位 / O(log n)</td></tr>
         <tr><td><code>IdxMax IdxMin</code></td><td><code>order.rs</code> 的单调队列</td><td>均摊 O(1)</td></tr>
         <tr><td><code>EMA</code></td><td>递推；<code>EMA(x, 0)</code> 每行重新加权整个前缀</td><td>O(1)；扩展为 O(n)</td></tr>
+        <tr><td><code>DecayLinear Prod</code></td><td><code>eval.rs</code> 的 <code>decay_into</code>（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L851">:851</a>）、<code>prod_into</code>（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L868">:868</a>）：每行直接对窗口求和 / 求积。WorldQuant 用的窗口短；累加和会带着早已离开窗口的舍入，累乘遇到 0 就没法再除回去</td><td>O(window)</td></tr>
       </tbody>
     </table>
   </div>
@@ -468,6 +559,7 @@
   <p>
     <code>ComputeBackend</code> 只有两个方法：<code>name()</code> 和 <code>evaluate(set, inputs)</code>。<code>NativeBackend</code> 是默认；<code>PolarsBackend</code> 在 <code>polars</code> feature 下可用，
     长表格式 + <code>.over(symbol)</code>，每批 64 个因子，qlib 特有的算子用 <code>rolling_map</code> 调用和原生后端测试里同一组逐窗函数。它的用途是<b>独立交叉验证</b>，不是性能。
+    它只翻译 qlib 的算子：截面算子和 943ef91 新加的算子在 <code>polars_backend.rs</code> 里落到 <code>unsupported operator</code> 报错，所以 WorldQuant 101 只能用原生后端，它的交叉验证换成了下面的独立解释器。
   </p>
   <div class="panel">
     <div class="cap">原生 vs Polars（4 线程，3 次取最好）。条长是对数刻度</div>
@@ -487,12 +579,58 @@
     两个集合都需要显式的 <code>vwap</code> 字段（<code>required_fields()</code> 会列出它），都不读未来（<code>uses_future() = false</code>）。
   </p>
 
+
+  <!-- ============================================================ -->
+  <h2 id="wq101">WorldQuant 101</h2>
+  <p>
+    <code>wq101.rs</code> 是一张表 <code>ALPHAS</code>（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/wq101.rs#L59">:59</a>）：101 个 <code>(名字, 论文原式, phasor 表达式)</code>。这张表不是手写的：<code>tests/parity/generate_wq101.py rust</code> 把论文附录 A 的原文（脚本里逐字保存，arXiv:1601.00991v3）解析成语法树，再翻译成 phasor 的语法打印出来。
+    同一棵树还交给一个独立的 NumPy 解释器求值，写成 <code>tests/fixtures/wq101.tsv</code>。所以要读的是三样东西：翻译规则、解释器、比较方式。
+  </p>
+  <div class="wrap types">
+    <table>
+      <thead><tr><th>论文写法</th><th>phasor 表达式</th><th>说明（generate_wq101.py 的模块文档）</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">rank(x)</td><td class="mono">CSRank(x)</td><td>论文的 rank 是截面的</td></tr>
+        <tr><td class="mono">ts_rank(x, d)</td><td class="mono">Rank(x, d)</td><td>时间序列排名：最后一个值在窗口里的分位</td></tr>
+        <tr><td class="mono">ts_argmax / ts_argmin</td><td class="mono">IdxMax / IdxMin</td><td>从窗口最早的一根数起，从 1 开始（qlib 的约定）</td></tr>
+        <tr><td class="mono">min(x, d) / max(x, d)</td><td class="mono">Min / Max</td><td>第二个参数是天数时是 ts_min / ts_max；两个序列（#71、#73……）时是逐元素</td></tr>
+        <tr><td class="mono">decay_linear · product · scale · signedpower</td><td class="mono">DecayLinear · Prod · Scale · SignedPower</td><td>为这张表加的算子</td></tr>
+        <tr><td class="mono">5.50322 天</td><td class="mono">5</td><td>非整数天数向下取整（论文 A.1）</td></tr>
+        <tr><td class="mono">adv{d}</td><td class="mono">Mean($volume, d)</td><td>论文 A.2 说是成交额，但 #7、#17、#21 等直接拿它和 volume 比；要按 A.2 读，就把成交额当作 $volume 传</td></tr>
+        <tr><td class="mono">returns · cap · IndClass.sector</td><td class="mono">$close / Ref($close, 1) - 1 · $cap · $sector</td><td>行业分类是每个标的每行一个组标签（$sector、$industry、$subindustry），组内相等的任意数</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small" style="margin-top:6px">
+    时间序列窗口沿用 qlib 的语义（minp = 1、跳过 NaN、样本标准差、Corr 的 2e-5 阈值），和这个 crate 其它算子一致。<code>NEEDS_GROUPS</code>（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/wq101.rs#L17">wq101.rs:17</a>）列出读 <code>$cap</code> 或行业分类的 19 个；
+    <code>wq101()</code>（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/wq101.rs#L27">:27</a>）去掉它们，剩 82 个，只读 open、high、low、close、volume、vwap；<code>wq101_all()</code>（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/wq101.rs#L44">:44</a>）是全部 101 个；<code>wq101_formula(k)</code>（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/wq101.rs#L50">:50</a>）返回论文原式。
+  </p>
+  <h3>并列标记：fixture 里的 <code>~</code></h3>
+  <p>
+    一个两点的相关系数在精确算术下恰好是 1，排名序列的协方差恰好是 1/36 的倍数；浮点下它们差几个 ulp，两份实现差得不一样。之后的 rank、比较或 argmax 读到这些几乎相等的值，可能往任一边走，两边都对。
+    解释器给每个值带两个标记（<code>reference</code> 的文档字符串）：
+  </p>
+  <ul>
+    <li><b>精确性</b>：任何实现都用同样的 IEEE 运算、同样的顺序算出它，所以逐位相同——字段、字段上的逐元素运算、排名、比较、平移、窗口最值。</li>
+    <li><b>污染</b>：rank、比较、arg 最值、sign 看到了相差在 <code>EPS = 1e-9</code>（相对）以内的值（sign 是和 0 比），而这些值不是精确的；或者读到了被污染的值。截面算子污染整行。精确值之间的近似并列在哪里都按同样的方式决定，不算污染。</li>
+  </ul>
+  <p>
+    被污染的格子在 fixture 里前缀 <code>~</code>。<code>tests/wq101.rs</code> 把它读成无穷大并跳过，其余格子要求 <code>|got − want| / max(|want|, 1) ≤ 1e-9</code>，一边 NaN 一边不是算最大误差；
+    同时要求跳过的格子少于 10%（实际约 6%），否则比较就没什么意义了——#29、#45、#80、#96 在这个面板上几乎全是并列（#45 排的是两点相关系数，全是 ±1）。
+  </p>
+  <div class="grid2">
+    <article class="card"><h3>fixture 的面板</h3><p>300 行 × 6 个标的，种子 101；alpha 只在第 255 行起每 3 行一个的 15 行上记（前面是长窗口的预热）。价格取 4 位小数、成交量取整，输入可以原样打印。各标的共享一条随机游走，再加一个均值回复的个体项，所以截面排名每天会变（各自独立游走时排名冻住，排名序列的相关系数全是 NaN）。行业：sector = 列 % 2，industry = 列 % 3，subindustry 嵌套在 sector 里，并且有只含一个标的的组。</p></article>
+    <article class="card"><h3>重新生成之前</h3><p><code>tests/parity/README.md</code>：这份 fixture 没有可运行的参考实现，生成脚本本身就是参考。<code>generate_wq101.py fixture</code> 只要 NumPy；<code>generate_wq101.py rust</code> 打印表。和别的 fixture 一样，不能为了让改动通过而重新生成：改翻译规则要先说清楚是论文怎么读，再看 diff。</p></article>
+  </div>
+
   <!-- ============================================================ -->
   <h2 id="verify">验证</h2>
   <div class="grid2">
     <article class="card"><h3>tests/parity_qlib.rs</h3><p><code>qlib_alpha158.tsv</code>（qlib 0.9.8，80 行 × 3 个标的）与 <code>qlib_alpha360.tsv</code>（64 行 × 1 个标的），原生和 Polars 后端各跑一遍。NaN 位置必须完全一致；数值容差 <code>1e-6 × max(|期望|, 1)</code>，<code>CORR / CORD</code> 放宽到 1e-4——qlib 的滚动相关用增量和，这边每个窗口在 f64 里重算。</p></article>
     <article class="card"><h3>这个页面的移植</h3><p>同样两份 fixture、同样的容差：Alpha158 的 37,920 格和 Alpha360 的 23,040 格全部一致；graph.rs 的四个结构测试（共享、折叠、槽位复用、视图）和七个编译期错误也全部复现。</p></article>
     <article class="card"><h3>单元测试</h3><p>lib.rs：字面量广播与共享节点、缺字段在任何计算前报错、单独求值逐位相同、Alpha158 的形状和字段、条件与扩展窗口、零偏移的 Ref / Delta。eval.rs：每个增量核心对全量重算。</p></article>
+    <article class="card"><h3>tests/cross_section.rs</h3><p><code>cs_rank_matches_a_row_by_row_rank</code> 对照逐行朴素排名；<code>stages_compose_and_match_the_factors_computed_one_at_a_time</code> 把十一个因子（截面套截面、截面后接 Ref、Corr 读两个截面、中性化、残差、Scale、裸字段、字面量、普通滚动）放在一起算和各自单独算逐位相同，并手算抽查；线程数不变性；新逐元素算子的值。</p></article>
+    <article class="card"><h3>tests/batches.rs · tests/wq101.rs</h3><p><code>batches_cover_every_symbol_once_and_match</code>：每个标的恰好出现在一批里，值和整块求值逐位相同；窄面板的切分见上。<code>every_alpha_matches_the_reference</code> 和 <code>the_default_set_reads_only_prices_and_volume</code>（82 个、六个字段、不读未来）。</p></article>
     <article class="card"><h3>基准</h3><p><code>benches/backends.rs</code>（需要 <code>polars</code> feature）对比两个后端；<code>examples/scale.rs</code> 测大面板的耗时和内存。</p></article>
   </div>
 
@@ -507,8 +645,8 @@
 
   <h2 id="rules">不能绕开的规则</h2>
   <div class="grid2">
-    <article class="card"><h3>语义跟 qlib 走</h3><p>min_periods = 1、样本标准差、和 NaN 比较得 0、<code>Corr</code> 的 2e-5 阈值、<code>WMA</code> 的权重包含 NaN 槽位——这些都是 qlib 的行为，不是“更合理”的选择。<code>tests/fixtures/qlib_*.tsv</code> 不能为了让改动通过而重新生成。</p></article>
-    <article class="card"><h3>新算子先问：它只读本标的吗</h3><p>按标的并行、每个标的一份 Scratch，都建立在“每个算子只读本标的”之上。截面算子需要把调度切成阶段（阶段内按列并行，阶段之间一次截面），见 graph.rs 模块注释。</p></article>
+    <article class="card"><h3>语义跟 qlib 走</h3><p>min_periods = 1、样本标准差、和 NaN 比较得 0、<code>Corr</code> 的 2e-5 阈值、<code>WMA</code> 的权重包含 NaN 槽位——这些都是 qlib 的行为，不是“更合理”的选择。<code>tests/fixtures/qlib_*.tsv</code> 和 <code>wq101.tsv</code> 不能为了让改动通过而重新生成。</p></article>
+    <article class="card"><h3>新算子先问：它只读本标的吗</h3><p>按标的并行、每个标的一份 Scratch，都建立在“除了 <code>Op::Cross</code>，每个算子只读本标的”之上。读别的标的的算子必须是 <code>Op::Cross</code>，<code>Staged::plan</code> 才会在它前面切阶段；当成普通节点加进去，它会在按标的并行的列里读到别的线程正在写的数据。截面核心里的和必须按标的顺序累加，结果才和线程数无关。</p></article>
     <article class="card"><h3>uses_future 的因子只能当标签</h3><p><code>Ref(x, -k)</code> 读未来。<code>FactorSet::uses_future()</code> 和 Python 的同名方法让调用方在把因子接到信号之前检查它。</p></article>
     <article class="card"><h3>参数必须是字面量</h3><p>窗口、偏移、分位数、EMA 参数都在编译期解析成带类型的算子（<code>Rolling(kind, Window)</code>、<code>Ref(i64)</code>）；这样哈希合并才能识别相同的节点，错误才能在编译期报。</p></article>
   </div>
@@ -518,15 +656,21 @@
     <table>
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
-        <tr><td class="mono">crates/phasor-expr/src/lib.rs</td><td>FactorSet（compile、names、required_fields、uses_future、evaluate / evaluate_with）与集成测试。</td></tr>
-        <tr><td class="mono">src/parse.rs</td><td>Expression、词法、Pratt 解析（优先级表）、validate 元数。</td></tr>
-        <tr><td class="mono">src/graph.rs</td><td>Window、Op、Node、Graph::compile、schedule（视图与槽位）、Builder（intern、fold、call）、逐元素语义。</td></tr>
-        <tr><td class="mono">src/eval.rs</td><td>FactorInputs、FactorValues、evaluate（rayon）、Scratch、Arg / Seg（视图按偏移分段读）、run_column、step、各逐窗参考函数。</td></tr>
-        <tr><td class="mono">src/window.rs · src/order.rs</td><td>O(1) 累加器（Moments、Sum、Count、Deviation、Wma、Regression、Pair、Shape）；有序环、树状数组、arg-extreme 单调队列。</td></tr>
-        <tr><td class="mono">src/backend.rs · src/polars_backend.rs</td><td>ComputeBackend trait、NativeBackend；PolarsBackend（feature）。</td></tr>
-        <tr><td class="mono">src/alpha158.rs · src/alpha360.rs</td><td>qlib 默认特征库的表达式。</td></tr>
-        <tr><td class="mono">tests/parity_qlib.rs · benches/backends.rs · examples/scale.rs</td><td>qlib fixture 差分测试、后端基准、规模测试。</td></tr>
-        <tr><td class="mono">docs/plan.md 2.10</td><td>指标和因子引擎：已有和还缺的功能（截面算子、分批输出等）。</td></tr>
+        <tr><td colspan="2" class="small">行号对应 <a href="https://github.com/nivalume/phasor/tree/943ef91ed8921b674b8c14eb3629305f6ffcaf46">943ef91</a>。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/lib.rs">crates/phasor-expr/src/lib.rs</a></td><td>FactorSet（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/lib.rs#L40">:40</a>，plan 与 parts 两个字段）：compile（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/lib.rs#L58">:58</a>，末尾调 Staged::plan）、names、required_fields（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/lib.rs#L106">:106</a>）、uses_future（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/lib.rs#L116">:116</a>）、evaluate（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/lib.rs#L126">:126</a>）、evaluate_with（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/lib.rs#L135">:135</a>）、evaluate_batches（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/lib.rs#L154">:154</a>）与集成测试。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/parse.rs">src/parse.rs</a></td><td>Expression（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/parse.rs#L5">:5</a>）、词法（lex <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/parse.rs#L81">:81</a>）、Pratt 解析（Parser <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/parse.rs#L167">:167</a>，优先级表）、validate 元数（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/parse.rs#L244">:244</a>）。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs">src/graph.rs</a></td><td>模块注释（截面节点与阶段）；Window（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L42">:42</a>）、UnaryOp（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L57">:57</a>）、BinaryOp（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L69">:69</a>）、Rolling（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L95">:95</a>）、Cross（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L124">:124</a>）、Op（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L141">:141</a>）、Node、Graph（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L177">:177</a>）、Graph::compile（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L191">:191</a>）、schedule（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L210">:210</a>，视图与槽位）；Builder（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L269">:269</a>：finish <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L278">:278</a>、field <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L290">:290</a>、intern <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L301">:301</a>、fold <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L323">:323</a>、node <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L338">:338</a>、call <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L376">:376</a>，CSRank 等 <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L452">:452</a>，Clip <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L478">:478</a>）；逐元素语义 unary（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L568">:568</a>）、binary（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/graph.rs#L591">:591</a>）。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/stage.rs">src/stage.rs</a></td><td>模块注释；Source（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/stage.rs#L21">:21</a>）、Dest（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/stage.rs#L30">:30</a>）、Step（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/stage.rs#L37">:37</a>）、Staged（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/stage.rs#L55">:55</a>）、PANEL = '#'（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/stage.rs#L62">:62</a>）、Staged::plan（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/stage.rs#L66">:66</a>）。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/cross.rs">src/cross.rs</a></td><td>截面核心：Scratch（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/cross.rs#L11">:11</a>）、row（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/cross.rs#L17">:17</a>）、mean_std（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/cross.rs#L45">:45</a>）、rank（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/cross.rs#L72">:72</a>）、neutralize（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/cross.rs#L96">:96</a>）、residual（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/cross.rs#L125">:125</a>）与单元测试。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs">src/eval.rs</a></td><td>FactorInputs（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L20">:20</a>）、FactorValues（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L115">:115</a>，columns <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L162">:162</a>）、evaluate（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L199">:199</a>，选路径）、Part（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L234">:234</a>）、split（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L243">:243</a>）、run_parts（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L263">:263</a>）、run_staged（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L312">:312</a>）、cross_panel（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L381">:381</a>）、run_graph（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L422">:422</a>）、Scratch（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L456">:456</a>）、Arg / Seg（视图按偏移分段读）、run_column（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L553">:553</a>）、step（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L657">:657</a>）、rolling_into（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L811">:811</a>）、decay_into（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L851">:851</a>）、prod_into（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/eval.rs#L868">:868</a>）、各逐窗参考函数。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/window.rs">src/window.rs</a> · <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/order.rs">src/order.rs</a></td><td>O(1) 累加器（Moments、Sum、Count、Deviation、Wma、Regression、Pair、Shape）；有序环、树状数组、arg-extreme 单调队列。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/backend.rs">src/backend.rs</a> · <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/polars_backend.rs">src/polars_backend.rs</a></td><td>ComputeBackend trait、NativeBackend；PolarsBackend（feature）。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/alpha158.rs">src/alpha158.rs</a> · <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/alpha360.rs">src/alpha360.rs</a></td><td>qlib 默认特征库的表达式。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/wq101.rs">src/wq101.rs</a></td><td>模块注释（论文的读法）；NEEDS_GROUPS（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/wq101.rs#L17">:17</a>）、wq101（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/wq101.rs#L27">:27</a>）、wq101_all（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/wq101.rs#L44">:44</a>）、wq101_formula（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/wq101.rs#L50">:50</a>）、ALPHAS（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/src/wq101.rs#L59">:59</a>，生成的表）。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/tests/parity_qlib.rs">tests/parity_qlib.rs</a> · <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/benches/backends.rs">benches/backends.rs</a> · <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/examples/scale.rs">examples/scale.rs</a></td><td>qlib fixture 差分测试、后端基准、规模测试。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/tests/cross_section.rs">tests/cross_section.rs</a> · <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/tests/batches.rs">tests/batches.rs</a> · <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-expr/tests/wq101.rs">tests/wq101.rs</a></td><td>截面与分阶段、分批与窄面板、WorldQuant 101 对 fixture。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/tests/parity/generate_wq101.py">tests/parity/generate_wq101.py</a> · <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/tests/fixtures/wq101.tsv">tests/fixtures/wq101.tsv</a></td><td>论文原文、翻译规则、独立解释器（reference，带并列标记）、面板（panel）；生成的 fixture。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/docs/plan.md">docs/plan.md</a> 2.10</td><td>指标和因子引擎：做了什么（这一节已全部完成）。</td></tr>
       </tbody>
     </table>
   </div>
@@ -1080,27 +1224,30 @@ const fmt = (v, d = 4) => {
 };
 
 /* ---------------- dependency graph ---------------- */
-const COLORS = { parse: "#c9a227", graph: "#e07a3d", eval: "#3a7afe", window: "#2fbfa8", order: "#8fbf4a", backend: "#b07cd8", alpha: "#d35d5d", lib: "#9a9a9a" };
+const COLORS = { parse: "#c9a227", graph: "#e07a3d", stage: "#e6c35c", eval: "#3a7afe", cross: "#5ec8e0", window: "#2fbfa8", order: "#8fbf4a", backend: "#b07cd8", alpha: "#d35d5d", wq101: "#e07ab8", lib: "#9a9a9a" };
 const MODULES = [
-  { id: "lib", sub: "FactorSet", blurb: "compile / evaluate / evaluate_with、names、required_fields、uses_future；名字非空且不重复，集合不能为空。" },
+  { id: "lib", sub: "FactorSet", blurb: "compile / evaluate / evaluate_with / evaluate_batches、names、required_fields、uses_future；名字非空且不重复，集合不能为空。compile 时顺带做 Staged::plan（有截面算子才有），窄面板用的分组（parts）第一次用到时才建。" },
   { id: "parse", sub: "Expression · Pratt", blurb: "词法、优先级爬升、元数校验。Expression 树保留下来，供 required_fields、uses_future 和 Polars 后端使用。" },
-  { id: "graph", sub: "Graph · schedule", blurb: "哈希合并、参数校验、常量折叠、视图、槽位调度。整个因子集一张图。" },
-  { id: "eval", sub: "FactorInputs · run_column", blurb: "按标的并行求值；Arg / Seg 让逐元素算子按偏移分段读视图；逐窗参考函数也在这里。" },
+  { id: "graph", sub: "Graph · schedule", blurb: "哈希合并、参数校验、常量折叠、视图、槽位调度。整个因子集一张图。截面算子是 Op::Cross 节点；Builder 公开给 stage 用来给每个阶段重建一张图。" },
+  { id: "stage", sub: "Staged · Step · 面板", blurb: "有截面节点的图按层切开：每层的逐标的节点编成一张普通 Graph（Step::Columns），截面节点各是一个 Step::Cross；跨层的序列是面板，在阶段图里是名为 #k 的字段；release 记下每一步之后可以丢掉的面板。" },
+  { id: "eval", sub: "FactorInputs · run_column", blurb: "按标的并行求值；Arg / Seg 让逐元素算子按偏移分段读视图；逐窗参考函数也在这里。evaluate 在三条路径里选一条：run_graph（普通）、run_parts（标的数少于线程数时按因子分组）、run_staged（有截面算子）。" },
+  { id: "cross", sub: "截面核心 · 一行进一行出", blurb: "Rank（并列取平均，NaN 不参与）、ZScore、Demean、Scale、Neutralize（按组去均值）、Resi（截面回归残差）。和按标的顺序累加，所以结果与行怎么分给线程无关。" },
   { id: "window", sub: "O(1) 累加器", blurb: "Sum、Count、Std、Var、Skew、Kurt、WMA、回归、Corr / Cov 的增量实现：定期重建、平移求和、常量窗口检测。" },
   { id: "order", sub: "有序环 · 树状数组", blurb: "Quantile、Med、Rank、Mad 的有序结构；IdxMax / IdxMin 的单调队列。" },
   { id: "backend", sub: "Native · Polars", blurb: "ComputeBackend trait；NativeBackend 调 eval，PolarsBackend（feature）翻译成 Polars Lazy。" },
   { id: "alpha", sub: "alpha158 · alpha360", blurb: "qlib 默认特征库的表达式生成器，返回编译好的 FactorSet。" },
+  { id: "wq101", sub: "wq101 · wq101_all · formula", blurb: "WorldQuant 101 的表：(名字, 论文原式, phasor 表达式) × 101，由 tests/parity/generate_wq101.py 生成。wq101() 是只读量价的 82 个，wq101_all() 是全部 101 个。" },
 ];
 const UP = [
-  { id: "phasor-core", sub: "Matrix · Error", mods: ["lib", "graph", "eval", "backend"], role: "输出是 Matrix（from_column_major）；所有错误是 Error::Invariant，带因子名。" },
+  { id: "phasor-core", sub: "Matrix · Error", mods: ["lib", "graph", "eval", "backend", "wq101"], role: "输出是 Matrix（from_column_major）；所有错误是 Error::Invariant，带因子名。" },
   { id: "phasor-generic", sub: "rolling_mean/max/min_1d", mods: ["eval"], role: "Mean、Max、Min 直接调用 phasor-generic 的一维滚动函数，minp = Some(1)——qlib 语义，所以和 indicators 的 minp = window 不同。rolling_apply_1d 只在测试里用来对照。" },
   { id: "phasor-model", sub: "OhlcvPanel", mods: ["eval"], role: "FactorInputs::from_ohlcv(&OhlcvPanel) 借用面板的五个字段（空 Vec 表示没提供）。" },
-  { id: "rayon", sub: "外部 · 按标的并行", mods: ["eval"], role: "columns.into_par_iter().for_each_init(Scratch::new, run_column)：每个工作线程一份暂存。工作区里只有这个 crate 用 rayon；phasor-sim 用 std::thread::scope。" },
+  { id: "rayon", sub: "外部 · 按标的并行", mods: ["eval"], role: "columns.into_par_iter().for_each_init(Scratch::new, run_column)：每个工作线程一份暂存；截面节点用 par_chunks_mut 按行并行；current_num_threads 决定要不要按因子切分。工作区里只有这个 crate 用 rayon；phasor-sim 用 std::thread::scope。" },
   { id: "polars", sub: "外部 · 可选 0.46", mods: ["backend"], role: "只在 polars feature 下编译：PolarsBackend 与 benches/backends.rs。", dashed: true },
 ];
 const DOWN = [
   { id: "phasor", sub: "门面 · prelude", uses: ["lib", "backend", "alpha"], role: "pub use phasor_expr as expr；prelude 放 ComputeBackend、FactorInputs、FactorSet、FactorValues、NativeBackend、alpha158、alpha360，polars feature 下还有 PolarsBackend。examples/factor_sweep.rs 和 tests/factor_path.rs 走“因子 → 信号 → from_signals”。" },
-  { id: "phasor-py", sub: "phasor._phasor._FactorSet", uses: ["lib", "alpha"], role: "expr.rs：_FactorSet.compile / names / required_fields / uses_future / evaluate（释放 GIL 求值），以及 alpha158() / alpha360()。" },
+  { id: "phasor-py", sub: "phasor._phasor._FactorSet", uses: ["lib", "alpha", "wq101"], role: "expr.rs：_FactorSet.compile / names / required_fields / uses_future / evaluate（释放 GIL 求值）/ evaluate_batches（每批回调 Python 的 sink，全程持有 GIL），以及 alpha158() / alpha360() / wq101(all) / wq101_formula(k)。Python 的 FactorSet.to_parquet 在 evaluate_batches 上每批写一个 row group。" },
   { id: "research", sub: "phasor_lab（经 Python）", uses: ["lib"], dashed: true, role: "研究层通过 Python 包调用 FactorSet；它不是 Rust 依赖。" },
 ];
 const depSvg = document.getElementById("dep-graph");
@@ -1111,7 +1258,7 @@ function nodeBox(id) {
   const ui = UP.findIndex((u) => u.id === id);
   if (ui >= 0) return { x: 16, y: 70 + ui * 92, w: 190, h: 54 };
   const mi = MODULES.findIndex((m) => m.id === id);
-  if (mi >= 0) return { x: 300, y: 56 + mi * 60, w: 260, h: 48 };
+  if (mi >= 0) return { x: 300, y: 44 + mi * 45, w: 260, h: 40 };
   const di = DOWN.findIndex((d) => d.id === id);
   return { x: 780, y: 140 + di * 110, w: 244, h: 56 };
 }

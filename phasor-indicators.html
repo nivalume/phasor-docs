@@ -181,7 +181,7 @@
   <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li></ul></div>
   <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
   <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
-  <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li class="cur"><a class="pg" href="phasor-indicators.html" aria-current="page">phasor-indicators</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|sweep:扫描布局|cache:缓存|lab:指标实验台|degenerate:退化读数|api:API|verify:验证|rules:规则"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#sweep">扫描布局</a></li><li><a href="#cache">缓存</a></li><li><a href="#lab">指标实验台</a></li><li><a href="#degenerate">退化读数</a></li><li><a href="#api">API</a></li><li><a href="#verify">验证</a></li><li><a href="#rules">规则</a></li></ol></li></ul></div>
+  <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><span class="pg">phasor-data<small>尚无页面</small></span></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li class="cur"><a class="pg" href="phasor-indicators.html" aria-current="page">phasor-indicators</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|sweep:扫描布局|cache:缓存|lab:指标实验台|degenerate:退化读数|api:API|stream:流式|verify:验证|rules:规则"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#sweep">扫描布局</a></li><li><a href="#cache">缓存</a></li><li><a href="#lab">指标实验台</a></li><li><a href="#degenerate">退化读数</a></li><li><a href="#api">API</a></li><li><a href="#stream">流式</a></li><li><a href="#verify">验证</a></li><li><a href="#rules">规则</a></li></ol></li></ul></div>
   <div class="grp"><div class="gh">L3 · 记录</div><ul><li><a class="pg" href="phasor-records.html">phasor-records</a></li></ul></div>
   <div class="grp"><div class="gh">L4 · 模拟</div><ul><li><a class="pg" href="phasor-sim.html">phasor-sim</a></li></ul></div>
   <div class="grp"><div class="gh">L5 · 分析</div><ul><li><a class="pg" href="phasor-analysis.html">phasor-analysis</a></li></ul></div>
@@ -196,7 +196,7 @@
   <div class="stats">
     <div class="stat"><b>8 个指标</b><span>MA、MSTD、BBANDS、RSI、STOCH、MACD、ATR、OBV——参考实现自带的那八个；每个都按参数缓存昂贵的中间结果</span></div>
     <div class="stat"><b>480 条 fixture，逐位一致</b><span>10 种输入情形（含全涨、全跌、横盘、跳空、缺口、两个标的）× 各指标的参数组合，共 10,780 个值；这个页面的 JS 移植全部逐位复现</span></div>
-    <div class="stat"><b>工作区里只有门面在用</b><span>phasor-py 和其他 crate 都不依赖它；门面的 prelude 只导出 <code>MaParams</code>、<code>combinations</code>、<code>ma</code></span></div>
+    <div class="stat"><b>批量和流式逐位相同</b><span><code>Stream</code> 一根一根地喂，每根的输出和批量函数在整段历史上算出的那一根逐位相同；下游是门面和 Python 包（<code>phasor.indicators</code>）</span></div>
   </div>
 
   <!-- ============================================================ -->
@@ -256,8 +256,9 @@
   <!-- ============================================================ -->
   <h2 id="graph">依赖图</h2>
   <p>
-    上游是 phasor-core（<code>Matrix</code>、<code>Columns / Label / Level</code>、<code>Error</code>）和 phasor-generic（窗口函数）。中间两个模块：<code>sweep</code> 建列轴，<code>indicators</code> 是八个指标。
-    下游只有门面：phasor-py 不依赖这个 crate，Python 层的指标由 Python 自己（或因子表达式）实现。
+    上游是 phasor-core（<code>Matrix</code>、<code>Columns / Label / Level</code>、<code>Error</code>）和 phasor-generic（窗口函数）。中间三个模块：<code>sweep</code> 建列轴，<code>indicators</code> 是八个指标，
+    <code>stream</code> 是同样八个指标的逐根版本——它不调 phasor-generic，而是自己带着批量核心跨根携带的那部分状态（见<a href="#stream">流式</a>）。
+    下游是门面和 phasor-py：<code>crates/phasor-py/src/indicators.rs</code> 把八个指标和 <code>Stream</code> 绑成 <code>phasor.indicators</code>。
   </p>
   <div class="legend" id="legend"></div>
   <div class="panel">
@@ -366,12 +367,50 @@
     结果是 <code>Indicator { columns, outputs }</code>，<code>get(name)</code> 取一个输出，名字不对时报错并列出现有的名字。
   </p>
 
+
+  <!-- ============================================================ -->
+  <h2 id="stream">流式：一根一根地算</h2>
+  <p>
+    实盘每来一根 K 线，用批量函数重算整段历史是 O(n) 的；<code>src/stream.rs</code> 的 <code>Stream</code> 只带着批量核心从一根带到下一根的那部分状态，每根均摊 O(1)，状态是 O(window)。
+    它要守的不是“和批量差不多”，而是<b>逐位相同</b>：同一个序列逐根喂进去，每根的输出等于批量函数在整段历史上算出的那一根。做到这一点的办法是做同样的浮点运算、按同样的顺序。
+  </p>
+  <div class="grid2">
+    <article class="card"><h3>从 <code>Prefix</code> 读起</h3><p>phasor-generic 的 <code>rolling_mean_1d</code> / <code>rolling_std_1d</code> 是<b>整段历史的前缀和之差</b>，不是窗口内重新求和。所以 <code>Prefix</code> 保存累计的 sum、sum_sq、NaN 个数，以及最近 window 根时它们的快照（<code>VecDeque</code>），窗口和 = 现在的累计 − window 根前的快照。直接对窗口求和更“准”，但最后几位会不同。</p></article>
+    <article class="card"><h3>EWM 照抄批量核心的细节</h3><p><code>EwmMean</code> / <code>EwmStd</code> 保存 avg（或 mean、cov）、old_wt、sum_wt、sum_wt2、观测数。值没变时跳过更新（<code>avg != cur</code> 的精确比较，局部 <code>#[allow(clippy::float_cmp)]</code>）、<code>adjust=false</code> 时把权重归一回 1，都和 <code>ewm_mean_1d</code> / <code>ewm_std_1d</code> 一样；EwmStd 第一根没有偏差可报，返回 NaN。</p></article>
+    <article class="card"><h3>最高最低用单调队列</h3><p><code>RollingExtremum</code> 存最近 window 个值和一列候选 <code>(bar, value)</code>：每个候选都严格优于它后面的；新值进来时弹掉不比它好的，过期的从队头出。STOCH 的 minL / maxH 用它。</p></article>
+    <article class="card"><h3>Stream = 种类 + 前收盘</h3><p><code>Stream</code> 是 <code>Kind</code>（八种，各自组合 <code>Average</code>、<code>Deviation</code>、<code>RollingExtremum</code>）加 <code>prev_close</code> 和三格输出。<code>update(Bar)</code> 返回这一根的输出切片，顺序是 <code>names()</code>。RSI 的涨跌、ATR 的真实波幅、OBV 的方向读 prev_close；第一根没有前收盘，RSI 得 NaN，TR 退回 H − L，和批量函数一样。</p></article>
+  </div>
+  <div class="wrap types" style="margin-top:12px">
+    <table>
+      <thead><tr><th>构造</th><th>读 Bar 的哪些字段</th><th>输出（names() 顺序）</th></tr></thead>
+      <tbody>
+        <tr><td><code>Stream::ma(MaParams, adjust)</code></td><td>close</td><td>ma</td></tr>
+        <tr><td><code>Stream::mstd(MaParams, adjust, ddof)</code></td><td>close</td><td>mstd</td></tr>
+        <tr><td><code>Stream::bbands(BbParams, adjust, ddof)</code></td><td>close</td><td>middle, upper, lower</td></tr>
+        <tr><td><code>Stream::rsi(MaParams, adjust)</code></td><td>close</td><td>rsi</td></tr>
+        <tr><td><code>Stream::stoch(StochParams, adjust)</code></td><td>high, low, close</td><td>percent_k, percent_d</td></tr>
+        <tr><td><code>Stream::macd(MacdParams, adjust)</code></td><td>close</td><td>macd, signal</td></tr>
+        <tr><td><code>Stream::atr(MaParams, adjust)</code></td><td>high, low, close</td><td>tr, atr</td></tr>
+        <tr><td><code>Stream::obv()</code></td><td>close, volume</td><td>obv</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small" style="margin-top:6px">
+    参数结构和批量函数相同，只是每个只有一组值；<code>Bar { high, low, close, volume }</code> 里指标不读的字段可以是 NaN，<code>Bar::close(x)</code> 只给收盘价。窗口为 0、min_periods 超过窗口时构造就报错。
+    Python 的 <code>phasor.indicators.Stream(kind, n_cols, **params)</code> 每列一个 Rust <code>Stream</code>，<code>update(close, high=, low=, volume=)</code> 一次给每列一根，见 <a href="phasor-py.html#research">phasor-py</a>。
+  </p>
+  <div class="note">
+    stream.rs 是对 phasor-generic 窗口核心的<b>第二份实现</b>。“窗口语义只在 generic 里决定一次”在这里有一个例外：改了 <code>rolling_*_1d</code> 或 <code>ewm_*_1d</code> 的算术，这里要跟着改。
+    守住它的是 <code>tests/stream.rs</code> 的 <code>every_stream_matches_its_batch_indicator</code>：一条带开头 NaN、缺口和一段横盘的序列，八个指标 × window ∈ {1, 2, 14} × ewm × adjust（mstd 再 × ddof），每根按位比较。
+  </div>
+
   <!-- ============================================================ -->
   <h2 id="verify">验证</h2>
   <div class="grid2">
     <article class="card"><h3>matches_the_reference_indicators</h3><p>480 行，每行一个指标、一种情形、<b>一组</b>参数——这样不一致时报出的是参数组合，而不是扫描里的列下标。比较用对哨兵友好的 <code>agree</code>（NaN 对 NaN、同号无穷对同号无穷，其余 <code>is_close</code>）。fixture 由 <code>tests/parity/generate_indicators.py</code> 对 vectorbt 生成，固定 <code>adjust = false</code>、<code>ddof = 0</code>。</p></article>
     <article class="card"><h3>a_sweep_equals_its_parts</h3><p>窗口 [2, 3, 5, 2] 一次扫描，每个组合的每一列必须和单独运行逐位相同、落在 <code>column_of</code> 说的位置；重复的窗口 2 是独立的组合、值相同（由缓存提供）；标签能说出哪列是哪个窗口。这个页面的移植同样通过。</p></article>
     <article class="card"><h3>the_fixtures_still_cover_the_degenerate_readings</h3><p>要求 fixture 里仍然有 RSI 恰好为 100 和 0 的读数（精确比较，近似会把附近的普通值也算进去）、横盘 STOCH 的 NaN，以及所有输入情形。防止有人“清理”fixture 时把最有价值的行删掉。</p></article>
+    <article class="card"><h3>every_stream_matches_its_batch_indicator</h3><p><code>tests/stream.rs</code>：同一条序列分别交给批量函数和 <code>Stream</code>，每个输出每一根按位比较（NaN 对 NaN）。参数覆盖 window 1、2、14，SMA 和 EWM，<code>adjust</code> 两种，mstd 的 ddof 0 和 1。</p></article>
     <article class="card"><h3>窗口函数在下面一层验证</h3><p>每个窗口函数已经在 phasor-generic 里逐个对照过（1,650 行）；这里测的是<b>组合</b>：哪个窗口喂给哪个均值、哪个输出叫什么、退化的读数从哪来。</p></article>
   </div>
 
@@ -384,7 +423,7 @@
     <article class="card"><h3>布局只能是 comb·n + s</h3><p>新指标必须用 <code>sweep_columns</code> 建标签、用 <code>place</code> / <code>column_of</code> 放输出。参数层 repeat、标的层 tile，换了顺序，<code>group_by</code> 的汇总和共享资金的分组都会悄悄错。</p></article>
     <article class="card"><h3>缓存键要恰好是决定因素</h3><p>键里少了一个真正影响结果的参数，就会把错误的中间结果发给别的组合；多了一个无关参数，只是少省一些。新增参数时先问：它改变的是缓存的那一层，还是缓存之后的那一步？</p></article>
     <article class="card"><h3>不要给退化读数写特例</h3><p>RSI 的 100、STOCH 的 NaN、首根 TR、OBV 首根都来自算术本身，并且被 fixture 钉住。加一个 <code>if down == 0 { 100 }</code> 看起来更清楚，但会在 NaN 输入上改变行为。</p></article>
-    <article class="card"><h3>窗口语义在 generic 里改</h3><p>这里不碰预热期、NaN 规则、累加形式；它们属于 phasor-generic，并由那边的 fixture 钉住。<code>tests/fixtures/*.tsv</code> 不能为了让改动通过而重新生成。</p></article>
+    <article class="card"><h3>窗口语义在 generic 里改，stream 跟着改</h3><p>这里不碰预热期、NaN 规则、累加形式；它们属于 phasor-generic，并由那边的 fixture 钉住。<code>stream.rs</code> 复写了同样的算术，generic 一改它就要跟着改，否则 <code>tests/stream.rs</code> 失败。<code>tests/fixtures/*.tsv</code> 不能为了让改动通过而重新生成。</p></article>
   </div>
 
   <h2>源文件</h2>
@@ -392,11 +431,14 @@
     <table>
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
-        <tr><td class="mono">crates/phasor-indicators/src/lib.rs</td><td>“一次调用的扫描”的说明；再导出八个指标、参数结构和扫描工具。</td></tr>
-        <tr><td class="mono">src/sweep.rs</td><td>combinations（:44）、ParamLevel（:62）、sweep_columns（:103）、column_of（:135）与布局测试。</td></tr>
-        <tr><td class="mono">src/indicators.rs</td><td>Indicator（:31）、moving_average / moving_std（minp = window）、Cache、place；ma（:149）、mstd（:192）、bbands（:237）、rsi（:306）、stoch（:371）、macd（:451）、true_range（:518）、atr（:543）、obv（:588）。</td></tr>
-        <tr><td class="mono">tests/parity_indicators.rs · tests/fixtures/indicators.tsv</td><td>与 vectorbt 的差分测试、扫描布局测试、退化读数覆盖测试；fixture 由 tests/parity/generate_indicators.py 生成。</td></tr>
-        <tr><td class="mono">docs/plan.md 2.10</td><td>指标：已有和还缺的功能。</td></tr>
+        <tr><td colspan="2" class="small">行号对应 <a href="https://github.com/nivalume/phasor/tree/943ef91ed8921b674b8c14eb3629305f6ffcaf46">943ef91</a>。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/lib.rs">crates/phasor-indicators/src/lib.rs</a></td><td>“一次调用的扫描”的说明，stream 一段（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/lib.rs#L30">:30</a>）；再导出八个指标、参数结构、扫描工具和 Bar / Stream（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/lib.rs#L49">:49</a>）。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/sweep.rs">src/sweep.rs</a></td><td>combinations（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/sweep.rs#L43">:43</a>）、ParamLevel（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/sweep.rs#L61">:61</a>）、sweep_columns（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/sweep.rs#L102">:102</a>）、column_of（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/sweep.rs#L134">:134</a>）与布局测试。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/indicators.rs">src/indicators.rs</a></td><td>Indicator（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/indicators.rs#L31">:31</a>）、moving_average / moving_std（minp = window）、Cache、place；ma（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/indicators.rs#L149">:149</a>）、mstd（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/indicators.rs#L192">:192</a>）、bbands（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/indicators.rs#L237">:237</a>）、rsi（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/indicators.rs#L306">:306</a>）、stoch（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/indicators.rs#L371">:371</a>）、macd（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/indicators.rs#L451">:451</a>）、true_range（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/indicators.rs#L518">:518</a>）、atr（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/indicators.rs#L543">:543</a>）、obv（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/indicators.rs#L588">:588</a>）。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs">src/stream.rs</a></td><td>check_window（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs#L19">:19</a>）；Prefix（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs#L35">:35</a>，push <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs#L58">:58</a>）、RollingMean（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs#L83">:83</a>）、RollingStd（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs#L112">:112</a>）、RollingExtremum（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs#L145">:145</a>）、EwmMean（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs#L210">:210</a>）、EwmStd（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs#L284">:284</a>）；Average（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs#L383">:383</a>）、Deviation（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs#L406">:406</a>）；Bar（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs#L430">:430</a>）、Kind（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs#L451">:451</a>）、Stream（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs#L486">:486</a>，构造 ma <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs#L507">:507</a> … obv <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs#L584">:584</a>，names <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs#L590">:590</a>，update <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/src/stream.rs#L604">:604</a>）。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/tests/parity_indicators.rs">tests/parity_indicators.rs</a> · <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/tests/fixtures/indicators.tsv">tests/fixtures/indicators.tsv</a></td><td>与 vectorbt 的差分测试、扫描布局测试、退化读数覆盖测试；fixture 由 tests/parity/generate_indicators.py 生成。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/tests/stream.rs">tests/stream.rs</a></td><td>流式与批量逐位相同（every_stream_matches_its_batch_indicator，<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-indicators/tests/stream.rs#L64">:64</a>）。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/docs/plan.md">docs/plan.md</a> 2.10</td><td>指标：已有和还缺的功能。</td></tr>
       </tbody>
     </table>
   </div>
@@ -704,18 +746,19 @@ const panelOf = (c) => {
 };
 
 /* ---------------- dependency graph ---------------- */
-const COLORS = { sweep: "#c9a227", indicators: "#3a7afe" };
+const COLORS = { sweep: "#c9a227", indicators: "#3a7afe", stream: "#2fbfa8" };
 const MODULES = [
   { id: "sweep", sub: "combinations · sweep_columns · column_of", blurb: "把参数值变成列轴：参数层 repeat、标的层 tile；笛卡儿积由 combinations 显式给出。" },
   { id: "indicators", sub: "8 个指标 · Indicator · Cache", blurb: "每个指标接一组参数结构，返回 n_comb × n_input 宽的输出和扫描标签；按决定因素缓存中间结果。" },
+  { id: "stream", sub: "Stream · Bar · 逐根更新", blurb: "同样八个指标，一根一根地算：每个 Stream 带着批量核心跨根携带的状态（前缀和、最近 window 根的快照、EWM 的权重、单调队列），浮点运算的顺序和批量核心相同，所以输出逐位相同。状态 O(window)，每根均摊 O(1)。" },
 ];
 const UP = [
-  { id: "phasor-core", sub: "Matrix · Columns · Label · Error", mods: ["sweep", "indicators"], role: "sweep.rs 用 Columns / Label / Level（Level::repeat、Level::tile）建标签；indicators.rs 的输入输出都是 Matrix，形状不符返回 Error::Broadcast，其余 Error::Invariant。" },
+  { id: "phasor-core", sub: "Matrix · Columns · Label · Error", mods: ["sweep", "indicators", "stream"], role: "sweep.rs 用 Columns / Label / Level（Level::repeat、Level::tile）建标签；indicators.rs 的输入输出都是 Matrix，形状不符返回 Error::Broadcast，其余 Error::Invariant。stream.rs 只用 Error：窗口为 0、min_periods 超过窗口时报 Invariant。" },
   { id: "phasor-generic", sub: "rolling_* · ewm_* · diff · fshift", mods: ["indicators"], role: "rolling_mean_1d / rolling_std_1d（minp = window）、ewm_mean_1d / ewm_std_1d（minp = span）、rolling_min_1d / rolling_max_1d（STOCH）、diff_1d（RSI 的涨跌）、fshift_1d（OBV 的前收盘）。" },
 ];
 const DOWN = [
-  { id: "phasor", sub: "门面 · prelude", uses: ["sweep", "indicators"], role: "pub use phasor_indicators as indicators 整体再导出；prelude 只放 MaParams、combinations、ma。工作区 src 里没有别的调用方。" },
-  { id: "phasor-py", sub: "不依赖", uses: [], dashed: true, role: "Cargo.toml 里没有 phasor-indicators。Python 层要的指标要么在 Python 里写，要么写成因子表达式（phasor-expr）。" },
+  { id: "phasor", sub: "门面 · prelude", uses: ["sweep", "indicators", "stream"], role: "pub use phasor_indicators as indicators 整体再导出（stream 也在里面）；prelude 只放 MaParams、combinations、ma。" },
+  { id: "phasor-py", sub: "phasor.indicators", uses: ["indicators", "stream"], role: "src/indicators.rs：ind_ma … ind_obv、ind_true_range 每个参数接一个等长列表（一个组合一项，组合由 Python 的 _grid 生成，默认笛卡儿积），在 py.detach 里调批量函数，把 Indicator 拆成 outputs 和每层标签的 columns；_IndicatorStream 每列一个 Stream。Python 壳是 python/phasor/indicators.py（IndicatorResult、IndicatorFactory、Stream）。" },
 ];
 const depSvg = document.getElementById("dep-graph"), detail = document.getElementById("detail");
 let pinned = null;
@@ -724,7 +767,7 @@ function nodeBox(id) {
   const ui = UP.findIndex((u) => u.id === id);
   if (ui >= 0) return { x: 16, y: 100 + ui * 120, w: 220, h: 60 };
   const mi = MODULES.findIndex((m) => m.id === id);
-  if (mi >= 0) return { x: 330, y: 110 + mi * 110, w: 300, h: 60 };
+  if (mi >= 0) return { x: 330, y: 96 + mi * 90, w: 300, h: 60 };
   const di = DOWN.findIndex((d) => d.id === id);
   return { x: 790, y: 110 + di * 110, w: 234, h: 60 };
 }
@@ -746,7 +789,7 @@ function applyFocus(f) {
   for (const b of document.querySelectorAll("#legend button")) b.classList.toggle("on", Boolean(f && f.kind === "mod" && b.dataset.id === f.id));
 }
 function buildGraph() {
-  depSvg.appendChild(svgEl("rect", { x: 314, y: 56, width: 332, height: 250, rx: 10, fill: "#181818", stroke: "#303030" }));
+  depSvg.appendChild(svgEl("rect", { x: 314, y: 56, width: 332, height: 300, rx: 10, fill: "#181818", stroke: "#303030" }));
   depSvg.appendChild(svgEl("text", { x: 480, y: 80, "text-anchor": "middle", "font-size": 12, "font-weight": 650, fill: "#f0f0f0" })).textContent = "phasor-indicators";
   depSvg.appendChild(svgEl("text", { x: 126, y: 86, "text-anchor": "middle", "font-size": 10, fill: "#909090" })).textContent = "上游";
   depSvg.appendChild(svgEl("text", { x: 907, y: 96, "text-anchor": "middle", "font-size": 10, fill: "#909090" })).textContent = "下游（只统计 src/）";

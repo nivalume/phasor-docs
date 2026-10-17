@@ -322,7 +322,7 @@
     窗口滑过时，如果队首正好离开窗口就弹出。队首永远是当前窗口的最大值。拖动滑块逐根看。
   </p>
   <div class="panel">
-    <div class="cap">rolling_extremum_1d（kernel：rolling.rs:221）在 wobble 序列上，window = 3</div>
+    <div class="cap">rolling_extremum_1d（kernel：<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-generic/src/rolling.rs#L221">rolling.rs:221</a>）在 wobble 序列上，window = 3</div>
     <div class="body">
       <div class="seg">
         <label class="inline">第 <b id="dq-i">0</b> 根 <input type="range" id="dq-slider" min="0" max="7" value="0" /></label>
@@ -468,12 +468,13 @@
     <table>
       <thead><tr><th>文件</th><th>内容</th></tr></thead>
       <tbody>
-        <tr><td class="mono">crates/phasor-generic/src/lib.rs</td><td>三个贯穿全局的决定（minp、NaN 缩小窗口、前瞻要标注）；再导出常用函数。</td></tr>
-        <tr><td class="mono">src/rolling.rs</td><td>resolve_minp（:34）、rolling_apply_1d（:71）、rolling_mean_1d（:107）、rolling_std_1d（:151）、rolling_extremum_1d（:221）、expanding_*、ewm_mean_1d（:329）、ewm_std_1d（:395）、矩阵包装宏；含不融合乘加的位级测试。</td></tr>
-        <tr><td class="mono">src/elementwise.rs</td><td>fshift / bshift / diff / pct_change / ffill / bfill / fillna、crossed_above_1d / crossed_below_1d 与矩阵版本。</td></tr>
-        <tr><td class="mono">src/synthetic.rs</td><td>SplitMix64、bits、uniform、Box–Muller normal、random_walk、gbm、ohlc_from_close 与性质测试。</td></tr>
-        <tr><td class="mono">tests/parity_generic.rs · tests/fixtures/generic.tsv</td><td>与 vectorbt 的差分测试；fixture 由 tests/parity/generate_generic.py 生成。</td></tr>
-        <tr><td class="mono">docs/plan.md 2.9</td><td>数据：合成数据已有和还缺的部分。</td></tr>
+        <tr><td colspan="2" class="small">本页的行号对应 <a href="https://github.com/nivalume/phasor/tree/943ef91ed8921b674b8c14eb3629305f6ffcaf46">943ef91</a>。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-generic/src/lib.rs">crates/phasor-generic/src/lib.rs</a></td><td>三个贯穿全局的决定（minp、NaN 缩小窗口、前瞻要标注）；再导出常用函数。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-generic/src/rolling.rs">src/rolling.rs</a></td><td>resolve_minp（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-generic/src/rolling.rs#L34">:34</a>）、rolling_apply_1d（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-generic/src/rolling.rs#L71">:71</a>）、rolling_mean_1d（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-generic/src/rolling.rs#L107">:107</a>）、rolling_std_1d（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-generic/src/rolling.rs#L151">:151</a>）、rolling_extremum_1d（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-generic/src/rolling.rs#L221">:221</a>）、expanding_*、ewm_mean_1d（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-generic/src/rolling.rs#L329">:329</a>）、ewm_std_1d（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-generic/src/rolling.rs#L395">:395</a>）、矩阵包装宏；含不融合乘加的位级测试。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-generic/src/elementwise.rs">src/elementwise.rs</a></td><td>fshift / bshift / diff / pct_change / ffill / bfill / fillna、crossed_above_1d / crossed_below_1d 与矩阵版本。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-generic/src/synthetic.rs">src/synthetic.rs</a></td><td>SplitMix64、bits、uniform、Box–Muller normal、random_walk、gbm、ohlc_from_close 与性质测试。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-generic/tests/parity_generic.rs">tests/parity_generic.rs</a> · <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/tests/fixtures/generic.tsv">tests/fixtures/generic.tsv</a></td><td>与 vectorbt 的差分测试；fixture 由 tests/parity/generate_generic.py 生成。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/docs/plan.md">docs/plan.md</a> 2.9</td><td>数据：合成数据已有和还缺的部分。</td></tr>
       </tbody>
     </table>
   </div>

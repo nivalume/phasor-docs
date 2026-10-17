@@ -216,7 +216,7 @@
   <div class="grp"><div class="gh">L3 · 记录</div><ul><li><a class="pg" href="phasor-records.html">phasor-records</a></li></ul></div>
   <div class="grp"><div class="gh">L4 · 模拟</div><ul><li><a class="pg" href="phasor-sim.html">phasor-sim</a></li></ul></div>
   <div class="grp"><div class="gh">L5 · 分析</div><ul><li><a class="pg" href="phasor-analysis.html">phasor-analysis</a></li></ul></div>
-  <div class="grp"><div class="gh">L6 · 门面</div><ul><li class="cur"><a class="pg" href="phasor-py.html" aria-current="page">phasor-py</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|order:内存序|routing:参数路由|defaults:默认值|life:一次调用|callbacks:回调|resume:续跑与存取|sweep:扫描布局|ranking:排名陷阱|enums:字符串|guards:护栏|validation:交叉验证|helpers:期货与时间|data:数据边界|docs:文档出入|reading:读码顺序"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#order">内存序</a></li><li><a href="#routing">参数路由</a></li><li><a href="#defaults">默认值</a></li><li><a href="#life">一次调用</a></li><li><a href="#callbacks">回调</a></li><li><a href="#resume">续跑与存取</a></li><li><a href="#sweep">扫描布局</a></li><li><a href="#ranking">排名陷阱</a></li><li><a href="#enums">字符串</a></li><li><a href="#guards">护栏</a></li><li><a href="#validation">交叉验证</a></li><li><a href="#helpers">期货与时间</a></li><li><a href="#data">数据边界</a></li><li><a href="#docs">文档出入</a></li><li><a href="#reading">读码顺序</a></li></ol></li><li><a class="pg" href="phasor.html">phasor（门面）</a></li></ul></div>
+  <div class="grp"><div class="gh">L6 · 门面</div><ul><li class="cur"><a class="pg" href="phasor-py.html" aria-current="page">phasor-py</a><ol class="sec" data-sec="concept:第一性原理|graph:依赖图|order:内存序|routing:参数路由|defaults:默认值|life:一次调用|callbacks:回调|resume:续跑与存取|sweep:扫描布局|ranking:排名陷阱|enums:字符串|guards:护栏|validation:交叉验证|research:研究工具|helpers:期货与时间|data:数据边界|docs:文档出入|reading:读码顺序"><li><a href="#concept">第一性原理</a></li><li><a href="#graph">依赖图</a></li><li><a href="#order">内存序</a></li><li><a href="#routing">参数路由</a></li><li><a href="#defaults">默认值</a></li><li><a href="#life">一次调用</a></li><li><a href="#callbacks">回调</a></li><li><a href="#resume">续跑与存取</a></li><li><a href="#sweep">扫描布局</a></li><li><a href="#ranking">排名陷阱</a></li><li><a href="#enums">字符串</a></li><li><a href="#guards">护栏</a></li><li><a href="#validation">交叉验证</a></li><li><a href="#research">研究工具</a></li><li><a href="#helpers">期货与时间</a></li><li><a href="#data">数据边界</a></li><li><a href="#docs">文档出入</a></li><li><a href="#reading">读码顺序</a></li></ol></li><li><a class="pg" href="phasor.html">phasor（门面）</a></li></ul></div>
 </aside>
 <main>
   <h1>phasor-py</h1>
@@ -227,8 +227,8 @@
   </p>
   <div class="stats">
     <div class="stat"><b>110 格实测</b><span>参数路由表的每一格都来自对已编译模块的真实调用：10 类参数 × 11 种输入 × 两层（<code>phasor</code> 与 <code>phasor._phasor</code>），记录的是转换、结果或报错原文</span></div>
-    <div class="stat"><b>191 通过 · 47 跳过</b><span><code>uv run --with pytest python -m pytest crates/phasor-py/tests</code>；跳过的是要装 vectorbt 1.1.0 才跑的对照测试。<code>cargo test -p phasor-py</code> 另有 6 个枚举映射测试</span></div>
-    <div class="stat"><b>只有 arrow.rs 有 unsafe</b><span>crate 根上 <code>#![deny(unsafe_code)]</code>，唯一的例外是 Arrow C Data 接口的导入导出。Rust 2,369 行（7 个文件），Python 1,257 行（4 个文件）</span></div>
+    <div class="stat"><b>390 通过 · 56 跳过</b><span><code>uv run --with pytest python -m pytest crates/phasor-py/tests -q</code>；跳过的是要装 vectorbt 1.1.0、TA-Lib 等可选依赖才跑的测试。<code>cargo test -p phasor-py</code> 另有 18 个字符串映射测试（parse.rs）；整个工作区 <code>cargo test --workspace</code> 是 773 个</span></div>
+    <div class="stat"><b>只有 arrow.rs 有 unsafe</b><span>crate 根上 <code>#![deny(unsafe_code)]</code>，唯一的例外是 Arrow C Data 接口的导入导出。Rust 7,084 行（13 个文件），Python 5,191 行（<code>python/phasor/</code> 下 24 个文件）</span></div>
   </div>
 
   <!-- ============================================================ -->
@@ -275,12 +275,12 @@
 
   <!-- ============================================================ -->
   <h2 id="graph">依赖图</h2>
-  <p>左边是引擎 crate，中间是 <code>_phasor</code> 的九个 Rust 模块（research.rs 没画），右边是 Python 壳。点任一节点，只保留相关的线。</p>
+  <p>左边是引擎 crate，中间是 <code>_phasor</code> 的十二个 Rust 模块（research.rs 没画：事件研究、过拟合统计、标签、随机信号、合成价格），右边是 Python 壳（只画了和本页各节有关的文件）。点任一节点，只保留相关的线。</p>
   <div class="legend" id="legend"></div>
   <div class="panel">
     <div class="cap">线的颜色 = 被用到的 Rust 模块。虚线框的 Python 文件是纯 NumPy（或加 zoneinfo / pandas），不碰扩展</div>
-    <div class="body"><svg id="dep-graph" width="1040" height="500" viewBox="0 0 1040 500" role="img" aria-label="phasor-py 依赖图"></svg></div>
-    <div class="foot"><p class="small" style="margin:0">来源：<code>Cargo.toml</code>、<code>src/*.rs</code> 里的 <code>use phasor_…</code>、<code>python/phasor/*.py</code> 里的 <code>_phasor.…</code>。phasor-signals、phasor-indicators、phasor（门面）都不在依赖里：Python 用户经由 <code>crossed_above</code> 和因子表达式拿到同类功能。</p></div>
+    <div class="body"><svg id="dep-graph" width="1040" height="860" viewBox="0 0 1040 860" role="img" aria-label="phasor-py 依赖图"></svg></div>
+    <div class="foot"><p class="small" style="margin:0">来源：<code>Cargo.toml</code>、<code>src/*.rs</code> 里的 <code>use phasor_…</code>、<code>python/phasor/*.py</code> 里的 <code>_phasor.…</code>。phasor（门面）不在依赖里。phasor-signals 除了 signal_fns.rs，还被没画出来的 research.rs 用（四种标签、随机信号）。</p></div>
   </div>
   <div class="detail" id="detail"><h3>点一个节点</h3><p class="muted" style="margin:0">引擎 crate：被哪些模块用到。Rust 模块：它负责边界的哪一段。Python 文件：它调扩展里的什么。</p></div>
 
@@ -495,7 +495,7 @@
     只是回测结果不同，下游没有任何东西能察觉。区分大小写，失败时同时列出可选值和传入的值。输入一个字符串试试。
   </p>
   <div class="panel">
-    <div class="cap">parse.rs + from_signals 的 size_type 限制，JS 移植（234 个实测用例全部一致）</div>
+    <div class="cap">parse.rs 的字符串映射，JS 移植</div>
     <div class="body">
       <div class="seg" id="en-param"><span class="lbl">参数</span></div>
       <div class="seg" id="en-loop"><span class="lbl">循环</span></div>
@@ -505,7 +505,7 @@
     <div class="foot"><p class="small" style="margin:0" id="en-foot"></p></div>
   </div>
   <div class="grid2">
-    <article class="card"><h3>两个循环的不对称</h3><p><code>from_orders</code> 收六种 size type，<code>from_signals</code> 只收 Amount / Value / Percent：目标仓位说的是“该在哪里结束”，对每个元素是明确的，对一个只说“往哪边动”的信号是含糊的。参考实现拒绝同样三种，有测试钉住这一点。</p></article>
+    <article class="card"><h3>两个循环收同样的 size type</h3><p>从 e9d8d59 起 <code>from_signals</code> 也收目标类（TargetAmount / TargetValue / TargetPercent 及 *100 写法）：phasor-sim 的 <code>signals_to_target</code> 给它下了定义——进场把仓位移到目标（从空仓、从反方向一笔反手、或在累加允许时加仓），出场平仓。参考实现在信号路径上仍拒绝这三种（<code>signals_to_size</code> 照它的样子拒绝，fixture 不变）；<code>test_the_reference_refuses_the_same_three</code> 钉住参考实现的拒绝，<code>test_a_target_size_sets_where_the_signal_path_ends_up</code> 钉住这边的定义。</p></article>
     <article class="card"><h3><code>direction</code> 默认值也不同</h3><p>订单默认 <code>both</code>（数量的正负已经说明方向），信号默认 <code>longonly</code>。<code>"long"</code>、<code>"short"</code> 作为 <code>"longonly"</code>、<code>"shortonly"</code> 的别名接受；Python 壳另把 <code>accumulate=True / False</code> 翻译成 <code>"both"</code> / <code>"disabled"</code>。</p></article>
   </div>
 
@@ -540,6 +540,37 @@
     NaN 分数永远不会被选中，平局取 <code>fn</code> 返回顺序里的第一个。
   </p>
 
+
+  <!-- ============================================================ -->
+  <h2 id="research">研究工具：指标、信号、收益序列、组合变换</h2>
+  <p>
+    126d8da 和 943ef91 把几个 crate 里原来只能从 Rust 调的东西接到了 Python。Rust 这边是三个新文件，各对一个引擎 crate：<code>src/indicators.rs</code> → phasor-indicators，<code>src/signal_fns.rs</code> → phasor-signals，
+    <code>src/returns_fns.rs</code> → phasor-analysis 的 metrics / benchmark / rolling 和 phasor-records 的 <code>find_drawdowns</code>。三者一个样子：借一个 F 序的二维数组（<code>columns_of</code>），在 <code>py.detach</code> 里调引擎函数，返回 NumPy 数组或数组的 dict；
+    最后在 <code>_phasor</code>（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/lib.rs#L2876">lib.rs:2876</a>）里各自 <code>register</code>。Python 这边每个文件一个模块：一维、二维的整理交给 <code>_columns.columns</code>（一维当一列，结果再还原成一维），参数展开在 Python 里做。
+    读的时候先读 Python 模块的模块文档，再看 Rust 文件的 <code>register</code>。
+  </p>
+  <div class="wrap">
+    <table>
+      <thead><tr><th style="width:24%">Python</th><th style="width:22%">Rust（行号对应 <a href="https://github.com/nivalume/phasor/tree/943ef91ed8921b674b8c14eb3629305f6ffcaf46">943ef91</a>）</th><th>怎么读 / 要注意什么</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">phasor.indicators.ma / mstd / bbands / rsi / stoch / macd / atr / obv / true_range</td><td class="mono">indicators.rs：ind_ma（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/indicators.rs#L78">:78</a>）… ind_obv（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/indicators.rs#L243">:243</a>）、ind_true_range（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/indicators.rs#L257">:257</a>）</td><td>参数组合在 Python 的 <code>_grid</code> 里生成：默认 <code>itertools.product</code>（最后一个参数变得最快，和 Rust 的 <code>combinations</code> 一样），<code>product=False</code> 逐位配对、长度为 1 的广播。Rust 只收等长列表（<code>same_len</code>），一个组合一项。输出列按组合排：<code>col = 组合 × 输入列数 + 输入列</code>。结果是 <code>IndicatorResult</code>：<code>outputs</code>、每个输出列的参数标签 <code>columns</code>（Rust 的 symbol 层改名为 input），<code>select(window=20)</code> 按参数取列。默认 <code>adjust=True</code>，bbands 的 <code>ddof=0</code>。</td></tr>
+        <tr><td class="mono">IndicatorFactory(func, inputs, params, outputs).run · from_talib / from_pandas_ta / from_ta / from_smc</td><td>纯 Python</td><td>任意函数按同样的布局扫描：每个组合 × 每个输入列调一次 <code>func</code>（一维进、一维出），所以是 Python 循环，慢在调用次数上。四个第三方库的包装在用到时才 import，没装时报 <code>pip install …</code>。</td></tr>
+        <tr><td class="mono">phasor.indicators.Stream(kind, n_cols, **params)</td><td class="mono">indicators.rs：PyStream（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/indicators.rs#L277">:277</a>，new <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/indicators.rs#L297">:297</a>，update <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/indicators.rs#L359">:359</a>）</td><td>每列一个 Rust <code>Stream</code>；<code>update(close, high=, low=, volume=)</code> 一次给每列一根，返回这一根的输出 dict，和批量函数在整段历史上的那一根逐位相同（<a href="phasor-indicators.html#stream">phasor-indicators</a>）。<b>默认值写了两份：</b>Python 的 <code>_STREAM_DEFAULTS</code> 把 adjust=True、bbands ddof=0 补齐后全部传下去；Rust 的 <code>param(…, default)</code> 自己的后备是 adjust=false、bbands ddof=1。经 Python 用不会碰到，直接调 <code>_phasor._IndicatorStream</code> 少给参数就会得到另一组结果。</td></tr>
+        <tr><td class="mono">phasor.signals.clean / exit_after / exit_on / ranges / rank / nth_index / normalized_average_index</td><td class="mono">signal_fns.rs：sig_clean_enex（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/signal_fns.rs#L38">:38</a>）、sig_exit_after（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/signal_fns.rs#L63">:63</a>）、sig_exit_on（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/signal_fns.rs#L80">:80</a>）、sig_ranges（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/signal_fns.rs#L112">:112</a>）、sig_rank（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/signal_fns.rs#L136">:136</a>）、sig_nth_index（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/signal_fns.rs#L176">:176</a>）、sig_normalized_average_index（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/signal_fns.rs#L187">:187</a>）</td><td><code>until</code> 的三个字符串 <code>"next_entry"</code>、<code>"end_skip"</code>、<code>"end"</code> 对应 <code>ExitWindow</code> 的三种；<code>rank(partition=True)</code> 走 <code>partition_rank</code>。布尔输入必须已经是 bool：<code>_columns.columns</code> 拒绝把浮点转成 bool，因为每个 NaN 都会变成 True。</td></tr>
+        <tr><td class="mono">signals.calendar / stats / random_like</td><td>纯 Python（stats 调 sig_nth_index、sig_ranges；random_like 调 random_n）</td><td><code>calendar(index, "ME", which="first", n=)</code> 数的是实际有的 K 线：每月第一个交易日就是当月第一根。<code>stats</code> 是每列的次数、频率、首末位置、间隔和连续长度的均值 / 中位数 / 10% / 90% 分位。<code>random_like(keep="count")</code> 保持每列的信号数；<code>keep="gaps"</code> 还保持间隔，只打乱顺序和起点；随机数按 (seed, 列) 播种，同一列不管旁边生成了什么都得到同一个基线。</td></tr>
+        <tr><td class="mono">labels.mean_labels · predictions.backtest / compare</td><td>纯 Python</td><td><code>mean_labels</code> = 从 t + wait 起 window 根收盘价的均值 / close[t] − 1，往前看 wait + window − 1 根，只能当训练目标。<code>backtest</code> 把预测按 <code>enter_above</code> / <code>exit_below</code> 变成信号跑 <code>from_signals</code>，同时跑 <code>"hold"</code>（第一根进、不出）和 <code>"random"</code>（进出场各自 <code>random_like(keep="gaps")</code>）两个基线；其余关键字参数三者共用。</td></tr>
+        <tr><td class="mono">phasor.returns.metric / rolling / drawdowns / stats / value</td><td class="mono">returns_fns.rs：SOLO（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/returns_fns.rs#L26">:26</a>）、PAIRED（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/returns_fns.rs#L42">:42</a>）、scalar（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/returns_fns.rs#L68">:68</a>）、rolling（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/returns_fns.rs#L102">:102</a>）、drawdowns_dict（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/returns_fns.rs#L143">:143</a>）、ret_metric（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/returns_fns.rs#L185">:185</a>）、ret_rolling（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/returns_fns.rs#L221">:221</a>）、ret_drawdowns（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/returns_fns.rs#L260">:260</a>）</td><td>外部来的收益序列（基金净值、别的引擎的结果），用和 Portfolio 同一份 Rust 指标，所以组合的 <code>returns()</code> 放进来得到同样的数。指标名单写了两份：<code>returns.py</code> 的 <code>_SOLO</code> / <code>_PAIRED</code> 和 Rust 的 <code>SOLO</code> / <code>PAIRED</code>，加指标两边都要改。<code>value</code> 复利时 NaN 收益当 0（净值不动）；<code>drawdowns</code> 在这条净值上找回撤。</td></tr>
+        <tr><td class="mono">Portfolio.drawdowns() / rolling(metric, window) / stats(high=, low=)</td><td class="mono">lib.rs：drawdowns（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/lib.rs#L553">:553</a>）、rolling（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/lib.rs#L567">:567</a>）、stats（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/lib.rs#L388">:388</a>）、bar_field（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/lib.rs#L1035">:1035</a>）</td><td><code>rolling</code> 对每个账户的收益调 <code>returns_fns::rolling</code>，要基准的六个指标用买入持有当基准，共享现金时没有“账户对应一个标的”，直接报错。<code>stats</code> 给了 high / low 就在 py.detach 里调 <code>excursion_stats</code>，在表后追加 <code>avg_mae_long</code> 等六项。high / low 走 <code>bar_field</code>：<b>复制</b>，C 序、F 序都按下标读——是“拒绝 C 序”规则的例外，因为它在运行之后只读一次，不在每根 K 线上读。</td></tr>
+        <tr><td class="mono">Portfolio.from_records(orders, close, …) · close / column_map / init_cash / scoring</td><td class="mono">lib.rs：from_records（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/lib.rs#L296">:296</a>）→ records_portfolio（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/lib.rs#L2681">:2681</a>）；getter 在 <a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/lib.rs#L238-L258">:238–258</a></td><td>从 dict 建 <code>OrderRecords</code> / <code>CashRecords</code>，逐条检查列、行在范围内，side 是 0 或 1，现金流种类在 0..=8（<code>CashFlowKind</code> 的判别值）；有 <code>debt</code> 字段时读全部余额列。最后立刻调一次 <code>core()</code>：分析层拒绝的成交在进来的地方就报错。四个 getter 正好是重建一个同样的组合要的东西。</td></tr>
+        <tr><td class="mono">phasor.portfolios.select / column_stack / row_slice / resample / resample_bars</td><td>纯 Python，落在 from_records 上</td><td>“分析只从记录重建”的直接用法：改记录，再建一次。<code>row_slice(pf, start, stop)</code> 把 start 之前的持仓变成第 0 根、按 close[start − 1] 买入的初始持仓（成交加一条 kind = 8 的现金流），起始现金取 start − 1 根的现金；有借贷或保证金（记录里有 <code>debt</code>）时拒绝。<code>resample</code> 成交保留原价，行号换成粗周期的序号，收盘价取每个粗周期的最后一根。日志都不带过去。</td></tr>
+        <tr><td class="mono">phasor.patterns.search / signals</td><td>纯 NumPy</td><td>窗口和形态缩放到同一尺度（默认 min-max 到 0..1，只比形状），相似度 = 1 − 平均绝对差；可以给几个窗口长度，形态线性插值拉伸。默认不重叠：按相似度从高到低贪心保留。一次匹配止于 <code>end_idx − 1</code>，<code>signals</code> 在 <code>end_idx</code> 给信号——形态完成之后，不会更早。</td></tr>
+        <tr><td class="mono">phasor.frames · phasor.plotting</td><td>pandas / Plotly</td><td>可选依赖（<code>pyproject.toml</code> 的 extras <code>pandas</code>、<code>plot</code>），在函数里才 import。frames 转记录、净值、收益、stats；plotting 画净值与回撤、成交标记、最深的几次回撤、滚动指标。</td></tr>
+        <tr><td class="mono">phasor.wq101(all=False) / wq101_formula(k) · FactorSet.evaluate_batches / to_parquet</td><td class="mono">expr.rs：evaluate_batches（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/expr.rs#L96">:96</a>）、wq101（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/expr.rs#L168">:168</a>）、wq101_formula（<a href="https://github.com/nivalume/phasor/blob/943ef91ed8921b674b8c14eb3629305f6ffcaf46/crates/phasor-py/src/expr.rs#L181">:181</a>）</td><td><code>evaluate_batches</code> 不释放 GIL：每批都要回调 Python 的 sink，sink 抛出的第一个异常存下来，引擎以错误结束后原样抛出。Python 包一层把每批的值 reshape 成 <code>(rows, stop − start)</code>。<code>to_parquet</code> 每批写一个 row group（长格式：symbol、row 或 time、每个因子一列），要 pyarrow。</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small" style="margin-top:8px">测试：<code>tests/test_research_api.py</code>——指标与 Rust 批量函数、TA-Lib 的 SMA 和内置 MA（装了 TA-Lib 时，差 2e-13）、Stream 与批量逐位相同、信号函数、日历信号、匹配随机基线、收益序列与组合的指标一致、回撤、组合变换（select、column_stack、row_slice、resample 之后的净值和收益）、形态搜索、wq101 和分批输出、to_parquet。</p>
+
   <!-- ============================================================ -->
   <h2 id="helpers">期货、外汇和按时间的参数：<code>futures</code>、<code>fx</code>、<code>_timing</code></h2>
   <p>三个纯 Python 模块，在调用引擎之前把数据或参数换成引擎能读的样子。引擎每列只有一条价格序列，没有到期、没有货币、没有时间戳。</p>
@@ -568,11 +599,12 @@
         <tr><td>README“<code>phasor.data</code> supplies Binance Spot download, CSV caching and aligned OHLCV arrays”</td><td><code>python/phasor/data.py</code> 的模块文档是“Read-only local Arrow sources”，包里没有网络代码；下载在 <code>examples/fetch.py</code>、<code>download_binance_vision.py</code></td><td>与 AGENTS.md“库 crate 不下载、不写文件”的规则一致的是代码，不是这句文档</td></tr>
         <tr><td>README 第 3 行“zero-copy in”</td><td>只对连续、F 序、float64 的输入成立。C 序、整数、步长切片都会被壳复制（路由表里黄色下划线的格子）；运行结束后 <code>PyPortfolio</code> 还会复制一次源宽度的收盘价</td><td>“零拷贝”是一个条件，不是保证；大矩阵应该一开始就用 F 序构造</td></tr>
         <tr><td>“每个参数都可以是标量、每列一维或 <code>(T, C)</code>”的通常说法</td><td>非共享 <code>init_cash</code> 的 <code>(T, C)</code> 只读第 0 行；共享时 <code>init_cash</code> 不收矩阵、<code>cash_deposits</code> 要 <code>(T, n_groups)</code>；现金流的一维是每根 K 线；bool 参数没有一维形式</td><td>按文档传一个逐行变化的 <code>init_cash</code> 矩阵不会报错，只会被截成第一行</td></tr>
+        <tr><td><code>lib.rs</code> 模块文档“Not exposed yet: the rolling metrics, drawdown records, and the indicator sweep”</td><td>126d8da 加了 <code>Portfolio.rolling</code>、<code>Portfolio.drawdowns</code>、<code>phasor.returns</code>、<code>phasor.indicators</code>（扫描和 Stream）</td><td>只读模块文档的人会以为要自己写；功能清单以 <code>docs/plan.md</code> 2.10–2.12 为准</td></tr>
         <tr><td><code>lib.rs</code> 的报错“with no range no stop can ever fire”</td><td>phasor-sim 的 <code>from_signals.rs</code> 在 open / high / low 为 NaN 时用收盘价重建它们，只给收盘价的止损照样触发（Rust 测试与 Python 实测都是成交在 [0, 1, 2]）</td><td>Python 用户被迫多传两个数组；只有收盘价的数据只能手工传 <code>high=close, low=close</code></td></tr>
       </tbody>
     </table>
   </div>
-  <p class="small">尚未暴露（<code>lib.rs</code> 模块文档）：滚动指标、回撤记录、指标扫描。<code>CallSeq::Explicit</code> 现在是 <code>call_seq</code> 的整数数组形式。</p>
+  <p class="small"><code>lib.rs</code> 模块文档说尚未暴露的三样——滚动指标、回撤记录、指标扫描——126d8da 都接上了（<code>Portfolio.rolling</code>、<code>Portfolio.drawdowns</code>、<code>phasor.indicators</code>），见<a href="#research">研究工具</a>；那段文档没有跟着改。<code>CallSeq::Explicit</code> 现在是 <code>call_seq</code> 的整数数组形式。</p>
 
   <!-- ============================================================ -->
   <h2 id="reading">读码顺序</h2>
@@ -585,8 +617,9 @@
     <li><b><code>src/callbacks.rs</code>、<code>from_order_func</code></b>：<code>PyContext</code>、<code>PyCallbacks::call</code>（拿 GIL、存第一个异常）、<code>apply_order</code> / <code>apply_decision</code> / <code>apply_stops</code> 怎么把 Python 的返回值读成 Order、Decision 和 StopState；lib.rs 里有回调时怎么选 <code>Schedule</code>、把状态放进 <code>in_outputs</code>。</li>
     <li><b><code>src/resume.rs</code>、<code>python/phasor/stepper.py</code></b>：模块文档（resume=pf 是什么、字节里有什么）、<code>prior</code> 的检查、<code>Segment</code>；Stepper 的 <code>_run</code> 怎么拼回看的几行、<code>commit</code> 怎么把回报变成订单。</li>
     <li><b><code>src/expr.rs</code>、<code>python/phasor/strategy.py</code></b>：因子集和 <code>crossed_above</code> 怎么返回扁平的列优先数组；<code>sweep</code> 怎么拼列、映射收盘价、延迟信号。</li>
+    <li><b><code>src/indicators.rs</code>、<code>src/signal_fns.rs</code>、<code>src/returns_fns.rs</code></b>：三个文件同一个样子（借 F 序数组、<code>py.detach</code> 里调引擎、返回 NumPy 或 dict），先看各自的 <code>register</code> 列出了什么；再看 Python 那边同名的模块怎么准备参数（<code>indicators._grid</code>、<code>_columns.columns</code>）。然后 <code>python/phasor/portfolios.py</code>：所有变换都落在 <code>Portfolio.from_records</code> 上。</li>
     <li><b><code>src/data.rs</code>、<code>src/arrow.rs</code></b>：数据层的绑定和唯一的 <code>unsafe</code>。</li>
-    <li><b>测试</b>：<code>test_bindings.py</code> 里 <code>test_a_c_ordered_array_is_refused_rather_than_transposed</code>、<code>test_the_engine_does_not_write_through_a_borrowed_array</code>；<code>test_column_map.py</code> 证明映射与铺开在执行和分析上逐项一致，且改写或释放原数组不影响已返回的组合。</li>
+    <li><b>测试</b>：<code>test_research_api.py</code> 覆盖研究工具（指标对 Rust、Stream 对批量、信号函数、收益序列对组合、组合变换、wq101 和分批输出）；<code>test_bindings.py</code> 里 <code>test_a_c_ordered_array_is_refused_rather_than_transposed</code>、<code>test_the_engine_does_not_write_through_a_borrowed_array</code>；<code>test_column_map.py</code> 证明映射与铺开在执行和分析上逐项一致，且改写或释放原数组不影响已返回的组合。</li>
   </ol>
 </main>
 
@@ -650,8 +683,6 @@ function parseEnum(param, word, fn) {
   const e = ENUMS[param];
   if (!Object.prototype.hasOwnProperty.call(e.map, word)) return { ok: false, msg: e.err(word) };
   const v = e.map[word];
-  if (param === "size_type" && fn === "from_signals" && v.startsWith("Target"))
-    return { ok: false, msg: "Only Amount, Value and Percent are supported by signals; use from_orders for targets" };
   return { ok: true, value: v };
 }
 
@@ -673,41 +704,52 @@ function seg(host, items, current, onPick) {
 }
 
 /* ---------------- dependency graph ---------------- */
-const COLORS = { "lib.rs": "#3a7afe", "array.rs": "#2fbfa8", "params.rs": "#c9a227", "parse.rs": "#b07cd8", "callbacks.rs": "#5ec8e0", "expr.rs": "#d35d5d", "data.rs": "#4caf7a", "arrow.rs": "#e08a3c", "resume.rs": "#e07ab8" };
+const COLORS = { "lib.rs": "#3a7afe", "array.rs": "#2fbfa8", "params.rs": "#c9a227", "parse.rs": "#b07cd8", "callbacks.rs": "#5ec8e0", "expr.rs": "#d35d5d", "data.rs": "#4caf7a", "arrow.rs": "#e08a3c", "resume.rs": "#e07ab8", "indicators.rs": "#8fbf4a", "signal_fns.rs": "#e6c35c", "returns_fns.rs": "#9a7dff" };
 const UP = [
-  { id: "phasor-core", sub: "FlexArray · Matrix · Error", mods: ["array.rs", "params.rs", "lib.rs", "expr.rs", "callbacks.rs", "resume.rs"], role: "FlexArray 是所有参数在引擎里的样子；array.rs 把 NumPy 借用变成它。Error 经 to_py_err 原样变成 ValueError。", page: "phasor-core.html" },
+  { id: "phasor-core", sub: "FlexArray · Matrix · Error", mods: ["array.rs", "params.rs", "lib.rs", "expr.rs", "callbacks.rs", "resume.rs", "indicators.rs"], role: "FlexArray 是所有参数在引擎里的样子；array.rs 把 NumPy 借用变成它。Error 经 to_py_err 原样变成 ValueError。", page: "phasor-core.html" },
   { id: "phasor-model", sub: "SizeType · Direction · BarType", mods: ["parse.rs", "lib.rs", "data.rs", "callbacks.rs", "resume.rs"], role: "parse.rs 把字符串映射到 SizeType、Direction、AccumulationMode、TradesType 等；data.rs 包装 InstrumentId 与 BarType；callbacks.rs 把 OrderSide、OrderStatus 写成字符串交给回调；resume.rs 把 TradesType 写进组合的字节。", page: "phasor-model.html" },
   { id: "phasor-exec", sub: "Order · OrderResult", mods: ["callbacks.rs"], role: "只有 callbacks.rs 用：Python 回调返回的字典改的是 Order 的字段，post_order_func 收到的 result 是 OrderResult 转成的字典。", page: "phasor-exec.html" },
   { id: "phasor-sim", sub: "FromSignals · FromOrders · SimState", mods: ["lib.rs", "callbacks.rs", "resume.rs"], role: "lib.rs 用借来的视图填 FromSignals / FromOrders：from_signals 走 simulate_from_signals_run，有回调时走 simulate_from_signal_func；from_orders 一律走 simulate_from_order_func（没有回调时传 NoCallbacks）；都返回带 last_state 的 Run。Groups、CallSeq（含 Explicit）从 Python 参数构造。callbacks.rs 实现 OrderFunc 和 SignalFunc。resume.rs 包装 SimState，检查 resume=pf 能否续上。", page: "phasor-sim.html" },
-  { id: "phasor-analysis", sub: "Portfolio · Cache · Scoring", mods: ["lib.rs"], role: "每个 PyPortfolio 方法用 Portfolio::from_borrowed 在自有副本上重建引擎视图，并把 pyclass 持有的 Cache 借给它。", page: "phasor-analysis.html" },
-  { id: "phasor-records", sub: "OrderRecords · LogRecords · bytes", mods: ["lib.rs", "resume.rs"], role: "运行留下的成交和日志；共享资金时 assemble 调 sort_by_column 排一次序。orders()/logs()/trades() 以列式字典交出。resume=pf 用 Journal::chain 接上旧记录；resume.rs 用 bytes 的 Put / Reader 和 Journal::to_bytes 写组合的字节。", page: "phasor-records.html" },
-  { id: "phasor-expr", sub: "FactorSet · alpha158/360", mods: ["expr.rs"], role: "编译好的因子集；evaluate 在 py.detach 里跑，返回扁平的列优先数组，壳用 order=\"F\" 还原。", page: "phasor-expr.html" },
+  { id: "phasor-analysis", sub: "Portfolio · Cache · metrics · rolling", mods: ["lib.rs", "returns_fns.rs"], role: "每个 PyPortfolio 方法用 Portfolio::from_borrowed 在自有副本上重建引擎视图，并把 pyclass 持有的 Cache 借给它；stats(high=, low=) 追加 excursion_stats。returns_fns.rs 按名字分派到 metrics、benchmark、rolling 的函数，Portfolio.rolling 和 phasor.returns 共用。", page: "phasor-analysis.html" },
+  { id: "phasor-records", sub: "OrderRecords · LogRecords · bytes", mods: ["lib.rs", "resume.rs", "returns_fns.rs"], role: "运行留下的成交和日志；共享资金时 assemble 调 sort_by_column 排一次序。orders()/logs()/trades() 以列式字典交出。resume=pf 用 Journal::chain 接上旧记录；resume.rs 用 bytes 的 Put / Reader 和 Journal::to_bytes 写组合的字节。returns_fns.rs 调 find_drawdowns，把 DrawdownRecords 转成 dict；from_records 从 dict 建 OrderRecords。", page: "phasor-records.html" },
+  { id: "phasor-expr", sub: "FactorSet · alpha158/360 · wq101", mods: ["expr.rs"], role: "编译好的因子集；evaluate 在 py.detach 里跑，返回扁平的列优先数组，壳用 order=\"F\" 还原。evaluate_batches 每批回调 Python 的 sink；wq101(all) 和 wq101_formula(k)。", page: "phasor-expr.html" },
+  { id: "phasor-indicators", sub: "8 个指标 · Stream", mods: ["indicators.rs"], role: "ind_* 调八个批量指标（参数是等长列表，一个组合一项），_IndicatorStream 每列一个 Stream。", page: "phasor-indicators.html" },
+  { id: "phasor-signals", sub: "clean · exits · rank · ranges", mods: ["signal_fns.rs"], role: "sig_* 调 clean_enex、exit_after、exit_on、三种区间、两种排名、nth_index、normalized_average_index。标签和随机信号经 research.rs（图里没画）。", page: "phasor-signals.html" },
   { id: "phasor-generic", sub: "crossed_above_1d", mods: ["expr.rs"], role: "crossed_above 按列调用 crossed_above_1d，结果作为一个扁平 bool 数组返回——嵌套 list 曾是扫描里最慢的一步。", page: "phasor-generic.html" },
   { id: "phasor-data", sub: "load · Dataset · align", mods: ["data.rs"], role: "本地 Arrow 源的加载、准备、按可用时间对齐；没有独立页面。", page: null },
   { id: "arrow-array/schema", sub: "ffi feature", mods: ["arrow.rs"], role: "Arrow C Data 接口的 FFI 结构体；arrow.rs 在这里用 unsafe 把胶囊转成 RecordBatch 再转回去。", page: null },
 ];
 const MODULES = [
-  { id: "lib.rs", sub: "Portfolio · from_signals · from_orders", blurb: "2,601 行。PyPortfolio（拥有收盘价副本、记录、Cache、last_state，有回调时还有 in_outputs；to_bytes / from_bytes）、两个模拟入口和它们共用的 signals_run / orders_run / finished、account_inputs / deposits_view / market_optional 这些形状规则、orders_dict / cash_dict，以及模块注册。" },
+  { id: "lib.rs", sub: "Portfolio · from_signals · from_orders", blurb: "2,954 行。PyPortfolio（拥有收盘价副本、记录、Cache、last_state，有回调时还有 in_outputs；to_bytes / from_bytes；126d8da 加了 close / column_map / init_cash / scoring 四个只读属性、from_records、drawdowns、rolling、stats 的 high / low）、两个模拟入口和它们共用的 signals_run / orders_run / finished、account_inputs / deposits_view / market_optional 这些形状规则、orders_dict / cash_dict，以及模块注册。" },
   { id: "array.rs", sub: "columns_of · Borrowed · OneDim", blurb: "NumPy → FlexArray。按 stride 拒绝 C 序，拒绝不连续与整数数组；一维数组的含义由调用者用 OneDim 声明；None → 引擎默认值。" },
   { id: "params.rs", sub: "Shared（14 个共用参数）", blurb: "from_signals 与 from_orders 共用的 14 个可选参数，一次借完；wants_logs 判断要不要走带日志的入口（标量 false 走不带日志的）。" },
   { id: "parse.rs", sub: "字符串 → 枚举", blurb: "size_type / direction / accumulate / trades 的映射。返回 Result<_, String>，所以不用 Python 解释器就能测；测试逐个变体写出。" },
   { id: "callbacks.rs", sub: "Context · PyCallbacks · PyOrderFunc", blurb: "Python 回调，直接调用：每次调用拿一次 GIL。PyContext（phasor.Context）是一根 K 线的账户快照；PyCallbacks 按钩子名存函数，实现 SignalFunc；PyOrderFunc&lt;FLEX&gt; 实现 OrderFunc。回调抛出的第一个异常存下来，运行结束后原样抛给调用方。" },
-  { id: "expr.rs", sub: "_FactorSet · crossed_above", blurb: "因子表达式的绑定：compile、names、required_fields、uses_future、evaluate；alpha158()、alpha360()；crossed_above。" },
+  { id: "expr.rs", sub: "_FactorSet · crossed_above", blurb: "因子表达式的绑定：compile、names、required_fields、uses_future、evaluate、evaluate_batches；alpha158()、alpha360()、wq101(all)、wq101_formula(k)；crossed_above。" },
   { id: "data.rs", sub: "InstrumentId · BarType · load_data", blurb: "数据层：标识类型、DecodeContext、_Dataset（prepare / batches / align）、catalog_files、load_data。" },
   { id: "arrow.rs", sub: "Arrow C Data（唯一的 unsafe）", blurb: "只接受具体的 pyarrow.Schema / RecordBatch；导入时搬走数组所有权并清空胶囊，导出时用 _import_from_c_capsule。" },
+  { id: "indicators.rs", sub: "ind_* · _IndicatorStream", blurb: "419 行。八个指标各一个 ind_ 函数：每个参数一个等长列表（same_len 检查），py.detach 里调批量函数，返回 {outputs, columns}——每个输出一个 (n_rows, 组合数 × 输入列数) 的数组，columns 是每层标签。PyStream（phasor._phasor._IndicatorStream）每列一个 Stream，update 一次给每列一根。" },
+  { id: "signal_fns.rs", sub: "sig_*", blurb: "205 行。布尔数组进、布尔或整数数组出：clean、exit_after、exit_on（until 选 ExitWindow）、ranges（返回记录 dict，带 duration）、rank（partition 选 partition_rank）、nth_index、normalized_average_index。" },
+  { id: "returns_fns.rs", sub: "ret_* · scalar · rolling · drawdowns_dict", blurb: "275 行。SOLO（12 个只读序列的指标）和 PAIRED（6 个要基准的）两张名单；scalar / rolling 按名字分派到 phasor-analysis；drawdowns_dict 把回撤记录和派生字段转成 dict。lib.rs 的 Portfolio.rolling、drawdowns 也调这里。" },
   { id: "resume.rs", sub: "SimState · Segment · 组合的字节", blurb: "362 行。PySimState（phasor.SimState）、resolve 把 resume 读成组合或状态、prior 检查 resume=pf 是这次运行的前半段（形状、分组、column_map、跑过的收盘价逐位相同）、PySegment（phasor.Segment）、组合的 to_bytes / from_bytes（魔数 PHPF）。" },
 ];
 const DOWN = [
-  { id: "phasor/__init__.py", sub: "from_signals · from_orders · from_order_func", uses: ["lib.rs", "expr.rs", "data.rs", "callbacks.rs", "resume.rs"], role: "1,725 行。_matrix / _param / _flag / _signals 把输入整理成扩展要的形状和布局；_price_option、_from_ago、_next_valid、_call_seq、_tiers；init_cash=\"auto\" 的两遍运行（_auto_cash）；FactorSet、Expression 包装；三个入口的长文档，from_order_func 是带回调的 from_orders；resume= / row_offset= 和 _resume 的检查，save / load 把 pf.to_bytes() 写进文件、读回来。" },
+  { id: "phasor/__init__.py", sub: "from_signals · from_orders · from_order_func", uses: ["lib.rs", "expr.rs", "data.rs", "callbacks.rs", "resume.rs"], role: "1,803 行。_matrix / _param / _flag / _signals 把输入整理成扩展要的形状和布局；_price_option、_from_ago、_next_valid、_call_seq、_tiers；init_cash=\"auto\" 的两遍运行（_auto_cash）；FactorSet（含 evaluate_batches、to_parquet）、Expression 包装，alpha158 / alpha360 / wq101；三个入口的长文档，from_order_func 是带回调的 from_orders；resume= / row_offset= 和 _resume 的检查，save / load 把 pf.to_bytes() 写进文件、读回来。" },
   { id: "phasor/strategy.py", sub: "@strategy · factors · crossed_above", uses: ["expr.rs", "lib.rs"], role: "@strategy 给函数加 run / sweep：拼列、column_map 平铺、group_lens、signal_delay。factors() 拒绝用到未来数据的表达式。" },
   { id: "phasor/data.py", sub: "Source · Catalog · BarPanel", uses: ["data.rs"], role: "DataSchema、Source、Catalog、Dataset（asof / window）、BarPanel（drop_missing 只留每个品种都有 K 线的时刻）；加载显式、只读。" },
   { id: "phasor/resolution.py", sub: "align · resample", uses: [], role: "纯 NumPy：align 把粗周期的值放到它可用时刻当时或之后的第一根细 K 线上；resample 把细周期序列按 last / sum / compound 聚合回粗周期。" },
   { id: "phasor/sessions.py", sub: "session_mask · session_end", uses: [], role: "纯 NumPy 加 zoneinfo：按交易所时区的本地时刻判断交易时段，支持隔夜时段；session_end 是 force_exit 的掩码。" },
-  { id: "phasor/signals.py", sub: "random_* · generate_ohlc_stop_exits", uses: ["lib.rs"], role: "随机信号；generate_ohlc_stop_exits 不经模拟算出每个入场的止损出场、触发价和类型，参数和 from_signals 的止损一致，也支持阶梯、止损限价单和 delta_format；传 out={} 拿到每次出场平掉的份额 out[\"size\"]。" },
+  { id: "phasor/signals.py", sub: "clean · exits · ranges · rank · calendar", uses: ["lib.rs", "signal_fns.rs"], role: "清洗、生成出场、区间、排名（signal_fns.rs）；calendar 按日历周期取第几根，stats 是汇总表，random_like 是按列匹配的随机基线（纯 Python 加 random_n）；随机信号；generate_ohlc_stop_exits 不经模拟算出每个入场的止损出场、触发价和类型，参数和 from_signals 的止损一致，也支持阶梯、止损限价单和 delta_format；传 out={} 拿到每次出场平掉的份额 out[\"size\"]。" },
   { id: "phasor/validation.py", sub: "rolling · expanding · purged_kfold", uses: [], role: "345 行纯 NumPy：切分器只返回行号；walk_forward 在 train 上选、在 test 上报。" },
   { id: "phasor/_timing.py", sub: "duration_rows · deadline_rows", uses: [], role: "time_delta_format=\"index\" 时把按时间给的 td_stop、dt_stop、limit_tif、limit_expiry 换算成引擎数的行；时长、时刻、周期末和每天的某个时刻。" },
   { id: "phasor/futures.py", sub: "roll_by_* · continuous · CONTRACTS", uses: [], role: "纯 NumPy：每根持有哪个合约（按成交量或到期日）、换月的 K 线、差值或比例复权的连续序列；常用合约的乘数和最小变动价位，spec_params。" },
   { id: "phasor/fx.py", sub: "convert · cross", uses: [], role: "纯 NumPy：按每根 K 线的汇率把价格换成账户货币，以及经第三种货币求交叉汇率。" },
+  { id: "phasor/indicators.py", sub: "ma … obv · Factory · Stream", uses: ["indicators.rs"], role: "375 行。_grid 生成参数组合（默认乘积，product=False 逐位配对），调 ind_*，包成 IndicatorResult（outputs、columns、select、params）；IndicatorFactory 让任意 Python 函数按同样的布局扫描；from_talib / from_pandas_ta / from_ta / from_smc 用到时才导入；Stream 包住 _IndicatorStream 并补齐默认参数。" },
+  { id: "phasor/returns.py", sub: "metric · rolling · drawdowns · stats", uses: ["returns_fns.rs"], role: "114 行。任何来源的收益序列（一维或 (bars, columns)），用和 Portfolio 同一份 Rust 指标；value 复利出净值，drawdowns 在净值上找回撤；1-D 的基准给每一列用。" },
+  { id: "phasor/portfolios.py", sub: "select · column_stack · row_slice · resample", uses: ["lib.rs"], role: "212 行。全部是“改记录、再用 Portfolio.from_records 建一次”：按账户选、并排拼、按行切（切点之前的持仓变成初始持仓）、换到粗周期。日志不带过去。" },
+  { id: "phasor/patterns.py", sub: "search · signals", uses: [], role: "108 行纯 NumPy：滑动窗口和形态都缩放到 0..1（或 z-score），相似度 = 1 − 平均绝对差；默认不重叠，贪心保留最相似的；signals 在形态完成后的那一根给信号。" },
+  { id: "phasor/labels.py · predictions.py", sub: "mean_labels · backtest · compare", uses: ["lib.rs"], role: "mean_labels 是纯 NumPy 的均值标签（往前看 wait + window − 1 根）；predictions.backtest 把模型预测按阈值变成信号跑 from_signals，同时跑一直持有和 random_like(keep=\"gaps\") 的基线；compare 并排列指标。" },
+  { id: "phasor/frames.py · plotting.py", sub: "pandas · Plotly（可选）", uses: ["lib.rs"], role: "frames 把记录、净值、收益、stats 转成 pandas；plotting 画净值与回撤、成交标记、最深的几次回撤、滚动指标。pandas、plotly 都在用到时才导入，对应 extras phasor[pandas]、phasor[plot]。" },
   { id: "phasor/stepper.py", sub: "Stepper · propose · commit", uses: ["lib.rs", "resume.rs"], role: "220 行。每根跑一次 from_orders(resume=上一根的状态, row_offset=)，只带这一根和回看的几根；commit 按券商回报重跑这一根，reconcile 对账；读 Segment 的 orders / cash_records / last_state 和 SimState 的 position / cash。" },
 ];
 const depSvg = document.getElementById("dep-graph"), detail = document.getElementById("detail");
@@ -718,7 +760,7 @@ function nodeBox(id) {
   if (ui >= 0) return { x: 16, y: 30 + ui * 46, w: 220, h: 40 };
   const mi = MODULES.findIndex((m) => m.id === id);
   if (mi >= 0) return { x: 330, y: 44 + mi * 49, w: 290, h: 42 };
-  const di = DOWN.findIndex((d) => d.id === id), step = Math.min(96, 456 / DOWN.length);
+  const di = DOWN.findIndex((d) => d.id === id), step = Math.min(96, 800 / DOWN.length);
   return { x: 760, y: 40 + di * step, w: 264, h: Math.min(60, step - 6) };
 }
 function edgeList() { const e = []; for (const u of UP) for (const m of u.mods) e.push({ from: u.id, to: m, color: "#8a8a8a", up: u.id, mod: m }); for (const d of DOWN) for (const m of d.uses) e.push({ from: m, to: d.id, color: COLORS[m], mod: m }); return e; }
@@ -729,7 +771,7 @@ function applyFocus(f) {
   for (const b of document.querySelectorAll("#legend button")) b.classList.toggle("on", Boolean(f && f.kind === "mod" && b.dataset.id === f.id));
 }
 function buildGraph() {
-  depSvg.appendChild(svgEl("rect", { x: 314, y: 12, width: 322, height: 476, rx: 10, fill: "#181818", stroke: "#303030" }));
+  depSvg.appendChild(svgEl("rect", { x: 314, y: 12, width: 322, height: 630, rx: 10, fill: "#181818", stroke: "#303030" }));
   depSvg.appendChild(svgEl("text", { x: 475, y: 32, "text-anchor": "middle", "font-size": 12, "font-weight": 650, fill: "#f0f0f0" })).textContent = "phasor._phasor（Rust）";
   depSvg.appendChild(svgEl("text", { x: 126, y: 24, "text-anchor": "middle", "font-size": 10, fill: "#909090" })).textContent = "引擎 crate";
   depSvg.appendChild(svgEl("text", { x: 892, y: 30, "text-anchor": "middle", "font-size": 10, fill: "#909090" })).textContent = "Python 壳（python/phasor/）";
@@ -1028,7 +1070,7 @@ function enRender() {
   if (enParam === "accumulate" && enLoop === "from_orders") { out.innerHTML = `<div class="verdict bad">from_orders 没有 accumulate 参数。</div>`; return; }
   const r = parseEnum(enParam, w, enLoop);
   out.innerHTML = r.ok ? `<div class="verdict good"><code>${esc(enParam)}=${esc(JSON.stringify(w))}</code> → <b>${esc(r.value)}</b></div>` : `<div class="verdict bad">ValueError<br><span class="msg">${esc(r.msg)}</span></div>`;
-  document.getElementById("en-foot").innerHTML = `接受的拼写：<code>${EN_ACCEPT[enParam]}</code>。试试 <code>Amount</code>、<code>long</code>、<code>exits</code>、在 from_signals 下的 <code>targetpercent</code>。`;
+  document.getElementById("en-foot").innerHTML = `接受的拼写：<code>${EN_ACCEPT[enParam]}</code>。试试 <code>Amount</code>、<code>long</code>、<code>exits</code>、<code>targetpercent</code>（两个循环都接受）。`;
 }
 
 /* ---------------- guards ---------------- */
@@ -1038,7 +1080,6 @@ const GUARDS = [
   ["整数数组（直接调扩展）", G_MSG.int, "当成 float 读必须复制；壳会替你转换（看得见的复制），扩展不会"],
   ["close 不是二维（直接调扩展）", G_MSG.close, "close 决定运行的形状，其他参数都按它检查；不能从“先到的那个数组”推断"],
   ["止损止盈没有 high / low", G_MSG.stop, "<b>这条的理由不成立。</b>引擎在 open / high / low 缺失时用收盘价重建（open = close，low = min(open, close)，high = max），注释写明“so a close-only series still tests stops”（phasor-sim <code>from_signals.rs</code>）。实测：Rust 测试 <code>continuous_entry_condition_can_reenter_after_a_stop</code> 只给收盘价，成交在第 0、1、2 根（进场、止损、再进场）；Python 传 <code>high=close, low=close</code> 得到同样的 [0, 1, 2]。被拒绝的是一个引擎能正确执行的运行"],
-  ["from_signals 用目标 size type", G_MSG.target, "目标仓位对信号是含糊的；参考实现拒绝同样三种"],
   ["group_lens 但没开 cash_sharing", G_MSG.lens, "分组只对共享资金有意义；悄悄忽略会让人以为账户被分了组"],
   ["共享时 init_cash 是矩阵", G_MSG.share_cash, "共享账户每组一笔起始资金；矩阵的含义说不清"],
   ["共享时 cash_deposits 形状不对", G_MSG.share_dep, "入金按组记一次（从组的第一列）；(T, C) 的矩阵会让同一组的几列给出互相矛盾的入金"],
