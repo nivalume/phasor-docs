@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>phasor wiki</title>
+<style>
+  :root {
+    --bg: #1e1e1e;
+    --chrome: #181818;
+    --elev: #262626;
+    --text: #f0f0f0;
+    --secondary: #b8b8b8;
+    --muted: #909090;
+    --stroke: #303030;
+    --stroke2: #3d3d3d;
+    --fill: #2b2b2b;
+    --accent: #3a7afe;
+    --up: #5ea0ff;
+    --down: #e07a3d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    line-height: 1.55;
+    font-size: 14px;
+  }
+  a { color: #8eb6ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  header.top {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; gap: 16px; align-items: center;
+    padding: 10px 22px; background: var(--chrome); border-bottom: 1px solid var(--stroke); font-size: 13px;
+  }
+  header.top strong { font-size: 14px; }
+  header.top nav { display: flex; gap: 14px; margin-left: auto; flex-wrap: wrap; }
+  header.top nav a { color: var(--secondary); }
+  header.top nav a.sep { color: var(--muted); }
+  main { max-width: 1080px; margin: 0 auto; padding: 32px 22px 80px; }
+  .kicker { color: var(--accent); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; margin: 0 0 4px; }
+  h1 { font-size: 26px; line-height: 32px; font-weight: 600; margin: 0 0 8px; }
+  h2 { font-size: 18px; line-height: 24px; font-weight: 600; margin: 36px 0 10px; }
+  h3 { font-size: 15px; font-weight: 600; margin: 18px 0 4px; }
+  p { margin: 0 0 10px; }
+  .muted { color: var(--secondary); }
+  .small { color: var(--muted); font-size: 12px; line-height: 16px; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 18px 0 8px; }
+  .stat { border: 1px solid var(--stroke); border-radius: 8px; padding: 12px 14px; background: var(--elev); }
+  .stat b { display: block; font-size: 20px; font-weight: 650; margin-bottom: 2px; }
+  .stat span { color: var(--muted); font-size: 12px; }
+  .panel { border: 1px solid var(--stroke); border-radius: 8px; overflow: hidden; margin: 12px 0; }
+  .panel .cap { padding: 8px 12px; background: #242424; border-bottom: 1px solid var(--stroke); font-size: 12px; font-weight: 600; }
+  .panel .body { padding: 12px; background: var(--bg); overflow-x: auto; }
+  .panel .body > svg { max-width: 100%; height: auto; display: block; }
+  .panel .foot { padding: 8px 12px; border-top: 1px solid var(--stroke); }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; align-items: center; }
+  .seg .lbl { color: var(--muted); font-size: 12px; margin-right: 2px; }
+  .seg button, .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--stroke2); background: transparent; color: var(--secondary);
+    border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; font-family: inherit;
+  }
+  .seg button.on { color: var(--text); background: var(--fill); border-color: #5a5a5a; }
+  .dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+  .detail { min-height: 96px; border: 1px solid var(--stroke); border-radius: 8px; padding: 12px 14px; background: var(--elev); }
+  .detail h3 { margin: 0 0 4px; }
+  .uses { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; vertical-align: top; border-top: 1px solid var(--stroke); }
+  th { color: var(--text); font-weight: 600; background: var(--elev); border-top: none; }
+  td { color: var(--secondary); }
+  .wrap { border: 1px solid var(--stroke); border-radius: 6px; overflow: hidden; overflow-x: auto; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  svg text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; }
+  svg a:hover rect { filter: brightness(1.25); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  a.card {
+    display: block; text-decoration: none; color: inherit;
+    border: 1px solid var(--stroke); border-radius: 8px; padding: 14px 16px; background: var(--chrome);
+  }
+  a.card:hover { border-color: #4a4a4a; }
+  a.card strong { display: block; font-size: 15px; margin-bottom: 4px; }
+  a.card .lvl { float: right; color: var(--muted); font-size: 11px; }
+  a.card span.d { color: var(--muted); font-size: 13px; }
+  .card.off { border: 1px dashed var(--stroke2); border-radius: 8px; padding: 14px 16px; background: transparent; color: var(--muted); font-size: 13px; }
+  .note { border-left: 3px solid var(--accent); background: #242424; border-radius: 6px; padding: 10px 12px; color: var(--secondary); font-size: 13px; margin: 10px 0; }
+  ol.path { margin: 6px 0 0; padding-left: 22px; }
+  ol.path li { color: var(--secondary); margin: 0 0 6px; }
+  ol.path li b { color: var(--text); }
+  .yes { color: #4caf7a; }
+  @media (max-width: 860px) {
+    .stats, .grid2, .cards { grid-template-columns: 1fr; }
+    main { padding: 20px 16px 60px; }
+    header.top { padding: 10px 16px; flex-wrap: wrap; }
+  }
+</style>
+<style id="toc-style">
+  :root { --toc-w: 248px; --hh: 45px; }
+  header.top { gap: 12px; }
+  header.top .toc-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid var(--stroke2, #3d3d3d); color: var(--secondary, #b8b8b8); border-radius: 6px; padding: 3px 9px; font: inherit; font-size: 12px; cursor: pointer; }
+  header.top .toc-btn:hover { color: var(--text, #f0f0f0); }
+  header.top .crumb { color: var(--muted, #909090); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header.top .crumb b { color: var(--secondary, #b8b8b8); font-weight: 500; }
+  aside.toc { position: fixed; z-index: 4; top: var(--hh); left: 0; bottom: 0; width: var(--toc-w); overflow-y: auto; background: var(--chrome, #181818); border-right: 1px solid var(--stroke, #303030); padding: 14px 10px 48px; font-size: 13px; line-height: 1.45; }
+  aside.toc .grp { margin: 0 0 12px; }
+  aside.toc .gh { color: var(--muted, #909090); font-size: 11px; letter-spacing: .02em; padding: 0 8px 3px; }
+  aside.toc ul { list-style: none; margin: 0; padding: 0; }
+  aside.toc a.pg, aside.toc span.pg { display: block; padding: 3px 8px; border-radius: 5px; color: var(--secondary, #b8b8b8); }
+  aside.toc a.pg:hover { background: #242424; text-decoration: none; color: var(--text, #f0f0f0); }
+  aside.toc span.pg { color: #6a6a6a; }
+  aside.toc span.pg small { font-size: 10px; margin-left: 4px; }
+  aside.toc a.pg small { font-size: 10px; margin-left: 4px; color: #6a6a6a; }
+  aside.toc li.cur > a.pg { color: var(--text, #f0f0f0); background: #262c3a; font-weight: 600; }
+  aside.toc ol.sec { list-style: none; margin: 3px 0 6px 10px; padding: 0 0 0 8px; border-left: 1px solid var(--stroke2, #3d3d3d); }
+  aside.toc ol.sec a { display: block; padding: 2px 8px; border-radius: 4px; color: var(--muted, #909090); font-size: 12px; }
+  aside.toc ol.sec a:hover { color: var(--text, #f0f0f0); text-decoration: none; }
+  aside.toc ol.sec a.on { color: #8eb6ff; background: #1f2633; }
+  [id] { scroll-margin-top: calc(var(--hh) + 12px); }
+  @media (min-width: 1240px) {
+    body:not(.toc-closed) { padding-left: var(--toc-w); }
+    body.toc-closed aside.toc { display: none; }
+  }
+  @media (max-width: 1239px) {
+    aside.toc { transform: translateX(-100%); transition: transform .18s ease; box-shadow: none; }
+    body.toc-open aside.toc { transform: none; box-shadow: 8px 0 24px rgba(0,0,0,.45); }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <button type="button" class="toc-btn" id="toc-btn" aria-controls="toc">☰ 目录</button>
+  <strong>phasor wiki</strong>
+  <span class="crumb">总览 · <b>wiki 首页</b></span>
+</header>
+<aside class="toc" id="toc" aria-label="目录">
+  <div class="grp"><div class="gh">总览</div><ul><li class="cur"><a class="pg" href="index.html" aria-current="page">wiki 首页</a><ol class="sec" data-sec="arch:总体架构|crates:模块关系|docs:文档层次|pages:页面"><li><a href="#arch">总体架构</a></li><li><a href="#crates">模块关系</a></li><li><a href="#docs">文档层次</a></li><li><a href="#pages">页面</a></li></ol></li><li><a class="pg" href="architecture.html">系统架构</a></li></ul></div>
+  <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
+  <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
+  <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><a class="pg" href="architecture.html#data">phasor-data<small>见架构页</small></a></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
+  <div class="grp"><div class="gh">L3 · 记录</div><ul><li><a class="pg" href="phasor-records.html">phasor-records</a></li></ul></div>
+  <div class="grp"><div class="gh">L4 · 模拟</div><ul><li><a class="pg" href="phasor-sim.html">phasor-sim</a></li></ul></div>
+  <div class="grp"><div class="gh">L5 · 分析</div><ul><li><a class="pg" href="phasor-analysis.html">phasor-analysis</a></li></ul></div>
+  <div class="grp"><div class="gh">L6 · 门面</div><ul><li><a class="pg" href="phasor-py.html">phasor-py</a></li><li><a class="pg" href="phasor.html">phasor（门面）</a></li></ul></div>
+</aside>
+<main>
+  <p class="kicker">PHASOR</p>
+  <h1>设计文档</h1>
+  <p class="muted">
+    phasor 是一个并行、因子驱动的向量化回测引擎：Rust 内核，Python 包。这里是它的 wiki 入口——先用一张图看清数据怎么流过整个引擎，
+    再看 13 个 crate 谁依赖谁，最后看这些文档本身怎么分层、该按什么顺序读。所有页面都是独立的 HTML，用浏览器直接打开。
+  </p>
+  <div class="stats">
+    <div class="stat"><b>13 个 crate</b><span>7 层：地基 → 领域与数组 → 内核与数据 → 记录 → 模拟 → 分析 → 门面</span></div>
+    <div class="stat"><b>约 4.8 万行 Rust</b><span>各 crate <code>src/</code> 合计（1d573df）；最大的是 phasor-sim（12,694 行）</span></div>
+    <div class="stat"><b>向量化执行</b><span>逐列逐根 K 线的模拟循环，账户组之间并行；串行与多线程结果逐位相同</span></div>
+    <div class="stat"><b>架构页 + 12 个 crate 页</b><span><a href="architecture.html">系统架构</a>讲整体；phasor-data 很小，写在架构页的<a href="architecture.html#data">数据一节</a></span></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="arch">总体架构</h2>
+  <p>
+    每个箭头都是对内存数组的一次函数调用，阶段之间没有 dataframe。因子是 <code>Matrix</code>，参数通过 <code>FlexArray</code> 借用，记录是数组结构体。
+    两条模拟循环<b>共用</b>撮合内核 <code>phasor_exec::execute_order</code> 和 <code>RecordSink</code>，分析层只从记录重建，所以只写一次。
+    蓝色描边的框有独立页面，点击即可打开。更细的分层、数据模型、执行内核、确定性和测试见 <a href="architecture.html">系统架构</a>。
+  </p>
+  <div class="panel">
+    <div class="cap">流水线（中）、地基（底）与门面（上）</div>
+    <div class="body">
+      <svg width="1080" height="470" viewBox="0 0 1080 470" role="img" aria-label="phasor 总体架构">
+        <defs>
+          <marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a8a8a" /></marker>
+          <marker id="ab" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5ea0ff" /></marker>
+        </defs>
+        <g font-size="11">
+          <!-- facade band -->
+          <text x="16" y="18" fill="#909090">门面与 Python</text>
+          <a href="phasor-py.html">
+            <rect x="16" y="26" width="330" height="58" rx="6" fill="#262626" stroke="#5ea0ff"/>
+            <text x="181" y="50" text-anchor="middle" font-weight="600" fill="#f0f0f0">Python 包 phasor（phasor-py）</text>
+            <text x="181" y="68" text-anchor="middle" font-size="10" fill="#909090">PyO3 + numpy；F 序 float64 借给 Rust，其余先转换</text>
+          </a>
+          <a href="phasor.html">
+            <rect x="362" y="26" width="330" height="58" rx="6" fill="#262626" stroke="#5ea0ff"/>
+            <text x="527" y="50" text-anchor="middle" font-weight="600" fill="#f0f0f0">门面 crate phasor</text>
+            <text x="527" y="68" text-anchor="middle" font-size="10" fill="#909090">再导出全部 crate · prelude · SignalSweep</text>
+          </a>
+          <rect x="708" y="26" width="356" height="58" rx="6" fill="#262626" stroke="#3d3d3d" stroke-dasharray="4 3"/>
+          <text x="886" y="50" text-anchor="middle" font-weight="600" fill="#f0f0f0">研究层 research/phasor_lab</text>
+          <text x="886" y="68" text-anchor="middle" font-size="10" fill="#909090">评估框架，经 Python 包调用引擎</text>
+
+          <!-- pipeline -->
+          <text x="16" y="122" fill="#909090">向量化流水线</text>
+          <rect x="16" y="132" width="112" height="96" rx="6" fill="#181818" stroke="#3d3d3d"/>
+          <text x="72" y="166" text-anchor="middle" font-weight="600" fill="#f0f0f0">本地文件</text>
+          <text x="72" y="184" text-anchor="middle" font-size="10" fill="#909090">CSV / Parquet</text>
+          <text x="72" y="198" text-anchor="middle" font-size="10" fill="#909090">catalog 目录</text>
+          <text x="72" y="216" text-anchor="middle" font-size="9" fill="#666">下载代码在 examples/</text>
+
+          <rect x="146" y="132" width="124" height="96" rx="6" fill="#262626" stroke="#3d3d3d"/>
+          <text x="208" y="160" text-anchor="middle" font-weight="600" fill="#f0f0f0">phasor-data</text>
+          <text x="208" y="178" text-anchor="middle" font-size="10" fill="#909090">→ Arrow → 面板</text>
+          <text x="208" y="192" text-anchor="middle" font-size="10" fill="#909090">按时点对齐辅助数据</text>
+          <text x="208" y="212" text-anchor="middle" font-size="10" fill="#9ec1ff">OhlcvPanel [T × S]</text>
+
+          <a href="phasor-expr.html">
+            <rect x="288" y="132" width="170" height="44" rx="6" fill="#262626" stroke="#5ea0ff"/>
+            <text x="373" y="151" text-anchor="middle" font-weight="600" fill="#f0f0f0">phasor-expr</text>
+            <text x="373" y="166" text-anchor="middle" font-size="10" fill="#909090">表达式 DSL · 截面 · Alpha158/360 · WQ101</text>
+          </a>
+          <a href="phasor-indicators.html">
+            <rect x="288" y="184" width="170" height="44" rx="6" fill="#262626" stroke="#5ea0ff"/>
+            <text x="373" y="203" text-anchor="middle" font-weight="600" fill="#f0f0f0">phasor-indicators</text>
+            <text x="373" y="218" text-anchor="middle" font-size="10" fill="#909090">MA · RSI · MACD … + 参数扫描 + 流式</text>
+          </a>
+
+          <a href="phasor-signals.html">
+            <rect x="476" y="132" width="140" height="96" rx="6" fill="#262626" stroke="#5ea0ff"/>
+            <text x="546" y="160" text-anchor="middle" font-weight="600" fill="#f0f0f0">phasor-signals</text>
+            <text x="546" y="178" text-anchor="middle" font-size="10" fill="#909090">清洗 · 生成出场</text>
+            <text x="546" y="192" text-anchor="middle" font-size="10" fill="#909090">排名 · 区间 · 随机</text>
+            <text x="546" y="212" text-anchor="middle" font-size="10" fill="#9ec1ff">+ SignalSweep（门面）</text>
+          </a>
+
+          <a href="phasor-sim.html">
+            <rect x="634" y="132" width="160" height="96" rx="6" fill="#262626" stroke="#5ea0ff"/>
+            <text x="714" y="154" text-anchor="middle" font-weight="600" fill="#f0f0f0">phasor-sim</text>
+            <text x="714" y="170" text-anchor="middle" font-size="10" fill="#909090">from_orders · from_signals</text>
+            <text x="714" y="184" text-anchor="middle" font-size="10" fill="#909090">止损 · 分组 · 共享现金</text>
+          </a>
+          <a href="phasor-exec.html">
+            <rect x="648" y="192" width="132" height="28" rx="5" fill="#33200f" stroke="#5ea0ff"/>
+            <text x="714" y="210" text-anchor="middle" font-size="10" font-weight="600" fill="#f0f0f0">phasor-exec 内核</text>
+          </a>
+
+          <a href="phasor-records.html">
+            <rect x="812" y="132" width="120" height="96" rx="6" fill="#262626" stroke="#5ea0ff"/>
+            <text x="872" y="160" text-anchor="middle" font-weight="600" fill="#f0f0f0">phasor-records</text>
+            <text x="872" y="178" text-anchor="middle" font-size="10" fill="#909090">RecordSink</text>
+            <text x="872" y="192" text-anchor="middle" font-size="10" fill="#909090">订单 · 日志 · 交易</text>
+            <text x="872" y="206" text-anchor="middle" font-size="10" fill="#909090">回撤 · MAE/MFE</text>
+          </a>
+
+          <a href="phasor-analysis.html">
+            <rect x="950" y="132" width="114" height="96" rx="6" fill="#262626" stroke="#5ea0ff"/>
+            <text x="1007" y="160" text-anchor="middle" font-weight="600" fill="#f0f0f0">phasor-analysis</text>
+            <text x="1007" y="178" text-anchor="middle" font-size="10" fill="#909090">Portfolio</text>
+            <text x="1007" y="192" text-anchor="middle" font-size="10" fill="#909090">净值 · 指标 · 统计</text>
+            <text x="1007" y="206" text-anchor="middle" font-size="10" fill="#909090">group_by 汇总</text>
+          </a>
+
+          <!-- edge labels -->
+          <text x="137" y="124" text-anchor="middle" font-size="9" fill="#666">读</text>
+          <text x="279" y="124" text-anchor="middle" font-size="9" fill="#666">面板</text>
+          <text x="467" y="124" text-anchor="middle" font-size="9" fill="#666">Matrix</text>
+          <text x="625" y="124" text-anchor="middle" font-size="9" fill="#666">bool</text>
+          <text x="803" y="124" text-anchor="middle" font-size="9" fill="#666">记录</text>
+          <text x="941" y="124" text-anchor="middle" font-size="9" fill="#666">记录</text>
+
+          <!-- generic under factors -->
+          <a href="phasor-generic.html">
+            <rect x="288" y="244" width="170" height="40" rx="6" fill="#262626" stroke="#5ea0ff"/>
+            <text x="373" y="262" text-anchor="middle" font-weight="600" fill="#f0f0f0">phasor-generic</text>
+            <text x="373" y="276" text-anchor="middle" font-size="10" fill="#909090">滚动 · 平移 · 填充 · 合成价格</text>
+          </a>
+
+          <!-- parallel notes -->
+          <text x="373" y="300" text-anchor="middle" font-size="10" fill="#8fe0d2">因子：按标的并行（rayon）</text>
+          <text x="714" y="244" text-anchor="middle" font-size="10" fill="#8fe0d2">模拟：按账户组并行</text>
+          <text x="714" y="258" text-anchor="middle" font-size="10" fill="#8fe0d2">（std::thread::scope）</text>
+
+
+          <!-- foundation -->
+          <text x="16" y="342" fill="#909090">地基：每一层都站在上面</text>
+          <a href="phasor-core.html">
+            <rect x="16" y="352" width="520" height="62" rx="6" fill="#182238" stroke="#5ea0ff"/>
+            <text x="276" y="376" text-anchor="middle" font-weight="600" fill="#f0f0f0">phasor-core</text>
+            <text x="276" y="394" text-anchor="middle" font-size="10" fill="#b8b8b8">Matrix（列主序）· FlexArray（零分配广播）· Columns（列标签）· math（容差）· Error</text>
+            <text x="276" y="407" text-anchor="middle" font-size="9" fill="#909090">0 个外部依赖</text>
+          </a>
+          <a href="phasor-model.html">
+            <rect x="552" y="352" width="512" height="62" rx="6" fill="#182238" stroke="#5ea0ff"/>
+            <text x="808" y="376" text-anchor="middle" font-weight="600" fill="#f0f0f0">phasor-model</text>
+            <text x="808" y="394" text-anchor="middle" font-size="10" fill="#b8b8b8">28 个 repr(i8) 撮合枚举 · InstrumentId · BarType · OhlcvPanel · Price / Quantity</text>
+            <text x="808" y="407" text-anchor="middle" font-size="9" fill="#909090">订单选项与结果的固定判别值 · 定点数与标识</text>
+          </a>
+          <text x="16" y="446" font-size="11" fill="#b8b8b8">唯一的例外：phasor-data 只依赖 phasor-model。库 crate 不下载、不写文件；串行与多线程结果逐位相同，随机数是 (seed, row, col) 的函数。</text>
+        </g>
+        <!-- pipeline arrows -->
+        <path d="M128 180 H146" stroke="#8a8a8a" marker-end="url(#a)"/>
+        <path d="M270 180 H288" stroke="#8a8a8a" marker-end="url(#a)"/>
+        <path d="M458 154 C 468 154, 466 170, 476 172" fill="none" stroke="#8a8a8a" marker-end="url(#a)"/>
+        <path d="M458 206 C 468 206, 466 190, 476 188" fill="none" stroke="#8a8a8a" marker-end="url(#a)"/>
+        <path d="M616 180 H634" stroke="#8a8a8a" marker-end="url(#a)"/>
+        <path d="M794 180 H812" stroke="#8a8a8a" marker-end="url(#a)"/>
+        <path d="M932 180 H950" stroke="#8a8a8a" marker-end="url(#a)"/>
+        <path d="M373 244 V228" stroke="#8a8a8a" stroke-dasharray="3 3" marker-end="url(#a)"/>
+        <!-- facade/python down -->
+        <path d="M181 84 V132" stroke="#8a8a8a" stroke-dasharray="3 3" marker-end="url(#a)"/>
+        <path d="M527 84 V132" stroke="#8a8a8a" stroke-dasharray="3 3" marker-end="url(#a)"/>
+        <path d="M708 55 H692" stroke="#8a8a8a" stroke-dasharray="3 3" marker-end="url(#a)"/>
+        <path d="M886 84 C 886 108, 1007 108, 1007 132" fill="none" stroke="#8a8a8a" stroke-dasharray="3 3" marker-end="url(#a)"/>
+        <!-- foundation up -->
+        <path d="M276 352 V326 H1007 V228" fill="none" stroke="#5ea0ff" stroke-opacity="0.35" stroke-dasharray="2 4"/>
+        <path d="M546 326 V228" stroke="#5ea0ff" stroke-opacity="0.35" stroke-dasharray="2 4"/>
+        <path d="M208 326 V228" stroke="#5ea0ff" stroke-opacity="0.35" stroke-dasharray="2 4"/>
+        <path d="M208 326 H276" stroke="#5ea0ff" stroke-opacity="0.35" stroke-dasharray="2 4"/>
+        <path d="M808 352 V326" stroke="#5ea0ff" stroke-opacity="0.35" stroke-dasharray="2 4"/>
+      </svg>
+    </div>
+    <div class="foot"><p class="small" style="margin:0">虚线箭头是调用关系（门面与 Python 包调用下面的 crate）；淡蓝虚线表示每个 crate 都站在地基上。</p></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="crates">模块关系图</h2>
+  <p>
+    13 个 crate 的 <code>[dependencies]</code>，从下往上分 7 层：每个 crate 只依赖比它低的层。把鼠标移到一个 crate 上，
+    <span style="color:var(--up)">蓝色</span>是它（直接或间接）依赖的，<span style="color:var(--down)">橙色</span>是依赖它的。点击固定，详情里有页面链接。
+  </p>
+  <div class="seg" id="g-mode"><span class="lbl">边</span></div>
+  <div class="panel">
+    <div class="cap" id="g-cap"></div>
+    <div class="body">
+      <svg id="crate-graph" width="1080" height="560" viewBox="0 0 1080 560" role="img" aria-label="crate 依赖图"></svg>
+    </div>
+    <div class="foot"><p class="small" style="margin:0">来源：各 crate 的 Cargo.toml。门面 phasor 对 phasor-data 的依赖在 <code>data</code> feature 之后（虚线）。行数是 <code>src/</code> 下 .rs 文件的合计（<code>wc -l</code>，1d573df）。</p></div>
+  </div>
+  <div class="detail" id="g-detail"></div>
+
+  <!-- ============================================================ -->
+  <h2 id="docs">文档的层次结构</h2>
+  <p>
+    文档按“离代码多远”分层：越往上越讲<b>为什么</b>，越往下越讲<b>在哪一行</b>。设计说明写在代码的模块注释（<code>//!</code>）里；架构页把整个系统串起来，crate 页把每个 crate 拆成可交互的页面；
+    外部知识库 nivalume/phasor-docs 逐行带读代码，并把每一处引用钉在同一个 commit 上。
+  </p>
+  <p class="small">
+    本站各页“源文件”表和正文里的代码链接都指向 phasor 的 <a href="https://github.com/nivalume/phasor/tree/1d573df0430fa5cd3a2416300603c7147f3c6a13">1d573df</a>，页面里写的行号（链接里的和纯文字的）都按这个提交核对过；
+    本页的行数统计也取自这个提交。代码改了以后，按新提交重新核对全部行号，再把所有链接里的提交号一起换掉。
+  </p>
+  <div class="panel">
+    <div class="cap">从入口到代码的五层；实线是推荐的阅读方向，虚线是“引用”</div>
+    <div class="body">
+      <svg width="1080" height="440" viewBox="0 0 1080 440" role="img" aria-label="文档层次结构">
+        <defs>
+          <marker id="d" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a8a8a" /></marker>
+        </defs>
+        <g font-size="11">
+          <!-- level labels -->
+          <text x="16" y="44" fill="#909090" font-weight="600">L0 入口</text>
+          <text x="16" y="124" fill="#909090" font-weight="600">L1 总览</text>
+          <text x="16" y="204" fill="#909090" font-weight="600">L2 架构</text>
+          <text x="16" y="284" fill="#909090" font-weight="600">L3 crate 页</text>
+          <text x="16" y="384" fill="#909090" font-weight="600">L4 代码</text>
+          <line x1="16" y1="78" x2="1064" y2="78" stroke="#262626"/>
+          <line x1="16" y1="158" x2="1064" y2="158" stroke="#262626"/>
+          <line x1="16" y1="238" x2="1064" y2="238" stroke="#262626"/>
+          <line x1="16" y1="336" x2="1064" y2="336" stroke="#262626"/>
+
+          <!-- L0 -->
+          <rect x="120" y="20" width="200" height="46" rx="6" fill="#262626" stroke="#3d3d3d"/>
+          <text x="220" y="40" text-anchor="middle" font-weight="600" fill="#f0f0f0">README.md</text>
+          <text x="220" y="56" text-anchor="middle" font-size="10" fill="#909090">是什么 · 快速开始</text>
+          <rect x="340" y="20" width="220" height="46" rx="6" fill="#262626" stroke="#3d3d3d"/>
+          <text x="450" y="40" text-anchor="middle" font-weight="600" fill="#f0f0f0">AGENTS.md / CLAUDE.md</text>
+          <text x="450" y="56" text-anchor="middle" font-size="10" fill="#909090">命令 · 容易破坏的规则</text>
+
+          <!-- L1 -->
+          <a href="index.html">
+            <rect x="120" y="94" width="300" height="52" rx="6" fill="#182238" stroke="#5ea0ff"/>
+            <text x="270" y="115" text-anchor="middle" font-weight="600" fill="#f0f0f0">index.html（本页）</text>
+            <text x="270" y="132" text-anchor="middle" font-size="10" fill="#9ec1ff">总体架构图 · 模块关系 · 文档层次</text>
+          </a>
+
+          <!-- L2 -->
+          <a href="architecture.html">
+            <rect x="120" y="174" width="220" height="52" rx="6" fill="#182238" stroke="#5ea0ff"/>
+            <text x="230" y="195" text-anchor="middle" font-weight="600" fill="#f0f0f0">architecture.html</text>
+            <text x="230" y="212" text-anchor="middle" font-size="10" fill="#9ec1ff">分层 · 数据模型 · 内核 · 确定性 · 测试</text>
+          </a>
+
+          <!-- L3 -->
+          <a href="phasor-core.html"><rect x="100" y="252" width="70" height="40" rx="6" fill="#182238" stroke="#5ea0ff"/><text x="135" y="276" text-anchor="middle" font-weight="600" font-size="7" fill="#f0f0f0">phasor-core</text></a>
+          <a href="phasor-model.html"><rect x="173" y="252" width="70" height="40" rx="6" fill="#182238" stroke="#5ea0ff"/><text x="208" y="276" text-anchor="middle" font-weight="600" font-size="7" fill="#f0f0f0">phasor-model</text></a>
+          <a href="phasor-generic.html"><rect x="246" y="252" width="70" height="40" rx="6" fill="#182238" stroke="#5ea0ff"/><text x="281" y="276" text-anchor="middle" font-weight="600" font-size="7" fill="#f0f0f0">phasor-generic</text></a>
+          <a href="phasor-signals.html"><rect x="319" y="252" width="70" height="40" rx="6" fill="#182238" stroke="#5ea0ff"/><text x="354" y="276" text-anchor="middle" font-weight="600" font-size="7" fill="#f0f0f0">phasor-signals</text></a>
+          <a href="phasor-exec.html"><rect x="392" y="252" width="70" height="40" rx="6" fill="#182238" stroke="#5ea0ff"/><text x="427" y="276" text-anchor="middle" font-weight="600" font-size="7" fill="#f0f0f0">phasor-exec</text></a>
+          <a href="phasor-expr.html"><rect x="465" y="252" width="70" height="40" rx="6" fill="#182238" stroke="#5ea0ff"/><text x="500" y="276" text-anchor="middle" font-weight="600" font-size="7" fill="#f0f0f0">phasor-expr</text></a>
+          <a href="phasor-indicators.html"><rect x="538" y="252" width="70" height="40" rx="6" fill="#182238" stroke="#5ea0ff"/><text x="573" y="276" text-anchor="middle" font-weight="600" font-size="7" fill="#f0f0f0">phasor-indicators</text></a>
+          <a href="phasor-records.html"><rect x="611" y="252" width="70" height="40" rx="6" fill="#182238" stroke="#5ea0ff"/><text x="646" y="276" text-anchor="middle" font-weight="600" font-size="7" fill="#f0f0f0">phasor-records</text></a>
+          <a href="phasor-sim.html"><rect x="684" y="252" width="70" height="40" rx="6" fill="#182238" stroke="#5ea0ff"/><text x="719" y="276" text-anchor="middle" font-weight="600" font-size="7" fill="#f0f0f0">phasor-sim</text></a>
+          <a href="phasor-analysis.html"><rect x="757" y="252" width="70" height="40" rx="6" fill="#182238" stroke="#5ea0ff"/><text x="792" y="276" text-anchor="middle" font-weight="600" font-size="7" fill="#f0f0f0">phasor-analysis</text></a>
+          <a href="phasor-py.html"><rect x="830" y="252" width="70" height="40" rx="6" fill="#182238" stroke="#5ea0ff"/><text x="865" y="276" text-anchor="middle" font-weight="600" font-size="7" fill="#f0f0f0">phasor-py</text></a>
+          <a href="phasor.html"><rect x="903" y="252" width="70" height="40" rx="6" fill="#182238" stroke="#5ea0ff"/><text x="938" y="276" text-anchor="middle" font-weight="600" font-size="7" fill="#f0f0f0">phasor</text></a>
+          <a href="architecture.html#data"><rect x="982" y="252" width="82" height="40" rx="6" fill="#1e1e1e" stroke="#3d3d3d" stroke-dasharray="4 3"/>
+          <text x="1023" y="268" text-anchor="middle" font-size="8.5" fill="#909090">phasor-data</text>
+          <text x="1023" y="282" text-anchor="middle" font-size="8.5" fill="#909090">见架构页</text></a>
+          <text x="120" y="312" font-size="10" fill="#909090">每页同一个骨架：第一性原理 → 依赖图 → 交互演示（JS 移植的真实算法）→ 类图 → 对照表 → 规则 → 源文件</text>
+          <text x="120" y="326" font-size="10" fill="#909090">按依赖顺序排列：core 是地基，model、generic、signals 只依赖 core，exec、expr、indicators 在第 2 层，sim 依赖 records 和 exec，analysis 之上是 Python 包和门面</text>
+
+          <!-- L4 -->
+          <rect x="120" y="356" width="300" height="52" rx="6" fill="#262626" stroke="#3d3d3d"/>
+          <text x="270" y="377" text-anchor="middle" font-weight="600" fill="#f0f0f0">crates/*/src · tests</text>
+          <text x="270" y="394" text-anchor="middle" font-size="10" fill="#909090">模块注释（//!）解释每个文件为什么存在</text>
+          <rect x="440" y="356" width="260" height="52" rx="6" fill="#262626" stroke="#3d3d3d"/>
+          <text x="570" y="377" text-anchor="middle" font-weight="600" fill="#f0f0f0">tests/fixtures/*.tsv</text>
+          <text x="570" y="394" text-anchor="middle" font-size="10" fill="#909090">黄金输出；不许为改动重新生成</text>
+          <a href="https://phasor-docs.vercel.app">
+            <rect x="760" y="356" width="304" height="52" rx="6" fill="#262626" stroke="#2fbfa8"/>
+            <text x="912" y="377" text-anchor="middle" font-weight="600" fill="#f0f0f0">知识库 nivalume/phasor-docs ↗</text>
+            <text x="912" y="394" text-anchor="middle" font-size="10" fill="#8fe0d2">怎么读代码（中文），行号钉在固定 commit</text>
+          </a>
+          <text x="120" y="432" font-size="10" fill="#666">改了某页描述的代码，就要同步改那一页；知识库每页源文件表的“行号对应”一行写着它钉住的 commit，换 commit 时重新核对全部行号。</text>
+        </g>
+        <path d="M220 66 V94" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M450 66 C 450 80, 300 80, 290 94" fill="none" stroke="#8a8a8a" stroke-dasharray="3 3" marker-end="url(#d)"/>
+        <path d="M230 146 V174" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M135 226 V252" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 208 240, 208 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 281 240, 281 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 354 240, 354 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 427 240, 427 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 500 240, 500 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 573 240, 573 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 646 240, 646 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 719 240, 719 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 792 240, 792 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 865 240, 865 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M230 226 C 230 240, 938 240, 938 252" fill="none" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M270 330 V356" stroke="#8a8a8a" marker-end="url(#d)"/>
+        <path d="M760 382 H700" stroke="#2fbfa8" stroke-dasharray="3 3" marker-end="url(#d)"/>
+        <path d="M912 356 C 912 340, 420 360, 420 380" fill="none" stroke="#2fbfa8" stroke-opacity="0.4" stroke-dasharray="3 3"/>
+      </svg>
+    </div>
+    <div class="foot"><p class="small" style="margin:0">绿色虚线：知识库直接引用代码行。</p></div>
+  </div>
+
+  <div class="grid2">
+    <div>
+      <h3>推荐阅读顺序</h3>
+      <ol class="path">
+        <li><b>README</b>：引擎是什么，怎么跑起来。</li>
+        <li><b>本页</b>：一张总图，一张依赖图。</li>
+        <li><b><a href="architecture.html">系统架构</a></b>：分层、数据模型、两条循环、记录、因子引擎、Python 层、确定性和测试，一页讲完。</li>
+        <li><b>crate 页，按依赖顺序</b>：<a href="phasor-core.html">core</a> → <a href="phasor-model.html">model</a> → <a href="phasor-generic.html">generic</a> → <a href="phasor-expr.html">expr</a> → <a href="phasor-indicators.html">indicators</a> → <a href="phasor-signals.html">signals</a> → <a href="phasor-exec.html">exec</a> → <a href="phasor-records.html">records</a> → <a href="phasor-sim.html">sim</a> → <a href="phasor-analysis.html">analysis</a> → <a href="phasor-py.html">py</a> → <a href="phasor.html">门面</a>。</li>
+        <li><b>知识库</b>：要改代码时，逐文件逐行读。</li>
+      </ol>
+    </div>
+    <div>
+      <h3>想知道……就去</h3>
+      <div class="wrap">
+        <table>
+          <tbody>
+            <tr><td>整个系统怎么分层、数据怎么流</td><td><a href="architecture.html">系统架构</a></td></tr>
+            <tr><td>串行和多线程为什么逐位相同</td><td><a href="architecture.html#determinism">架构 · 并行与确定性</a></td></tr>
+            <tr><td>行情文件怎么读进来、怎么按时点对齐</td><td><a href="architecture.html#data">架构 · 数据</a></td></tr>
+            <tr><td>为什么列主序、参数怎么不展开</td><td><a href="phasor-core.html#flex">core · FlexArray</a></td></tr>
+            <tr><td>均线前几根为什么是 NaN、NaN 怎么处理</td><td><a href="phasor-generic.html#rolling">generic · 滚动窗口</a></td></tr>
+            <tr><td>浮点比较为什么不能用 ==</td><td><a href="phasor-core.html#math">core · 容差</a></td></tr>
+            <tr><td>因子表达式怎么编译、为什么快</td><td><a href="phasor-expr.html#compiler">expr · 编译器</a></td></tr>
+            <tr><td>参数扫描怎么变成列、为什么一次调用</td><td><a href="phasor-indicators.html#sweep">indicators · 扫描布局</a></td></tr>
+            <tr><td>订单为什么被拒、原因码</td><td><a href="phasor-model.html#status">model · 拒单原因</a></td></tr>
+            <tr><td>一笔订单成交多少、手续费怎么算</td><td><a href="phasor-exec.html#sim">exec · 撮合模拟器</a></td></tr>
+            <tr><td>一根 K 线里模拟做了什么</td><td><a href="phasor-sim.html">phasor-sim</a></td></tr>
+            <tr><td>为什么没交易的列会排第一</td><td><a href="phasor-analysis.html#sweep">analysis · 扫描汇总</a></td></tr>
+            <tr><td>成交怎么变成交易</td><td><a href="phasor-records.html">phasor-records</a></td></tr>
+            <tr><td>信号怎么清洗、出场怎么生成</td><td><a href="phasor-signals.html">phasor-signals</a></td></tr>
+            <tr><td>NumPy 数组为什么要 F 序、参数传一维是什么意思</td><td><a href="phasor-py.html#routing">py · 参数路由</a></td></tr>
+            <tr><td>Rust 里一个因子怎么展开成参数 × 标的的信号列</td><td><a href="phasor.html#sweep">门面 · SignalSweep</a></td></tr>
+            <tr><td>不写回调也能按风险定仓、移到保本</td><td><a href="phasor-sim.html#builtin">sim · 内置回调</a></td></tr>
+            <tr><td>对任意函数扫参数、结果是不是运气</td><td><a href="phasor-py.html#params">py · 参数搜索</a>、<a href="phasor-py.html#validation">py · 检验</a></td></tr>
+            <tr><td>一次跑不下的长回测、分到多个进程</td><td><a href="phasor-py.html#scale">py · 分块与分布式</a></td></tr>
+            <tr><td>MCP 服务能读什么、不能读什么</td><td><a href="phasor-py.html#ai">py · 检索与 MCP</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <h3>每个 crate 的文档覆盖</h3>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>crate</th><th>层</th><th>职责</th><th>页面</th><th style="text-align:right">src 行数</th></tr></thead>
+      <tbody id="cov"></tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="pages">页面</h2>
+  <div class="cards">
+    <a class="card" href="architecture.html">
+      <span class="lvl">L2 · 架构</span><strong>系统架构</strong>
+      <span class="d">整个系统一页讲完：13 个 crate 的分层；列轴、列主序、FlexArray 和账户组；phasor-data 怎么读本地数据；撮合内核；两条模拟循环一根 K 线里的阶段、止损、限价单、保证金与强平、回调；记录为什么是唯一事实；状态快照与续跑；因子引擎从解析到分批输出；Python 层；并行与确定性；性能设计；测试策略。</span>
+    </a>
+    <a class="card" href="phasor-core.html">
+      <span class="lvl">L3 · 第 0 层</span><strong>phasor-core</strong>
+      <span class="d">地基。从“列是工作单位”推出列主序、广播和列标签；可以改参数的列轴、FlexArray、容差计算器和残差演示；类图与 11 个下游的用法。</span>
+    </a>
+    <a class="card" href="phasor-model.html">
+      <span class="lvl">L3 · 第 1 层</span><strong>phasor-model</strong>
+      <span class="d">领域模型。三类类型和它们的使用者；28 个枚举浏览器、拒单原因解码、InstrumentId / BarType 解析器、定点数比较的陷阱。</span>
+    </a>
+    <a class="card" href="phasor-generic.html">
+      <span class="lvl">L3 · 第 1 层</span><strong>phasor-generic</strong>
+      <span class="d">数组层。min_periods、NaN 缩小窗口、前瞻标注；滚动窗口实验台（含增量 vs 重算的逐位对比）、单调队列逐步演示、两种 EWM、平移填充的前瞻高亮、交叉状态机、可复现的 GBM。</span>
+    </a>
+    <a class="card" href="phasor-signals.html">
+      <span class="lvl">L3 · 第 1 层</span><strong>phasor-signals</strong>
+      <span class="d">信号层。状态与事件、出场窗口、零假设和标签；可以点格子的 clean_enex、出场生成、排名、区间演示，随机信号与四种标签的 JS 移植。</span>
+    </a>
+    <a class="card" href="phasor-exec.html">
+      <span class="lvl">L3 · 第 2 层</span><strong>phasor-exec</strong>
+      <span class="d">撮合内核。一次调用的八个阶段、数量换算链；可以改任意字段并串起来的 execute_order JS 移植（带执行轨迹）、空头账本、只差 1e-12 的容差边界、ValidatedOrder。</span>
+    </a>
+    <a class="card" href="phasor-expr.html">
+      <span class="lvl">L3 · 第 2 层</span><strong>phasor-expr</strong>
+      <span class="d">因子表达式。为什么要一门语言、为什么要编译；可以输入任意因子的编译器实验台（语法树、去重后的依赖图、槽位时间线、节点表）、合成面板上的求值、截面算子怎么把图切成阶段、分批输出与窄面板按因子并行、Alpha158 族浏览、WorldQuant 101 的翻译和并列标记、原生与 Polars 后端对比。</span>
+    </a>
+    <a class="card" href="phasor-indicators.html">
+      <span class="lvl">L3 · 第 2 层</span><strong>phasor-indicators</strong>
+      <span class="d">八个指标与参数扫描。参数 × 标的展平成一个列轴；可以改参数的扫描布局与缓存命中图、用 fixture 十种情形跑的指标实验台、RSI 100 / STOCH NaN 等退化读数；逐根更新、和批量逐位相同的流式指标。</span>
+    </a>
+    <a class="card" href="phasor-records.html">
+      <span class="lvl">L3 · 第 3 层</span><strong>phasor-records</strong>
+      <span class="d">记录层。八个模块与上下游；可以改成交的三种交易视图计算器、回撤和 MAE/MFE 演示；类图列出 sink、成交、日志和派生记录；分段运行的记录怎么拼成一次运行的顺序，记录的字节格式。</span>
+    </a>
+    <a class="card" href="phasor-sim.html">
+      <span class="lvl">L3 · 第 4 层</span><strong>phasor-sim</strong>
+      <span class="d">两条模拟循环。时间方向不能并行、共享资金把列变成组、先卖后买、止损替换信号；可以设定持仓和各种模式的信号管线、用 fixture 情形逐根重放的止损与 from_orders 实验台、两种调用顺序对照、按组切线程块；回调在一根 K 线里的位置和 row_wise；状态快照与续跑，任意切点分段和一次跑完逐位相同；内置回调（按风险定仓、移到保本、全局预算）；基准里按功能开关对照的负载。</span>
+    </a>
+    <a class="card" href="phasor-analysis.html">
+      <span class="lvl">L3 · 第 5 层</span><strong>phasor-analysis</strong>
+      <span class="d">分析层。只从记录重建；用 fixture 的 37 个情形逐格重放“订单 → 成交 → 净值 → 指标”、逐位一致的指标计算器、没交易的列为什么会赢、N 个噪声策略的最好夏普与 DSR、stats 表的标签筛选、按多空分开的 MAE / MFE。</span>
+    </a>
+    <a class="card" href="phasor-py.html">
+      <span class="lvl">L3 · 第 6 层</span><strong>phasor-py</strong>
+      <span class="d">Python 包。内存序为什么要靠 stride 拒绝、借用怎么跨过 FFI；110 格实测的参数路由表（10 类参数 × 11 种传法 × 两层）、调用生命周期与 GIL、Python 回调（from_order_func、signal_func）、续跑（resume=pf）、save / load 与逐根推进的 Stepper、扫描布局与 signal_delay、字符串枚举、交叉验证切分器与显著性检验、参数搜索、组合权重、研究工具（指标、信号、收益序列、组合切片与重采样、形态搜索）、按行分块与按列分布式运行和缓存、TOML 配置与 <code>phasor</code> 命令和定时任务、文档检索与 MCP 服务、期货与外汇的辅助模块；from_signals 的内置规则。</span>
+    </a>
+    <a class="card" href="phasor.html">
+      <span class="lvl">L3 · 第 6 层</span><strong>phasor（门面）</strong>
+      <span class="d">门面 crate。十一个短名重新导出、feature 门控、prelude 的 78 个名字与缺口；可以改因子和情形的 SignalSweep 实验台（400 例与 Rust 逐位一致）、expand 复制价格的代价、端到端例子的实测输出。</span>
+    </a>
+  </div>
+</main>
+
+<script>
+/* ---------------- crate data (Cargo.toml) ---------------- */
+const CRATES = {
+  "phasor-core": { layer: 0, x: 610, loc: 1435, deps: [], desc: "Matrix、FlexArray、列标签、浮点容差、Error；无外部依赖", page: "phasor-core.html" },
+  "phasor-model": { layer: 1, x: 400, loc: 1000, deps: ["phasor-core"], desc: "撮合枚举、id、BarType、OhlcvPanel、定点 Price / Quantity", page: "phasor-model.html" },
+  "phasor-generic": { layer: 1, x: 690, loc: 1715, deps: ["phasor-core"], desc: "滚动 / 扩展 / EWM 窗口、平移、填充、交叉；带种子的合成价格", page: "phasor-generic.html" },
+  "phasor-signals": { layer: 1, x: 950, loc: 2039, deps: ["phasor-core"], desc: "信号清洗、生成出场、排名、区间、随机信号、标签", page: "phasor-signals.html" },
+  "phasor-data": { layer: 2, x: 180, loc: 560, deps: ["phasor-model"], desc: "CSV / Parquet / catalog → Arrow → 面板，按时点对齐", page: null },
+  "phasor-exec": { layer: 2, x: 400, loc: 2482, deps: ["phasor-core", "phasor-model"], desc: "下单撮合内核，两条模拟循环、强平和初始持仓共用", page: "phasor-exec.html" },
+  "phasor-expr": { layer: 2, x: 660, loc: 5554, deps: ["phasor-core", "phasor-generic", "phasor-model"], desc: "表达式解析、图编译、截面算子分阶段执行、原生与 Polars 后端、Alpha158/360、WorldQuant 101", page: "phasor-expr.html" },
+  "phasor-indicators": { layer: 2, x: 890, loc: 1861, deps: ["phasor-core", "phasor-generic"], desc: "MA、MSTD、BBANDS、RSI、STOCH、MACD、ATR、OBV 及参数扫描、流式版本", page: "phasor-indicators.html" },
+  "phasor-records": { layer: 3, x: 400, loc: 5049, deps: ["phasor-core", "phasor-exec", "phasor-model"], desc: "记录格式、sink、成交、回撤、mapped array、分段拼接与字节格式", page: "phasor-records.html" },
+  "phasor-sim": { layer: 4, x: 470, loc: 12694, deps: ["phasor-core", "phasor-exec", "phasor-model", "phasor-records"], desc: "from_orders / from_signals 循环、回调与内置回调、止损止盈、分组、并行执行、状态快照与续跑", page: "phasor-sim.html" },
+  "phasor-analysis": { layer: 5, x: 610, loc: 5960, deps: ["phasor-core", "phasor-generic", "phasor-model", "phasor-records", "phasor-sim"], desc: "Portfolio、净值 / 收益链、指标、统计、汇总", page: "phasor-analysis.html" },
+  "phasor": { layer: 6, x: 470, loc: 361, deps: ["phasor-data", "phasor-analysis", "phasor-core", "phasor-exec", "phasor-generic", "phasor-indicators", "phasor-expr", "phasor-model", "phasor-records", "phasor-signals", "phasor-sim"], optional: ["phasor-data"], desc: "门面、prelude、SignalSweep；data feature 引入 phasor-data", page: "phasor.html" },
+  "phasor-py": { layer: 6, x: 770, loc: 7142, deps: ["phasor-data", "phasor-analysis", "phasor-core", "phasor-exec", "phasor-expr", "phasor-generic", "phasor-indicators", "phasor-model", "phasor-records", "phasor-signals", "phasor-sim"], desc: "PyO3 扩展 phasor._phasor + Python 包 phasor（含参数搜索、分块与分布式、CLI、MCP 服务）", page: "phasor-py.html" },
+};
+const LAYER_NAMES = ["地基", "领域与数组", "内核与数据", "记录", "模拟", "分析", "门面"];
+const LAYER_COLORS = ["#5ea0ff", "#2fbfa8", "#e07a3d", "#c9a227", "#d35d5d", "#b07cd8", "#8a8a8a"];
+const NAMES = Object.keys(CRATES);
+const NW = 168, NH = 46;
+const rowY = (layer) => 488 - layer * 76;
+
+function closure(name, dir) {
+  const seen = new Set();
+  const stack = [name];
+  while (stack.length) {
+    const n = stack.pop();
+    const next = dir === "up" ? CRATES[n].deps : NAMES.filter((m) => CRATES[m].deps.includes(n));
+    for (const m of next) if (!seen.has(m)) { seen.add(m); stack.push(m); }
+  }
+  return seen;
+}
+// an edge a->b is transitive if b is reachable from another direct dep of a
+function isTransitive(a, b) {
+  return CRATES[a].deps.some((d) => d !== b && closure(d, "up").has(b));
+}
+const EDGES = NAMES.flatMap((a) => CRATES[a].deps.map((b) => ({ a, b, transitive: isTransitive(a, b), optional: (CRATES[a].optional || []).includes(b) })));
+
+const gs = document.getElementById("crate-graph");
+const NSV = "http://www.w3.org/2000/svg";
+const el = (name, attrs) => { const n = document.createElementNS(NSV, name); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); return n; };
+let mode = "reduced", pinned = null;
+const edgeEls = [], nodeEls = {};
+function buildCrateGraph() {
+  for (let l = 0; l < 7; l++) {
+    const y = rowY(l);
+    gs.appendChild(el("rect", { x: 8, y: y - 8, width: 1064, height: NH + 16, rx: 8, fill: l % 2 ? "#1b1b1b" : "#202020" }));
+    const t = el("text", { x: 20, y: y + NH / 2 - 2, "font-size": 11, fill: LAYER_COLORS[l], "font-weight": 600 }); t.textContent = `第 ${l} 层`; gs.appendChild(t);
+    const t2 = el("text", { x: 20, y: y + NH / 2 + 13, "font-size": 10, fill: "#909090" }); t2.textContent = LAYER_NAMES[l]; gs.appendChild(t2);
+  }
+  const g = el("g", {}); gs.appendChild(g);
+  for (const e of EDGES) {
+    const A = CRATES[e.a], B = CRATES[e.b];
+    const x1 = A.x, y1 = rowY(A.layer) + NH, x2 = B.x, y2 = rowY(B.layer);
+    const my = (y1 + y2) / 2;
+    const p = el("path", { d: `M ${x1} ${y1} C ${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`, fill: "none", stroke: "#6a6a6a", "stroke-width": 1.3, "marker-end": "url(#garr)" });
+    if (e.optional) p.setAttribute("stroke-dasharray", "5 4");
+    g.appendChild(p);
+    edgeEls.push({ ...e, el: p });
+  }
+  const defs = el("defs", {});
+  defs.innerHTML = `<marker id="garr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a8a8a"/></marker>`;
+  gs.prepend(defs);
+  for (const n of NAMES) {
+    const c = CRATES[n], x = c.x - NW / 2, y = rowY(c.layer);
+    const grp = el("g", { style: "cursor:pointer" });
+    const rect = el("rect", { x, y, width: NW, height: NH, rx: 6, fill: "#262626", stroke: c.page ? "#5ea0ff" : "#3d3d3d", "stroke-width": 1 });
+    const t = el("text", { x: c.x, y: y + 20, "text-anchor": "middle", "font-size": 12, "font-weight": 650, fill: "#f0f0f0" }); t.textContent = n;
+    const s = el("text", { x: c.x, y: y + 35, "text-anchor": "middle", "font-size": 10, fill: "#909090" }); s.textContent = `${c.loc.toLocaleString()} 行${c.page ? " · 有页面" : ""}`;
+    grp.append(rect, t, s);
+    grp.addEventListener("mouseenter", () => { if (!pinned) focus(n); });
+    grp.addEventListener("click", () => { pinned = pinned === n ? null : n; focus(pinned); });
+    gs.appendChild(grp);
+    nodeEls[n] = { rect, t, s };
+  }
+  gs.addEventListener("mouseleave", () => { if (!pinned) focus(null); });
+}
+function focus(n) {
+  const up = n ? closure(n, "up") : new Set(), down = n ? closure(n, "down") : new Set();
+  for (const e of edgeEls) {
+    const hidden = mode === "reduced" && e.transitive;
+    let stroke = "#6a6a6a", op = hidden ? 0 : 0.55;
+    if (n && !hidden) {
+      const onUp = (e.a === n || up.has(e.a)) && up.has(e.b);
+      const onDown = (e.b === n || down.has(e.b)) && down.has(e.a);
+      if (onUp) { stroke = "#5ea0ff"; op = 0.95; } else if (onDown) { stroke = "#e07a3d"; op = 0.95; } else op = 0.06;
+    }
+    e.el.setAttribute("stroke", stroke); e.el.setAttribute("opacity", String(op));
+  }
+  for (const m of NAMES) {
+    const { rect } = nodeEls[m];
+    const c = CRATES[m];
+    let stroke = c.page ? "#5ea0ff" : "#3d3d3d", fill = "#262626", op = 1;
+    if (n) {
+      if (m === n) { fill = "#3a3a3a"; stroke = "#f0f0f0"; }
+      else if (up.has(m)) { fill = "#182238"; stroke = "#5ea0ff"; }
+      else if (down.has(m)) { fill = "#33200f"; stroke = "#e07a3d"; }
+      else op = 0.35;
+    }
+    rect.setAttribute("fill", fill); rect.setAttribute("stroke", stroke); rect.setAttribute("stroke-width", m === n ? 2 : 1);
+    nodeEls[m].rect.parentNode.setAttribute("opacity", String(op));
+  }
+  showCrate(n, up, down);
+}
+const chip = (m) => `<span class="chip" style="cursor:default">${CRATES[m].page ? `<a href="${CRATES[m].page}">${m}</a>` : m}</span>`;
+function showCrate(n, up, down) {
+  const d = document.getElementById("g-detail");
+  if (!n) {
+    d.innerHTML = `<h3>移到一个 crate 上</h3><p class="muted" style="margin:0">第 0 层的 phasor-core 被 11 个 crate 直接依赖；第 6 层的门面 phasor 直接依赖其余 11 个。phasor-data 是唯一不依赖 phasor-core 的库 crate。</p>`;
+    return;
+  }
+  const c = CRATES[n];
+  const direct = NAMES.filter((m) => CRATES[m].deps.includes(n));
+  d.innerHTML = `<h3>${n} <span class="small">第 ${c.layer} 层 · ${LAYER_NAMES[c.layer]} · ${c.loc.toLocaleString()} 行</span></h3>
+    <p class="muted" style="margin:0 0 6px">${c.desc}。${c.page ? `<a href="${c.page}">打开 ${n} 页面 →</a>` : `<a href="architecture.html#data">见架构页 →</a>`}</p>
+    <p class="small" style="margin:6px 0 2px">直接依赖（${c.deps.length}）</p><div class="uses" style="margin-top:0">${c.deps.map(chip).join("") || `<span class="small">无（只有 std）</span>`}</div>
+    <p class="small" style="margin:8px 0 2px">被直接依赖（${direct.length}）· 传递影响 ${down.size} 个 crate</p><div class="uses" style="margin-top:0">${direct.map(chip).join("") || `<span class="small">无：它在最顶层</span>`}</div>`;
+}
+function buildMode() {
+  const host = document.getElementById("g-mode");
+  const lbl = host.querySelector(".lbl");
+  const opts = [{ id: "reduced", name: `只看不可省略的边（${EDGES.filter((e) => !e.transitive).length} 条）` }, { id: "all", name: `全部直接依赖（${EDGES.length} 条）` }];
+  host.innerHTML = ""; host.appendChild(lbl);
+  const btns = opts.map((o) => {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = o.name;
+    b.addEventListener("click", () => { mode = o.id; btns.forEach((x, i) => x.classList.toggle("on", opts[i].id === mode)); setCap(); focus(pinned); });
+    host.appendChild(b); return b;
+  });
+  btns[0].classList.add("on");
+}
+function setCap() {
+  document.getElementById("g-cap").textContent = mode === "reduced"
+    ? "传递约简：如果 A → B 能经由 A 的另一个依赖到达 B，就不画这条边。剩下的是真正的分层骨架"
+    : "Cargo.toml 里的全部直接依赖。例如 phasor-sim 同时写了 records、exec、model、core，尽管 records 已经依赖了后三个";
+}
+function buildCoverage() {
+  const order = [...NAMES].sort((a, b) => CRATES[a].layer - CRATES[b].layer);
+  document.getElementById("cov").innerHTML = order.map((n) => {
+    const c = CRATES[n];
+    return `<tr><td class="mono">${n}</td><td><i class="dot" style="background:${LAYER_COLORS[c.layer]}"></i> ${c.layer} · ${LAYER_NAMES[c.layer]}</td><td>${c.desc}</td><td>${c.page ? `<a href="${c.page}">打开</a>` : `<a href="architecture.html#data">架构页</a>`}</td><td class="mono" style="text-align:right">${c.loc.toLocaleString()}</td></tr>`;
+  }).join("");
+}
+buildCrateGraph(); buildMode(); setCap(); focus(null); buildCoverage();
+</script>
+<script id="toc-script">
+(() => {
+  const head = document.querySelector("header.top"), toc = document.getElementById("toc"), btn = document.getElementById("toc-btn");
+  const setH = () => document.documentElement.style.setProperty("--hh", head.offsetHeight + "px");
+  setH(); addEventListener("resize", setH);
+  const wide = () => matchMedia("(min-width: 1240px)").matches;
+  btn.addEventListener("click", () => { if (wide()) document.body.classList.toggle("toc-closed"); else document.body.classList.toggle("toc-open"); });
+  toc.addEventListener("click", (e) => { if (e.target.closest("a") && !wide()) document.body.classList.remove("toc-open"); });
+  const links = [...toc.querySelectorAll("ol.sec a")];
+  const targets = links.map((a) => document.getElementById(a.getAttribute("href").slice(1))).filter(Boolean);
+  const spy = () => {
+    const y = head.offsetHeight + 24; let cur = targets[0];
+    for (const t of targets) if (t.getBoundingClientRect().top <= y) cur = t;
+    for (const a of links) a.classList.toggle("on", cur && a.getAttribute("href") === "#" + cur.id);
+  };
+  addEventListener("scroll", spy, { passive: true }); spy();
+})();
+</script>
+</body>
+</html>

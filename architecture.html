@@ -1,0 +1,1121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>phasor 系统架构</title>
+<style>
+  :root {
+    --bg: #1e1e1e;
+    --chrome: #181818;
+    --elev: #262626;
+    --text: #f0f0f0;
+    --secondary: #b8b8b8;
+    --muted: #909090;
+    --stroke: #303030;
+    --stroke2: #3d3d3d;
+    --fill: #2b2b2b;
+    --accent: #3a7afe;
+    --math: #d35d5d;
+    --flex: #2fbfa8;
+    --matrix: #3a7afe;
+    --columns: #c9a227;
+    --error: #b07cd8;
+    --good: #4caf7a;
+    --bad: #d35d5d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    line-height: 1.55;
+    font-size: 14px;
+  }
+  a { color: #8eb6ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  header.top {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; gap: 16px; align-items: center;
+    padding: 10px 22px; background: var(--chrome); border-bottom: 1px solid var(--stroke); font-size: 13px;
+  }
+  header.top strong { font-size: 14px; }
+  header.top nav { display: flex; gap: 14px; margin-left: auto; flex-wrap: wrap; }
+  header.top nav a { color: var(--secondary); }
+  header.top nav a.sep { color: var(--muted); }
+  main { max-width: 1080px; margin: 0 auto; padding: 28px 22px 72px; }
+  h1 { font-size: 24px; line-height: 30px; font-weight: 600; margin: 0 0 8px; }
+  h2 { font-size: 18px; line-height: 24px; font-weight: 600; margin: 32px 0 10px; }
+  h3 { font-size: 15px; font-weight: 600; margin: 18px 0 4px; }
+  p { margin: 0 0 10px; }
+  .kicker { color: var(--accent); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; margin: 0 0 4px; }
+  .muted { color: var(--secondary); }
+  .small { color: var(--muted); font-size: 12px; line-height: 16px; }
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0 8px; }
+  .stat { border: 1px solid var(--stroke); border-radius: 8px; padding: 12px 14px; background: var(--elev); }
+  .stat b { display: block; font-size: 20px; font-weight: 650; margin-bottom: 2px; }
+  .stat span { color: var(--muted); font-size: 12px; }
+  .panel { border: 1px solid var(--stroke); border-radius: 8px; overflow: hidden; margin: 12px 0; }
+  .panel .cap { padding: 8px 12px; background: #242424; border-bottom: 1px solid var(--stroke); font-size: 12px; font-weight: 600; }
+  .panel .body { padding: 12px; background: var(--bg); overflow-x: auto; }
+  .panel .foot { padding: 8px 12px; border-top: 1px solid var(--stroke); }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 0 0 8px; }
+  .legend button, .chip, .seg button {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--stroke2); background: transparent; color: var(--secondary);
+    border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; font-family: inherit;
+  }
+  .legend button.on, .seg button.on { color: var(--text); background: var(--fill); border-color: #5a5a5a; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; align-items: center; }
+  .seg .lbl { color: var(--muted); font-size: 12px; margin-right: 2px; }
+  .dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+  .detail { min-height: 72px; border: 1px solid var(--stroke); border-radius: 8px; padding: 12px 14px; background: var(--elev); }
+  .detail h3 { margin: 0 0 4px; }
+  .uses { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; vertical-align: top; border-top: 1px solid var(--stroke); }
+  th { color: var(--text); font-weight: 600; background: var(--elev); border-top: none; }
+  td { color: var(--secondary); }
+  .wrap { border: 1px solid var(--stroke); border-radius: 6px; overflow: hidden; overflow-x: auto; }
+  .types td:first-child { white-space: nowrap; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .card { border: 1px solid var(--stroke); border-radius: 8px; padding: 12px 14px; background: #202020; }
+  .card h3 { margin-top: 0; }
+  .card p { color: var(--secondary); font-size: 13px; margin: 0; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  pre {
+    margin: 0; padding: 10px 12px; background: var(--fill); border: 1px solid var(--stroke);
+    border-radius: 6px; overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 18px;
+  }
+  .note { border-left: 3px solid var(--accent); background: #242424; border-radius: 6px; padding: 10px 12px; color: var(--secondary); font-size: 13px; margin: 10px 0; }
+  .note.warn { border-left-color: var(--bad); }
+  ol.steps { margin: 6px 0 10px; padding-left: 22px; }
+  ol.steps li { color: var(--secondary); margin: 0 0 6px; }
+  ol.steps li b { color: var(--text); }
+  .panel .body > svg { max-width: 100%; height: auto; display: block; }
+  svg text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; }
+  input[type="text"], input[type="number"] {
+    background: var(--fill); color: var(--text); border: 1px solid var(--stroke2); border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 5px 8px;
+  }
+  input[type="text"] { width: 100%; }
+  input[type="number"] { width: 96px; }
+  label.field { display: block; color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+  label.field span { display: block; margin-bottom: 3px; }
+  label.inline { display: inline-flex; align-items: center; gap: 6px; color: var(--secondary); font-size: 12px; margin-right: 14px; }
+  .err { color: var(--bad); font-size: 12px; min-height: 16px; margin-top: 4px; }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+  .kpis { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; }
+  .kpi { border: 1px solid var(--stroke2); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: var(--secondary); background: #232323; }
+  .kpi b { color: var(--text); font-family: ui-monospace, Menlo, monospace; }
+  .yes { color: var(--good); font-weight: 600; }
+  .no { color: var(--bad); font-weight: 600; }
+  /* cell grids */
+  table.cells { width: auto; border-collapse: separate; border-spacing: 3px; font-size: 11px; }
+  table.cells th, table.cells td { border: none; padding: 0; background: none; }
+  table.cells th.rl { text-align: right; padding-right: 8px; font-weight: 500; color: var(--secondary); white-space: nowrap; font-size: 12px; }
+  table.cells th.ix { color: var(--muted); font-weight: 400; text-align: center; font-family: ui-monospace, Menlo, monospace; padding: 0 2px; }
+  table.cells td.c {
+    min-width: 46px; height: 28px; padding: 0 4px; text-align: center; vertical-align: middle; border-radius: 4px;
+    border: 1px solid var(--stroke2); background: #232323; color: var(--secondary);
+    font-family: ui-monospace, Menlo, monospace; cursor: default;
+  }
+  table.cells td.hot { outline: 2px solid #f0f0f0; outline-offset: -1px; color: var(--text); }
+  table.cells td.dim { opacity: 0.35; }
+  table.cells td.none { border-style: dashed; color: #666; }
+  .flexrow { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+  .flexrow > div { min-width: 0; }
+  @media (max-width: 860px) {
+    .stats, .grid2, .grid3, .controls { grid-template-columns: 1fr; }
+    main { padding: 20px 16px 60px; }
+    header.top { padding: 10px 16px; flex-wrap: wrap; }
+  }
+</style>
+<style id="toc-style">
+  :root { --toc-w: 248px; --hh: 45px; }
+  header.top { gap: 12px; }
+  header.top .toc-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid var(--stroke2, #3d3d3d); color: var(--secondary, #b8b8b8); border-radius: 6px; padding: 3px 9px; font: inherit; font-size: 12px; cursor: pointer; }
+  header.top .toc-btn:hover { color: var(--text, #f0f0f0); }
+  header.top .crumb { color: var(--muted, #909090); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header.top .crumb b { color: var(--secondary, #b8b8b8); font-weight: 500; }
+  aside.toc { position: fixed; z-index: 4; top: var(--hh); left: 0; bottom: 0; width: var(--toc-w); overflow-y: auto; background: var(--chrome, #181818); border-right: 1px solid var(--stroke, #303030); padding: 14px 10px 48px; font-size: 13px; line-height: 1.45; }
+  aside.toc .grp { margin: 0 0 12px; }
+  aside.toc .gh { color: var(--muted, #909090); font-size: 11px; letter-spacing: .02em; padding: 0 8px 3px; }
+  aside.toc ul { list-style: none; margin: 0; padding: 0; }
+  aside.toc a.pg, aside.toc span.pg { display: block; padding: 3px 8px; border-radius: 5px; color: var(--secondary, #b8b8b8); }
+  aside.toc a.pg:hover { background: #242424; text-decoration: none; color: var(--text, #f0f0f0); }
+  aside.toc span.pg { color: #6a6a6a; }
+  aside.toc span.pg small { font-size: 10px; margin-left: 4px; }
+  aside.toc a.pg small { font-size: 10px; margin-left: 4px; color: #6a6a6a; }
+  aside.toc li.cur > a.pg { color: var(--text, #f0f0f0); background: #262c3a; font-weight: 600; }
+  aside.toc ol.sec { list-style: none; margin: 3px 0 6px 10px; padding: 0 0 0 8px; border-left: 1px solid var(--stroke2, #3d3d3d); }
+  aside.toc ol.sec a { display: block; padding: 2px 8px; border-radius: 4px; color: var(--muted, #909090); font-size: 12px; }
+  aside.toc ol.sec a:hover { color: var(--text, #f0f0f0); text-decoration: none; }
+  aside.toc ol.sec a.on { color: #8eb6ff; background: #1f2633; }
+  [id] { scroll-margin-top: calc(var(--hh) + 12px); }
+  @media (min-width: 1240px) {
+    body:not(.toc-closed) { padding-left: var(--toc-w); }
+    body.toc-closed aside.toc { display: none; }
+  }
+  @media (max-width: 1239px) {
+    aside.toc { transform: translateX(-100%); transition: transform .18s ease; box-shadow: none; }
+    body.toc-open aside.toc { transform: none; box-shadow: 8px 0 24px rgba(0,0,0,.45); }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <button type="button" class="toc-btn" id="toc-btn" aria-controls="toc">☰ 目录</button>
+  <strong>系统架构</strong>
+  <span class="crumb">总览 · <b>系统架构</b></span>
+</header>
+<aside class="toc" id="toc" aria-label="目录">
+  <div class="grp"><div class="gh">总览</div><ul><li><a class="pg" href="index.html">wiki 首页</a></li><li class="cur"><a class="pg" href="architecture.html" aria-current="page">系统架构</a><ol class="sec" data-sec="overview:总览|layers:crate 分层|data-model:数据模型|data:数据|kernel:撮合内核|loops:模拟循环|records:记录与分析|resume:续跑|factors:因子引擎|indicators:指标与信号|python:Python 层|determinism:并行与确定性|performance:性能|testing:测试|reading:读码顺序"><li><a href="#overview">总览</a></li><li><a href="#layers">crate 分层</a></li><li><a href="#data-model">数据模型</a></li><li><a href="#data">数据</a></li><li><a href="#kernel">撮合内核</a></li><li><a href="#loops">模拟循环</a></li><li><a href="#records">记录与分析</a></li><li><a href="#resume">续跑</a></li><li><a href="#factors">因子引擎</a></li><li><a href="#indicators">指标与信号</a></li><li><a href="#python">Python 层</a></li><li><a href="#determinism">并行与确定性</a></li><li><a href="#performance">性能</a></li><li><a href="#testing">测试</a></li><li><a href="#reading">读码顺序</a></li></ol></li></ul></div>
+  <div class="grp"><div class="gh">L0 · 地基</div><ul><li><a class="pg" href="phasor-core.html">phasor-core</a></li></ul></div>
+  <div class="grp"><div class="gh">L1 · 领域与数组</div><ul><li><a class="pg" href="phasor-model.html">phasor-model</a></li><li><a class="pg" href="phasor-generic.html">phasor-generic</a></li><li><a class="pg" href="phasor-signals.html">phasor-signals</a></li></ul></div>
+  <div class="grp"><div class="gh">L2 · 内核与数据</div><ul><li><a class="pg" href="architecture.html#data">phasor-data<small>见架构页</small></a></li><li><a class="pg" href="phasor-exec.html">phasor-exec</a></li><li><a class="pg" href="phasor-expr.html">phasor-expr</a></li><li><a class="pg" href="phasor-indicators.html">phasor-indicators</a></li></ul></div>
+  <div class="grp"><div class="gh">L3 · 记录</div><ul><li><a class="pg" href="phasor-records.html">phasor-records</a></li></ul></div>
+  <div class="grp"><div class="gh">L4 · 模拟</div><ul><li><a class="pg" href="phasor-sim.html">phasor-sim</a></li></ul></div>
+  <div class="grp"><div class="gh">L5 · 分析</div><ul><li><a class="pg" href="phasor-analysis.html">phasor-analysis</a></li></ul></div>
+  <div class="grp"><div class="gh">L6 · 门面</div><ul><li><a class="pg" href="phasor-py.html">phasor-py</a></li><li><a class="pg" href="phasor.html">phasor（门面）</a></li></ul></div>
+</aside>
+<main>
+  <p class="kicker">PHASOR</p>
+  <h1>系统架构</h1>
+  <p class="muted">
+    phasor 是一个并行、因子驱动的向量化回测引擎：Rust 写的内核，一个 Python 包。这一页把整个系统串起来讲：有哪些 crate、谁依赖谁，数据在内存里怎么放，
+    一根 K 线里模拟做了什么，为什么分析层只读记录，怎么从一个状态接着跑，因子表达式怎么编译和执行，Python 层包了什么，
+    以及并行、确定性、性能和测试分别靠什么保证。每一节末尾都指向对应的 crate 页，那里有逐行的细节和可以动手的演示。
+  </p>
+  <div class="stats">
+    <div class="stat"><b>13 个 crate · 7 层</b><span>地基 → 领域与数组 → 内核与数据 → 记录 → 模拟 → 分析 → 门面；每个 crate 只依赖更低的层</span></div>
+    <div class="stat"><b>列是工作单位</b><span>参数和标的展平成同一个列轴；列（或共享现金的账户组）之间相互独立，所以按列并行</span></div>
+    <div class="stat"><b>记录是唯一事实</b><span>模拟只写记录；净值、收益、指标都从记录重建。串行与多线程的记录逐位相同</span></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="overview">总览：一次回测的数据流</h2>
+  <p>
+    一次回测是一串对内存数组的函数调用，阶段之间没有 dataframe。行情先变成 <code>OhlcvPanel</code>（时间 × 标的），因子表达式和指标把它变成因子面板，
+    信号层把因子变成进场 / 出场布尔数组并展开到“参数 × 标的”的列轴上，模拟循环逐根 K 线调用撮合内核、写出记录，分析层再从记录重建账户、算指标、按列标签汇总。
+    状态快照让模拟可以在任意一根 K 线停下、之后接着跑。
+  </p>
+  <div class="panel">
+    <div class="cap">数据流（中）、地基（下）与 Python 包（上）；框可以点击</div>
+    <div class="body">
+      <svg width="1040" height="380" viewBox="0 0 1040 380" role="img" aria-label="phasor 总体数据流">
+      <defs><marker id="a-ov" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a8a8a" /></marker></defs>
+      <g font-size="11">
+      <text x="16" y="18" text-anchor="start" font-size="11" fill="#909090">Python 包 phasor：薄壳 + 研究工具 + 分块 / 分布式 / 缓存 + 配置、命令行、MCP</text>
+      <a href="#python">
+      <rect x="16" y="26" width="1008" height="40" rx="6" fill="#182238" stroke="#5ea0ff"/>
+      <text x="520" y="43" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">phasor（Python）</text>
+      <text x="520" y="57" text-anchor="middle" font-size="10" fill="#9ec1ff">NumPy 进，NumPy 出；数组按 F 序借给 Rust，组合对象懒加载</text>
+      </a>
+      <text x="16" y="102" text-anchor="start" font-size="11" fill="#909090">一次回测的数据流（每个箭头是对内存数组的一次函数调用）</text>
+      <a href="#data">
+      <rect x="16" y="110" width="128" height="64" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="80" y="132" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">数据</text>
+      <text x="80" y="146" text-anchor="middle" font-size="10" fill="#909090">phasor-data · NumPy</text>
+      <text x="80" y="160" text-anchor="middle" font-size="10" fill="#909090">OhlcvPanel [T × S]</text>
+      </a>
+      <a href="#factors">
+      <rect x="160" y="110" width="128" height="64" rx="6" fill="#143430" stroke="#2fbfa8"/>
+      <text x="224" y="132" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">因子与指标</text>
+      <text x="224" y="146" text-anchor="middle" font-size="10" fill="#8fe0d2">phasor-expr</text>
+      <text x="224" y="160" text-anchor="middle" font-size="10" fill="#8fe0d2">phasor-indicators</text>
+      </a>
+      <a href="#indicators">
+      <rect x="304" y="110" width="128" height="64" rx="6" fill="#143430" stroke="#2fbfa8"/>
+      <text x="368" y="132" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">信号</text>
+      <text x="368" y="146" text-anchor="middle" font-size="10" fill="#8fe0d2">phasor-signals</text>
+      <text x="368" y="160" text-anchor="middle" font-size="10" fill="#8fe0d2">SignalSweep 展开列</text>
+      </a>
+      <a href="#loops">
+      <rect x="448" y="110" width="128" height="64" rx="6" fill="#33200f" stroke="#e07a3d"/>
+      <text x="512" y="132" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">模拟</text>
+      <text x="512" y="146" text-anchor="middle" font-size="10" fill="#f0b088">phasor-sim 两条循环</text>
+      <text x="512" y="160" text-anchor="middle" font-size="10" fill="#f0b088">按账户组并行</text>
+      </a>
+      <a href="#records">
+      <rect x="592" y="110" width="128" height="64" rx="6" fill="#2e2710" stroke="#c9a227"/>
+      <text x="656" y="132" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">记录</text>
+      <text x="656" y="146" text-anchor="middle" font-size="10" fill="#e6c35c">phasor-records</text>
+      <text x="656" y="160" text-anchor="middle" font-size="10" fill="#e6c35c">成交 · 现金流 · 日志</text>
+      </a>
+      <a href="#records">
+      <rect x="736" y="110" width="128" height="64" rx="6" fill="#2a2036" stroke="#b07cd8"/>
+      <text x="800" y="132" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">分析</text>
+      <text x="800" y="146" text-anchor="middle" font-size="10" fill="#d4b4ee">phasor-analysis</text>
+      <text x="800" y="160" text-anchor="middle" font-size="10" fill="#d4b4ee">从记录重建净值</text>
+      </a>
+      <a href="#records">
+      <rect x="880" y="110" width="128" height="64" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="944" y="132" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">结果</text>
+      <text x="944" y="146" text-anchor="middle" font-size="10" fill="#909090">指标 · stats 表</text>
+      <text x="944" y="160" text-anchor="middle" font-size="10" fill="#909090">按列标签汇总</text>
+      </a>
+      <path d="M144 142 H160" fill="none" stroke="#8a8a8a" marker-end="url(#a-ov)"/>
+      <path d="M288 142 H304" fill="none" stroke="#8a8a8a" marker-end="url(#a-ov)"/>
+      <path d="M432 142 H448" fill="none" stroke="#8a8a8a" marker-end="url(#a-ov)"/>
+      <path d="M576 142 H592" fill="none" stroke="#8a8a8a" marker-end="url(#a-ov)"/>
+      <path d="M720 142 H736" fill="none" stroke="#8a8a8a" marker-end="url(#a-ov)"/>
+      <path d="M864 142 H880" fill="none" stroke="#8a8a8a" marker-end="url(#a-ov)"/>
+      <text x="224" y="192" text-anchor="middle" font-size="10" fill="#9ec1ff">Matrix [T × S]</text>
+      <text x="368" y="192" text-anchor="middle" font-size="10" fill="#9ec1ff">bool [T × C]</text>
+      <text x="694" y="192" text-anchor="middle" font-size="10" fill="#9ec1ff">数组结构体</text>
+      <a href="#kernel">
+      <rect x="448" y="208" width="128" height="40" rx="6" fill="#33200f" stroke="#e07a3d"/>
+      <text x="512" y="225" text-anchor="middle" font-weight="600" font-size="10" fill="#f0f0f0">phasor-exec</text>
+      <text x="512" y="239" text-anchor="middle" font-size="9" fill="#f0b088">execute_order 内核</text>
+      </a>
+      <path d="M512 174 V208" fill="none" stroke="#8a8a8a" marker-end="url(#a-ov)"/>
+      <a href="#resume">
+      <rect x="592" y="208" width="128" height="40" rx="6" fill="#1e1e1e" stroke="#3d3d3d"/>
+      <text x="656" y="225" text-anchor="middle" font-weight="600" font-size="10" fill="#f0f0f0">SimState</text>
+      <text x="656" y="239" text-anchor="middle" font-size="9" fill="#909090">状态快照 → 续跑</text>
+      </a>
+      <path d="M576 170 C 610 176, 640 186, 650 208" fill="none" stroke="#8a8a8a" marker-end="url(#a-ov)"/>
+      <path d="M612 208 C 604 192, 596 176, 578 164" fill="none" stroke="#8a8a8a" stroke-dasharray="4 3" marker-end="url(#a-ov)"/>
+      <text x="690" y="268" text-anchor="middle" font-size="9" fill="#909090">下一段从快照续跑（虚线）</text>
+      <text x="16" y="288" text-anchor="start" font-size="11" fill="#909090">地基：每一层都用它们</text>
+      <a href="#data-model">
+      <rect x="16" y="296" width="496" height="46" rx="6" fill="#182238" stroke="#5ea0ff"/>
+      <text x="264" y="316" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">phasor-core</text>
+      <text x="264" y="330" text-anchor="middle" font-size="10" fill="#9ec1ff">Matrix · FlexArray · Columns · math 容差 · random(seed,row,col) · Error</text>
+      </a>
+      <a href="phasor-model.html">
+      <rect x="528" y="296" width="496" height="46" rx="6" fill="#182238" stroke="#5ea0ff"/>
+      <text x="776" y="316" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">phasor-model</text>
+      <text x="776" y="330" text-anchor="middle" font-size="10" fill="#9ec1ff">撮合枚举（固定判别值）· InstrumentId · BarType · OhlcvPanel · 定点数</text>
+      </a>
+      <text x="16" y="366" text-anchor="start" font-size="11" fill="#b8b8b8">Rust 用户直接用门面 crate phasor（再导出全部 crate、prelude、SignalSweep）；Python 用户用 phasor 包。两条路走的是同一批函数。</text>
+      <path d="M520 66 V110" fill="none" stroke="#8a8a8a" stroke-dasharray="4 3" marker-end="url(#a-ov)"/>
+      </g>
+      </svg>
+    </div>
+    <div class="foot"><p class="small" style="margin:0">门面 crate 的模块文档用四句话概括了同一件事（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor/src/lib.rs#L6">lib.rs:6</a>）。最短的端到端例子是 <code>examples/sweep.py</code>：价格进去，一个参数网格，一次并行运行，结果按参数归回去。</p></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="layers">crate 分层</h2>
+  <p>
+    工作区有 13 个 crate（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/Cargo.toml#L3">Cargo.toml:3</a>）。最底下的 phasor-core 只依赖 <code>std</code>；最上面的门面 phasor 和 Python 扩展 phasor-py 依赖其余全部。
+    中间每一层回答一个问题：数怎么存、怎么比（core）；这些数是什么（model）；数组怎么滚动、信号怎么生成（generic、signals）；一笔订单怎么成交（exec）；
+    因子和指标怎么算（expr、indicators）；行情从文件怎么读进来（data）；成交怎么记下来（records）；一列或一个账户怎么逐根 K 线模拟（sim）；结果怎么看（analysis）。
+  </p>
+  <div class="panel">
+    <div class="cap">七层，每个框链到对应页面（phasor-data 在本页的<a href="#data">数据一节</a>）</div>
+    <div class="body">
+      <svg width="1040" height="434" viewBox="0 0 1040 434" role="img" aria-label="crate 分层">
+      <defs><marker id="a-ly" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a8a8a" /></marker></defs>
+      <g font-size="11">
+      <rect x="8" y="10" width="1024" height="50" rx="8" fill="#202020"/>
+      <text x="20" y="32" text-anchor="start" font-size="11" fill="#8a8a8a" font-weight="600">第 6 层</text>
+      <text x="20" y="48" text-anchor="start" font-size="10" fill="#909090">门面</text>
+      <a href="phasor.html">
+      <rect x="390.0" y="16" width="180" height="38" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="480" y="32" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">phasor</text>
+      <text x="480" y="46" text-anchor="middle" font-size="10" fill="#909090">361 行</text>
+      </a>
+      <a href="phasor-py.html">
+      <rect x="590.0" y="16" width="180" height="38" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="680" y="32" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">phasor-py</text>
+      <text x="680" y="46" text-anchor="middle" font-size="10" fill="#909090">7,142 行</text>
+      </a>
+      <rect x="8" y="68" width="1024" height="50" rx="8" fill="#1b1b1b"/>
+      <text x="20" y="90" text-anchor="start" font-size="11" fill="#b07cd8" font-weight="600">第 5 层</text>
+      <text x="20" y="106" text-anchor="start" font-size="10" fill="#909090">分析</text>
+      <a href="phasor-analysis.html">
+      <rect x="490.0" y="74" width="180" height="38" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="580" y="90" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">phasor-analysis</text>
+      <text x="580" y="104" text-anchor="middle" font-size="10" fill="#909090">5,960 行</text>
+      </a>
+      <rect x="8" y="126" width="1024" height="50" rx="8" fill="#202020"/>
+      <text x="20" y="148" text-anchor="start" font-size="11" fill="#d35d5d" font-weight="600">第 4 层</text>
+      <text x="20" y="164" text-anchor="start" font-size="10" fill="#909090">模拟</text>
+      <a href="phasor-sim.html">
+      <rect x="490.0" y="132" width="180" height="38" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="580" y="148" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">phasor-sim</text>
+      <text x="580" y="162" text-anchor="middle" font-size="10" fill="#909090">12,694 行</text>
+      </a>
+      <rect x="8" y="184" width="1024" height="50" rx="8" fill="#1b1b1b"/>
+      <text x="20" y="206" text-anchor="start" font-size="11" fill="#c9a227" font-weight="600">第 3 层</text>
+      <text x="20" y="222" text-anchor="start" font-size="10" fill="#909090">记录</text>
+      <a href="phasor-records.html">
+      <rect x="490.0" y="190" width="180" height="38" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="580" y="206" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">phasor-records</text>
+      <text x="580" y="220" text-anchor="middle" font-size="10" fill="#909090">5,049 行</text>
+      </a>
+      <rect x="8" y="242" width="1024" height="50" rx="8" fill="#202020"/>
+      <text x="20" y="264" text-anchor="start" font-size="11" fill="#e07a3d" font-weight="600">第 2 层</text>
+      <text x="20" y="280" text-anchor="start" font-size="10" fill="#909090">内核与数据</text>
+      <a href="#data">
+      <rect x="190.0" y="248" width="180" height="38" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="280" y="264" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">phasor-data</text>
+      <text x="280" y="278" text-anchor="middle" font-size="10" fill="#909090">560 行</text>
+      </a>
+      <a href="phasor-exec.html">
+      <rect x="390.0" y="248" width="180" height="38" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="480" y="264" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">phasor-exec</text>
+      <text x="480" y="278" text-anchor="middle" font-size="10" fill="#909090">2,482 行</text>
+      </a>
+      <a href="phasor-expr.html">
+      <rect x="590.0" y="248" width="180" height="38" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="680" y="264" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">phasor-expr</text>
+      <text x="680" y="278" text-anchor="middle" font-size="10" fill="#909090">5,554 行</text>
+      </a>
+      <a href="phasor-indicators.html">
+      <rect x="790.0" y="248" width="180" height="38" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="880" y="264" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">phasor-indicators</text>
+      <text x="880" y="278" text-anchor="middle" font-size="10" fill="#909090">1,861 行</text>
+      </a>
+      <rect x="8" y="300" width="1024" height="50" rx="8" fill="#1b1b1b"/>
+      <text x="20" y="322" text-anchor="start" font-size="11" fill="#2fbfa8" font-weight="600">第 1 层</text>
+      <text x="20" y="338" text-anchor="start" font-size="10" fill="#909090">领域与数组</text>
+      <a href="phasor-model.html">
+      <rect x="290.0" y="306" width="180" height="38" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="380" y="322" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">phasor-model</text>
+      <text x="380" y="336" text-anchor="middle" font-size="10" fill="#909090">1,000 行</text>
+      </a>
+      <a href="phasor-generic.html">
+      <rect x="490.0" y="306" width="180" height="38" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="580" y="322" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">phasor-generic</text>
+      <text x="580" y="336" text-anchor="middle" font-size="10" fill="#909090">1,715 行</text>
+      </a>
+      <a href="phasor-signals.html">
+      <rect x="690.0" y="306" width="180" height="38" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="780" y="322" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">phasor-signals</text>
+      <text x="780" y="336" text-anchor="middle" font-size="10" fill="#909090">2,039 行</text>
+      </a>
+      <rect x="8" y="358" width="1024" height="50" rx="8" fill="#202020"/>
+      <text x="20" y="380" text-anchor="start" font-size="11" fill="#5ea0ff" font-weight="600">第 0 层</text>
+      <text x="20" y="396" text-anchor="start" font-size="10" fill="#909090">地基</text>
+      <a href="phasor-core.html">
+      <rect x="490.0" y="364" width="180" height="38" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="580" y="380" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">phasor-core</text>
+      <text x="580" y="394" text-anchor="middle" font-size="10" fill="#909090">1,435 行</text>
+      </a>
+      <text x="16" y="424" text-anchor="start" font-size="11" fill="#b8b8b8">每个 crate 只依赖比它低的层。phasor-data 只依赖 phasor-model；phasor-core 没有外部依赖。行数是 src/ 下 .rs 文件的合计。</text>
+      </g>
+      </svg>
+    </div>
+  </div>
+  <div class="wrap">
+    <table>
+      <thead><tr><th style="width:17%">crate</th><th style="width:22%">直接依赖（工作区内）</th><th>职责</th></tr></thead>
+      <tbody>
+        <tr><td class="mono"><a href="phasor-core.html">phasor-core</a></td><td>—</td><td><code>Matrix</code>（列主序 f64）、<code>FlexArray</code>（不展开的广播）、<code>Columns</code>（多级列标签）、<code>math</code>（浮点容差）、<code>random</code>（按键计算的随机数）、<code>Error</code>。</td></tr>
+        <tr><td class="mono"><a href="phasor-model.html">phasor-model</a></td><td>core</td><td>撮合枚举（判别值固定，写进记录）、<code>InstrumentId</code> / <code>BarType</code>、<code>OhlcvPanel</code>、定点数 <code>Price</code> / <code>Quantity</code>。</td></tr>
+        <tr><td class="mono"><a href="phasor-generic.html">phasor-generic</a></td><td>core</td><td>滚动 / 扩展 / 指数加权窗口、平移、填充、交叉；按种子生成的合成价格。</td></tr>
+        <tr><td class="mono"><a href="phasor-signals.html">phasor-signals</a></td><td>core</td><td>信号清洗、生成出场、排名、区间、随机信号、标签。</td></tr>
+        <tr><td class="mono"><a href="#data">phasor-data</a></td><td>model</td><td>只读的本地 CSV / Parquet 源、用户解码器、K 线面板与按可用时间对齐。</td></tr>
+        <tr><td class="mono"><a href="phasor-exec.html">phasor-exec</a></td><td>core、model</td><td>撮合内核 <code>execute_order</code>：一笔订单在一个账户状态上成交多少、什么价、多少手续费。</td></tr>
+        <tr><td class="mono"><a href="phasor-expr.html">phasor-expr</a></td><td>core、generic、model</td><td>因子表达式：解析、编译成去重的图、截面算子分阶段执行；Alpha158 / Alpha360 / WorldQuant 101；可选的 Polars 后端。</td></tr>
+        <tr><td class="mono"><a href="phasor-indicators.html">phasor-indicators</a></td><td>core、generic</td><td>八个指标（MA、MSTD、BBANDS、RSI、STOCH、MACD、ATR、OBV）、参数扫描的列布局、逐根更新的流式版本。</td></tr>
+        <tr><td class="mono"><a href="phasor-records.html">phasor-records</a></td><td>core、exec、model</td><td>记录格式与 sink、三种交易视图、回撤、MAE / MFE、按列分段归约、日志、分段拼接与字节格式。</td></tr>
+        <tr><td class="mono"><a href="phasor-sim.html">phasor-sim</a></td><td>core、exec、model、records</td><td><code>from_orders</code> / <code>from_signals</code> 两条循环、止损止盈、限价单、共享现金与调用顺序、杠杆 / 保证金 / 强平 / 持仓费、回调与内置规则、状态快照与续跑、按组并行。</td></tr>
+        <tr><td class="mono"><a href="phasor-analysis.html">phasor-analysis</a></td><td>core、generic、model、records、sim</td><td><code>Portfolio</code>：从记录重建资产、现金、净值、收益；指标、stats 表、按列标签汇总、过拟合检验。</td></tr>
+        <tr><td class="mono"><a href="phasor.html">phasor</a></td><td>其余全部（data 在 <code>data</code> feature 后）</td><td>门面：再导出、<code>prelude</code>、<code>SignalSweep</code>。</td></tr>
+        <tr><td class="mono"><a href="phasor-py.html">phasor-py</a></td><td>其余全部</td><td>PyO3 扩展 <code>phasor._phasor</code> 与 Python 包 <code>phasor</code>。</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small" style="margin-top:8px">交互式的依赖图（可以只看传递约简后的边）在 <a href="index.html#crates">wiki 首页</a>。库 crate 不下载、不写文件；下载和缓存写在 <code>examples/</code> 里。</p>
+
+  <!-- ============================================================ -->
+  <h2 id="data-model">数据模型：列轴、列主序、FlexArray 与账户组</h2>
+  <h3>列轴：参数和标的是同一个维度</h3>
+  <p>
+    一次扫描是“参数组合 × 标的”。phasor 不给它们各开一个维度，而是展平成一个列轴：参数 <b>repeat</b>（同一组参数的各个标的相邻），标的 <b>tile</b>。
+    <code>Level::repeat</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-core/src/columns.rs#L150">columns.rs:150</a>）和 <code>Level::tile</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-core/src/columns.rs#L167">:167</a>）造出每一级标签，
+    <code>Columns</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-core/src/columns.rs#L207">:207</a>）把它们叠成多级列标签。列一多，标签就是把结果归回参数的<b>唯一</b>办法：
+    <code>Columns::group_indices</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-core/src/columns.rs#L304">:304</a>）按某一级分组，分析层的“每个窗口的平均夏普”就是这么算的。
+  </p>
+  <h3>Matrix：一列是一段连续内存</h3>
+  <p>
+    所有二维数据都是列主序：<code>data[col * n_rows + row]</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-core/src/matrix.rs#L18">matrix.rs:18</a>）。模拟沿时间轴扫一列，因子沿时间轴算一个标的，列主序让这两种访问都是顺序读，
+    <code>column(c)</code> 是零拷贝切片。NumPy 默认是行主序，所以 Python 层要么把数组转成 F 序，要么拒绝（见 <a href="#python">Python 层</a>）。
+  </p>
+  <div class="panel">
+    <div class="cap">列轴、列主序与账户组</div>
+    <div class="body">
+      <svg width="1040" height="276" viewBox="0 0 1040 276" role="img" aria-label="列轴、列主序与账户组">
+      <defs><marker id="a-ca" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a8a8a" /></marker></defs>
+      <g font-size="11">
+      <text x="16" y="18" text-anchor="start" font-size="11" fill="#909090">参数 window ∈ {5, 10}，标的 {A, B, C}：参数 repeat，标的 tile，展平成 6 列</text>
+      <rect x="120" y="30" width="108" height="50" rx="6" fill="#182238" stroke="#5ea0ff"/>
+      <text x="174" y="52" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">第 0 列</text>
+      <text x="174" y="66" text-anchor="middle" font-size="10" fill="#9ec1ff">window=5 · A</text>
+      <rect x="240" y="30" width="108" height="50" rx="6" fill="#182238" stroke="#5ea0ff"/>
+      <text x="294" y="52" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">第 1 列</text>
+      <text x="294" y="66" text-anchor="middle" font-size="10" fill="#9ec1ff">window=5 · B</text>
+      <rect x="360" y="30" width="108" height="50" rx="6" fill="#182238" stroke="#5ea0ff"/>
+      <text x="414" y="52" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">第 2 列</text>
+      <text x="414" y="66" text-anchor="middle" font-size="10" fill="#9ec1ff">window=5 · C</text>
+      <rect x="480" y="30" width="108" height="50" rx="6" fill="#143430" stroke="#2fbfa8"/>
+      <text x="534" y="52" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">第 3 列</text>
+      <text x="534" y="66" text-anchor="middle" font-size="10" fill="#8fe0d2">window=10 · A</text>
+      <rect x="600" y="30" width="108" height="50" rx="6" fill="#143430" stroke="#2fbfa8"/>
+      <text x="654" y="52" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">第 4 列</text>
+      <text x="654" y="66" text-anchor="middle" font-size="10" fill="#8fe0d2">window=10 · B</text>
+      <rect x="720" y="30" width="108" height="50" rx="6" fill="#143430" stroke="#2fbfa8"/>
+      <text x="774" y="52" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">第 5 列</text>
+      <text x="774" y="66" text-anchor="middle" font-size="10" fill="#8fe0d2">window=10 · C</text>
+      <text x="16" y="52" text-anchor="start" font-size="10" fill="#909090">window（repeat）</text>
+      <text x="16" y="66" text-anchor="start" font-size="10" fill="#909090">symbol（tile）</text>
+      <text x="16" y="108" text-anchor="start" font-size="11" fill="#909090">Matrix 列主序：一列是一段连续内存，column(c) 是零拷贝切片</text>
+      <rect x="124" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="149" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="174" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="199" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <text x="174" y="156" text-anchor="middle" font-size="9" fill="#9ec1ff">data[0·T .. 1·T]</text>
+      <rect x="244" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="269" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="294" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="319" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <text x="294" y="156" text-anchor="middle" font-size="9" fill="#9ec1ff">data[1·T .. 2·T]</text>
+      <rect x="364" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="389" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="414" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="439" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <text x="414" y="156" text-anchor="middle" font-size="9" fill="#9ec1ff">data[2·T .. 3·T]</text>
+      <rect x="484" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="509" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="534" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="559" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <text x="534" y="156" text-anchor="middle" font-size="9" fill="#9ec1ff">data[3·T .. 4·T]</text>
+      <rect x="604" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="629" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="654" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="679" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <text x="654" y="156" text-anchor="middle" font-size="9" fill="#9ec1ff">data[4·T .. 5·T]</text>
+      <rect x="724" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="749" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="774" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <rect x="799" y="118" width="22" height="22" rx="3" fill="#262626" stroke="#3d3d3d"/>
+      <text x="774" y="156" text-anchor="middle" font-size="9" fill="#9ec1ff">data[5·T .. 6·T]</text>
+      <text x="16" y="190" text-anchor="start" font-size="11" fill="#909090">group_lens = [3, 3]：每组共享一份现金（两个账户），组之间互不影响，可以并行</text>
+      <rect x="114" y="198" width="356" height="40" rx="8" fill="none" stroke="#e07a3d" stroke-dasharray="5 4"/>
+      <rect x="474" y="198" width="356" height="40" rx="8" fill="none" stroke="#e07a3d" stroke-dasharray="5 4"/>
+      <text x="292" y="222" text-anchor="middle" font-size="10" fill="#f0b088">账户 0：cash / free_cash 一份，三列各有仓位</text>
+      <text x="652" y="222" text-anchor="middle" font-size="10" fill="#f0b088">账户 1：同上，交给另一个线程也行</text>
+      <text x="16" y="262" text-anchor="start" font-size="11" fill="#b8b8b8">不分组时每列自成一个账户（Groups::ungrouped），这是默认值。</text>
+      </g>
+      </svg>
+    </div>
+  </div>
+  <h3>FlexArray：参数不展开</h3>
+  <p>
+    模拟的每个输入（价格、费用、滑点、止损距离、下单量……）都是 <code>FlexArray</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-core/src/flex.rs#L28">flex.rs:28</a>），五种形状：标量、每列一个、每行一个、整块矩阵、
+    以及指向共享源矩阵的列映射（<code>MappedColumns</code>，让 8 列信号共用 2 列价格）。读的时候按 <code>(row, col)</code> 算下标，不先展开成 <code>n_rows × n_cols</code>，
+    所以一千个参数组合的扫描不会因为一个标量费率而多占一千份内存。<code>get</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-core/src/flex.rs#L60">:60</a>）标成 <code>#[inline(always)]</code>，标量在调用处直接返回，
+    其余四种才走一次 <code>match</code>——大多数运行的大多数参数是标量。
+  </p>
+  <h3>账户组与共享现金</h3>
+  <p>
+    默认每列是一个独立账户。<code>Groups</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/groups.rs#L47">groups.rs:47</a>）用每组的列数（<code>group_lens</code>）把相邻的列并成一个账户：组内共用一份 <code>cash</code> / <code>free_cash</code>，
+    每列仍有自己的仓位、负债、估值价和止损。组内按调用顺序执行（<code>CallSeq</code>，<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/groups.rs#L180">:180</a>）：
+    <code>Default</code> 按布局，<code>Auto</code> 按估计的订单金额稳定排序、先卖后买，<code>Explicit</code> 每根 K 线给一个排列。组是并行的单位：组之间没有共享状态。
+  </p>
+  <p class="small">详见 <a href="phasor-core.html#columns">phasor-core · 列轴</a>、<a href="phasor-core.html#flex">FlexArray</a>、<a href="phasor-sim.html#sharing">phasor-sim · 共享资金</a>。</p>
+
+  <!-- ============================================================ -->
+  <h2 id="data">数据：phasor-data</h2>
+  <p>
+    phasor-data 是读本地数据的一层，只依赖 phasor-model，加上 Arrow、Parquet 和 CSV 的读取库。它的模块文档只有一句：只读的本地源、用户解码器、模拟之外的列式准备（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-data/src/lib.rs#L1">lib.rs:1</a>）。
+    它不下载、不建目录、不写文件；Binance 的下载脚本在 <code>examples/</code> 里。门面 crate 在 <code>data</code> feature 后再导出它，Python 包通过 <code>phasor.data</code> 调用它。
+  </p>
+  <div class="grid2">
+    <article class="card"><h3>1. 源与 schema</h3><p><code>catalog(root, name, keys)</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-data/src/lib.rs#L90">lib.rs:90</a>）把 <code>root/name/key/</code> 下的 .csv 和 .parquet 文件解析成 <code>SourceItem</code>，不创建也不管理目录。<code>DataSchema</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-data/src/lib.rs#L28">:28</a>）写明输入列、输出列、事件时间、可用时间（都是 UTC 纳秒的 uint64）以及标的从哪来：源的键、两列 symbol / venue，或全局（不属于任何标的）。</p></article>
+    <article class="card"><h3>2. 解码</h3><p><code>load</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-data/src/lib.rs#L217">:217</a>）逐批读文件，把每个 Arrow <code>RecordBatch</code> 交给调用方的解码器（Rust 闭包或 Python 回调），再按 <code>[start, end)</code> 过滤。先解码再过滤，因为解码器可以改时间。键能解析成 <code>BarType</code> 的源是 K 线序列。</p></article>
+    <article class="card"><h3>3. K 线面板</h3><p><code>Dataset::prepare</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-data/src/lib.rs#L343">:343</a>）把各个 K 线源按可用时间的并集排成行、每个 <code>BarType</code> 一列，得到 <code>BarPanel</code>（时间轴 + <code>OhlcvPanel</code>）。某个标的在某行没有 K 线就是 NaN；同一源同一时刻两根 K 线报错。</p></article>
+    <article class="card"><h3>4. 按时点对齐</h3><p><code>Dataset::align</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-data/src/lib.rs#L487">:487</a>）把资金费、新闻等事件按<b>可用时间</b>对齐到目标时间轴：每个时刻取最近一个已经可用的值，或者在一个窗口里求和、计数、取均值。按可用时间而不是事件时间，所以不会读到未来。排序后一遍双指针完成。</p></article>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="kernel">撮合内核：phasor-exec</h2>
+  <p>
+    所有成交都经过一个函数。<code>execute_order(state, order, reject_draw)</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-exec/src/kernel.rs#L1141">kernel.rs:1141</a>）输入一个账户状态（现金、有符号仓位、负债、可用现金、估值价、组合价值）和一笔订单请求，
+    输出新的状态和一个结果：成交了多少、什么价、多少手续费、哪一边，或者为什么没成交。两条模拟循环、强平、初始持仓、用户回调下的单，全部走它。
+  </p>
+  <div class="grid2">
+    <article class="card"><h3>拒绝不是错误</h3><p>被忽略或被拒的订单原样返回状态，带一个 <code>StatusInfo</code> 原因（价格 NaN、钱不够、低于最小数量……）；只有不变量被破坏（负现金、非有限仓位、参数越界）才返回 <code>Err</code>。两者混在一起，模拟就会悄悄给出一条看着合理、实际错误的净值曲线。</p></article>
+    <article class="card"><h3>纯函数，随机数由调用方给</h3><p>内核不读全局状态，也不碰随机数生成器。随机拒单的那个均匀数由调用方按 <code>(seed, row, col)</code> 算好传进来；概率为 0 时根本不算。所以内核在任何线程、任何调用顺序下都给出同样的结果。</p></article>
+    <article class="card"><h3>先归零，再比较</h3><p>进入内核的现金、仓位、负债等余额先用 <code>is_close</code> 吸附到精确的 0；可负担判断用 <code>is_close_or_less</code>，所有余额更新用 <code>add</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-core/src/math.rs#L113">math.rs:113</a>）。工作区 lint 禁止对钱用 <code>==</code> / <code>&lt;=</code>。</p></article>
+    <article class="card"><h3>换算链与四种账户</h3><p>目标百分比 → 目标价值 → 目标数量 / 数量；百分比按可用现金或持仓。买卖各写一次（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-exec/src/kernel.rs#L91">buy :91</a>、<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-exec/src/kernel.rs#L431">sell :431</a>），手续费包含在上限内；杠杆借款和保证金列另有一条路径（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-exec/src/kernel.rs#L611">margin_trade :611</a>）。</p></article>
+  </div>
+  <p>
+    热路径上，一列的订单参数大多不随 K 线变化。<code>ValidatedOrder</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-exec/src/kernel.rs#L1056">kernel.rs:1056</a>）每列构造一次，把与 K 线无关的参数检查提到循环外，每根只改写随 K 线变化的几个字段，
+    循环里调 <code>execute_validated</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-exec/src/kernel.rs#L1192">:1192</a>）。罕见的分支（*100 写法、借款上限、空头还款……）写成 <code>#[cold]</code> 的独立函数，
+    不占热路径的指令缓存。细节和可运行的 JS 移植见 <a href="phasor-exec.html">phasor-exec</a>。
+  </p>
+
+  <!-- ============================================================ -->
+  <h2 id="loops">两条模拟循环：phasor-sim</h2>
+  <p>
+    <code>from_orders</code> 读“每根 K 线每列下多少单”的数组；<code>from_signals</code> 读进场 / 出场（或多空四个）布尔数组，自己决定下多少单、什么时候止损。
+    两者结构相同：每个账户组一个 <code>simulate_group</code>，逐根 K 线推进；时间方向有硬依赖（第 i 根的状态取决于第 i−1 根），所以一列内部不能并行，也不值得用 SIMD——
+    内核是一棵有十几个数据相关提前返回的分支树，SIMD 的通道几乎每根 K 线都会分叉（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/lib.rs#L19">lib.rs:19</a>）。
+  </p>
+  <div class="panel">
+    <div class="cap">一根 K 线里的阶段：from_orders（上）与 from_signals（下）；彩色框是可选功能或决定顺序的步骤</div>
+    <div class="body">
+      <svg width="1040" height="250" viewBox="0 0 1040 250" role="img" aria-label="一根 K 线里的阶段">
+      <defs><marker id="a-bl" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a8a8a" /></marker></defs>
+      <g font-size="11">
+      <text x="16" y="22" text-anchor="start" font-size="11" fill="#909090">from_orders · 每根 K 线、每个账户组</text>
+      <rect x="16.0" y="30" width="117.2" height="64" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="74.6" y="59" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">开盘现金流</text>
+      <text x="74.6" y="73" text-anchor="middle" font-size="9" fill="#909090">入金 · 分红</text>
+      <path d="M133.2 62 H143.2" fill="none" stroke="#8a8a8a" marker-end="url(#a-bl)"/>
+      <rect x="143.2" y="30" width="117.2" height="64" rx="6" fill="#33200f" stroke="#e07a3d"/>
+      <text x="201.8" y="52" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">价格</text>
+      <text x="201.8" y="66" text-anchor="middle" font-size="9" fill="#f0b088">+inf → 收盘</text>
+      <text x="201.8" y="80" text-anchor="middle" font-size="9" fill="#f0b088">−inf → 上一根收盘</text>
+      <path d="M260.5 62 H270.5" fill="none" stroke="#8a8a8a" marker-end="url(#a-bl)"/>
+      <rect x="270.5" y="30" width="117.2" height="64" rx="6" fill="#33200f" stroke="#e07a3d"/>
+      <text x="329.1" y="52" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">估值价</text>
+      <text x="329.1" y="66" text-anchor="middle" font-size="9" fill="#f0b088">NaN 沿用上一个</text>
+      <text x="329.1" y="80" text-anchor="middle" font-size="9" fill="#f0b088">保证金列结算</text>
+      <path d="M387.8 62 H397.8" fill="none" stroke="#8a8a8a" marker-end="url(#a-bl)"/>
+      <rect x="397.8" y="30" width="117.2" height="64" rx="6" fill="#33200f" stroke="#e07a3d"/>
+      <text x="456.4" y="52" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">强平检查</text>
+      <text x="456.4" y="66" text-anchor="middle" font-size="9" fill="#f0b088">沿 K 线路径</text>
+      <text x="456.4" y="80" text-anchor="middle" font-size="9" fill="#f0b088">找第一次跌破</text>
+      <path d="M515.0 62 H525.0" fill="none" stroke="#8a8a8a" marker-end="url(#a-bl)"/>
+      <rect x="525.0" y="30" width="117.2" height="64" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="583.6" y="59" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">组的净值</text>
+      <text x="583.6" y="73" text-anchor="middle" font-size="9" fill="#909090">每根只算一次</text>
+      <path d="M642.2 62 H652.2" fill="none" stroke="#8a8a8a" marker-end="url(#a-bl)"/>
+      <rect x="652.2" y="30" width="117.2" height="64" rx="6" fill="#33200f" stroke="#e07a3d"/>
+      <text x="710.8" y="52" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">调用顺序</text>
+      <text x="710.8" y="66" text-anchor="middle" font-size="9" fill="#f0b088">Default / Auto</text>
+      <text x="710.8" y="80" text-anchor="middle" font-size="9" fill="#f0b088">/ Explicit</text>
+      <path d="M769.5 62 H779.5" fill="none" stroke="#8a8a8a" marker-end="url(#a-bl)"/>
+      <rect x="779.5" y="30" width="117.2" height="64" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="838.1" y="52" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">执行</text>
+      <text x="838.1" y="66" text-anchor="middle" font-size="9" fill="#909090">execute_validated</text>
+      <text x="838.1" y="80" text-anchor="middle" font-size="9" fill="#909090">写成交与日志</text>
+      <path d="M896.8 62 H906.8" fill="none" stroke="#8a8a8a" marker-end="url(#a-bl)"/>
+      <rect x="906.8" y="30" width="117.2" height="64" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="965.4" y="59" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">收盘现金流</text>
+      <text x="965.4" y="73" text-anchor="middle" font-size="9" fill="#909090">收益 · 持仓费</text>
+      <text x="16" y="132" text-anchor="start" font-size="11" fill="#909090">from_signals · 每根 K 线：先逐列 prepare_order，再按调用顺序执行</text>
+      <rect x="16.0" y="140" width="117.2" height="64" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="74.6" y="162" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">价格</text>
+      <text x="74.6" y="176" text-anchor="middle" font-size="9" fill="#909090">+inf → 收盘</text>
+      <text x="74.6" y="190" text-anchor="middle" font-size="9" fill="#909090">−inf → 当根开盘</text>
+      <path d="M133.2 172 H143.2" fill="none" stroke="#8a8a8a" marker-end="url(#a-bl)"/>
+      <rect x="143.2" y="140" width="117.2" height="64" rx="6" fill="#143430" stroke="#2fbfa8"/>
+      <text x="201.8" y="162" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">测止损</text>
+      <text x="201.8" y="176" text-anchor="middle" font-size="9" fill="#8fe0d2">时间止损 → 止损</text>
+      <text x="201.8" y="190" text-anchor="middle" font-size="9" fill="#8fe0d2">→ 移动 → 止盈</text>
+      <path d="M260.5 172 H270.5" fill="none" stroke="#8a8a8a" marker-end="url(#a-bl)"/>
+      <rect x="270.5" y="140" width="117.2" height="64" rx="6" fill="#143430" stroke="#2fbfa8"/>
+      <text x="329.1" y="162" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">挂单</text>
+      <text x="329.1" y="176" text-anchor="middle" font-size="9" fill="#8fe0d2">限价单够没够到</text>
+      <text x="329.1" y="190" text-anchor="middle" font-size="9" fill="#8fe0d2">过期就撤</text>
+      <path d="M387.8 172 H397.8" fill="none" stroke="#8a8a8a" marker-end="url(#a-bl)"/>
+      <rect x="397.8" y="140" width="117.2" height="64" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="456.4" y="162" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">信号</text>
+      <text x="456.4" y="176" text-anchor="middle" font-size="9" fill="#909090">止损触发就替换</text>
+      <text x="456.4" y="190" text-anchor="middle" font-size="9" fill="#909090">否则读四个数组</text>
+      <path d="M515.0 172 H525.0" fill="none" stroke="#8a8a8a" marker-end="url(#a-bl)"/>
+      <rect x="525.0" y="140" width="117.2" height="64" rx="6" fill="#143430" stroke="#2fbfa8"/>
+      <text x="583.6" y="162" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">冲突</text>
+      <text x="583.6" y="176" text-anchor="middle" font-size="9" fill="#8fe0d2">进出 → 多空</text>
+      <text x="583.6" y="190" text-anchor="middle" font-size="9" fill="#8fe0d2">→ 反向进场</text>
+      <path d="M642.2 172 H652.2" fill="none" stroke="#8a8a8a" marker-end="url(#a-bl)"/>
+      <rect x="652.2" y="140" width="117.2" height="64" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="710.8" y="162" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">数量</text>
+      <text x="710.8" y="176" text-anchor="middle" font-size="9" fill="#909090">signals_to_size</text>
+      <text x="710.8" y="190" text-anchor="middle" font-size="9" fill="#909090">/ _to_target</text>
+      <path d="M769.5 172 H779.5" fill="none" stroke="#8a8a8a" marker-end="url(#a-bl)"/>
+      <rect x="779.5" y="140" width="117.2" height="64" rx="6" fill="#143430" stroke="#2fbfa8"/>
+      <text x="838.1" y="162" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">强平与执行</text>
+      <text x="838.1" y="176" text-anchor="middle" font-size="9" fill="#8fe0d2">强平先于下单</text>
+      <text x="838.1" y="190" text-anchor="middle" font-size="9" fill="#8fe0d2">成交后重设止损</text>
+      <path d="M896.8 172 H906.8" fill="none" stroke="#8a8a8a" marker-end="url(#a-bl)"/>
+      <rect x="906.8" y="140" width="117.2" height="64" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="965.4" y="169" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">收盘</text>
+      <text x="965.4" y="183" text-anchor="middle" font-size="9" fill="#909090">收益 · 持仓费</text>
+      <text x="16" y="236" text-anchor="start" font-size="11" fill="#b8b8b8">回调（OrderFunc / SignalFunc）插在固定位置：组开始前、每根开始前、下单时、成交后、每根结束后。没有回调时这些位置是空实现，编译后不留代码。</text>
+      </g>
+      </svg>
+    </div>
+    <div class="foot"><p class="small" style="margin:0">from_orders 的一根 K 线在 <code>Group::run_rows</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/from_orders.rs#L983">from_orders.rs:983</a>）里，两遍：先定全组的价格和估值价（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/from_orders.rs#L1048">:1048</a>），再按调用顺序执行（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/from_orders.rs#L1204">:1204</a>）。from_signals 每列先走 <code>prepare_order</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/from_signals.rs#L898">from_signals.rs:898</a>），组循环在 <code>group_loop</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/from_signals.rs#L1606">:1606</a>）。</p></div>
+  </div>
+  <h3>信号管线</h3>
+  <p>
+    from_signals 把一根 K 线的信号交给 <code>signals.rs</code> 的一串纯函数：止损触发时 <code>from_stop</code> 用出场<b>替换</b>当根信号；然后依次解决同向进出冲突、多空冲突、反向进场
+    （<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/signals.rs#L129">signals.rs:129</a>、<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/signals.rs#L176">:176</a>、<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/signals.rs#L243">:243</a>），
+    最后 <code>size_signals</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/signals.rs#L530">:530</a>）按数量类型分派给 <code>signals_to_size</code> 或目标类的 <code>signals_to_target</code>。每一步的模式都是枚举，默认值见 <a href="phasor-sim.html#defaults">phasor-sim · 默认值</a>。
+  </p>
+  <h3>止损、止盈与限价单</h3>
+  <p>
+    开仓时按 <code>stop_entry_price</code> 锚定止损线。每根 K 线 <code>stops::test</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/stops.rs#L137">stops.rs:137</a>）先测时间止损（在开盘），再测止损、移动止损、止盈；
+    开盘就跳空越过止损线时只能按开盘价成交。移动止损的锚点在测试<b>之后</b>才更新（<code>trail</code>，<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/stops.rs#L197">:197</a>），否则一根创新高又回落的 K 线会被自己的回落止损出局。
+    止损、移动止损、止盈都可以是阶梯，每级平掉一部分。只有收盘价的数据缺开高低，循环用已知价格补出来，止损照样能触发。
+    限价单在 from_signals 里挂着：<code>limit::fill_price</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/limit.rs#L140">limit.rs:140</a>）先测起点（下单那根是订单价，之后是开盘）是否已经越过限价，再看当根的高低范围；
+    有效期按行数（<code>limit_tif</code>、<code>limit_expiry</code>）。挂单和新信号冲突时怎么办由四个挂单冲突模式决定。
+  </p>
+  <h3 id="accounts">杠杆、保证金、强平与持仓费</h3>
+  <p>
+    一列可以是现金列（可以带杠杆借钱、借券做空）或保证金列（全仓或逐仓）。只要有一列用了杠杆、保证金、持仓费或不为 1 的合约乘数，整次运行就走
+    <code>const LEV: bool = true</code> 的那份循环实例，成交记录多带 5 列余额（负债、锁定现金、保证金标记……）；否则走不含这些代码的实例。每根 K 线：
+  </p>
+  <ol class="steps">
+    <li><b>结算。</b>全仓保证金列在估值价确定后把浮动盈亏结算进现金（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/margin.rs#L48">margin.rs:48</a>）；逐仓列不结算，盈亏留在仓位上。</li>
+    <li><b>强平检查。</b>设了维持保证金（或分档、或现金列的 <code>cash_maintenance_margin</code>）的账户，沿这根 K 线从开盘到不利极值（或标记价格）的路径求权益第一次跌破维持保证金的点（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/liquidation.rs#L464">liquidation.rs:464</a>）；跌破就按那个价格平仓，可以分 <code>liquidation_step</code> 部分平（最多 <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/liquidation.rs#L541">ROUNDS 轮</a>），穿仓的部分核销。强平是一笔带 <code>liquidation</code> 标记的成交，核销是一条现金流。</li>
+    <li><b>下单与成交</b>照常经过内核。</li>
+    <li><b>持仓费。</b>收盘按订单之后的持仓收资金费、隔夜融资、借款利息、借券费（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/holding.rs#L128">holding.rs:128</a>），不封顶，现金可以小于 0；每一笔写成 <code>CashRecords</code>。</li>
+  </ol>
+  <h3 id="callbacks">回调与内置规则</h3>
+  <p>
+    回调不是另一套引擎：循环还是这条逐根 K 线的循环，用同一个内核、写同样的记录。<code>OrderFunc</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/callbacks.rs#L172">callbacks.rs:172</a>）和
+    <code>SignalFunc</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/callbacks.rs#L281">:281</a>）在一根 K 线的固定位置被调用（组开始、每根开始、下单、成交之后、每根结束），
+    读一个只读的 <code>Context</code>，可以改写循环在那里本来要做的事：下什么单、调整止损、停止交易。默认的 <code>NoCallbacks</code> 把 <code>ON</code> 设为 <code>false</code>，那些调用点在编译后整个消失。
+    常用的三条规则写成了 Rust 里的一个 <code>SignalFunc</code>：<code>Builtin</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/builtin.rs#L36">builtin.rs:36</a>）按风险定仓、移到保本、全局预算（持仓数与总敞口），
+    Python 直接用关键字参数打开，不经过 Python 回调。
+  </p>
+  <h3>初始持仓与现金流</h3>
+  <p>
+    <code>init_position</code> / <code>init_price</code> 在第一根上做一笔无手续费、无滑点的成交，经过内核；现金列另记一条 <code>InitialPosition</code> 现金流抵掉成本（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/initial.rs#L62">initial.rs:62</a>）。
+    入金和分红在开盘、价格确定之前入账，收益在收盘入账。每一种都是一条记录。
+  </p>
+  <p class="small">详见 <a href="phasor-sim.html#bar">phasor-sim · 一根 K 线</a>、<a href="phasor-sim.html#pipeline">信号管线</a>、<a href="phasor-sim.html#stops">止损</a>、<a href="phasor-sim.html#callbacks">回调</a>、<a href="phasor-sim.html#builtin">内置回调</a>。</p>
+
+  <!-- ============================================================ -->
+  <h2 id="records">记录是唯一事实，分析从记录重建</h2>
+  <p>
+    phasor-records 定义模拟和分析之间的契约：不管谁算出一次运行，<b>出来的是同一种记录</b>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-records/src/lib.rs#L1">lib.rs:1</a>）。
+    记录是数组结构体：<code>OrderRecords</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-records/src/lib.rs#L212">:212</a>）每笔成交存列、行、数量、价格、费用、方向，带杠杆的运行再加余额列；
+    <code>CashRecords</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-records/src/cash.rs#L24">cash.rs:24</a>）存不经成交的现金变动和它的种类；<code>LogRecords</code> 是可选的诊断日志，每张被考虑过的订单一行，回答“这根为什么没成交”。
+    模拟循环只通过 <code>RecordSink</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-records/src/lib.rs#L52">lib.rs:52</a>）写记录。
+  </p>
+  <div class="panel">
+    <div class="cap">记录到分析：Portfolio 只存记录、收盘价和初始资金，其余按需派生</div>
+    <div class="body">
+      <svg width="1040" height="190" viewBox="0 0 1040 190" role="img" aria-label="记录到分析的重建链">
+      <defs><marker id="a-rc" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a8a8a" /></marker></defs>
+      <g font-size="11">
+      <a href="#loops">
+      <rect x="16" y="40" width="150" height="56" rx="6" fill="#33200f" stroke="#e07a3d"/>
+      <text x="91" y="65" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">模拟循环</text>
+      <text x="91" y="79" text-anchor="middle" font-size="10" fill="#f0b088">fill / 现金流 / 日志</text>
+      </a>
+      <rect x="196" y="14" width="180" height="40" rx="6" fill="#2e2710" stroke="#c9a227"/>
+      <text x="286" y="31" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">OrderRecords</text>
+      <text x="286" y="45" text-anchor="middle" font-size="9" fill="#e6c35c">col · idx · size · price · fees · side</text>
+      <rect x="196" y="62" width="180" height="40" rx="6" fill="#2e2710" stroke="#c9a227"/>
+      <text x="286" y="79" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">CashRecords</text>
+      <text x="286" y="93" text-anchor="middle" font-size="9" fill="#e6c35c">col · idx · amount · kind</text>
+      <rect x="196" y="110" width="180" height="40" rx="6" fill="#1e1e1e" stroke="#3d3d3d"/>
+      <text x="286" y="127" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">LogRecords（可选）</text>
+      <text x="286" y="141" text-anchor="middle" font-size="9" fill="#909090">请求 · 前后状态 · 结果原因</text>
+      <path d="M166 60 C 180 60, 180 34, 196 34" fill="none" stroke="#8a8a8a" marker-end="url(#a-rc)"/>
+      <path d="M166 68 H196 V82" fill="none" stroke="#8a8a8a" marker-end="url(#a-rc)"/>
+      <path d="M166 80 C 180 80, 180 130, 196 130" fill="none" stroke="#8a8a8a" stroke-dasharray="4 3" marker-end="url(#a-rc)"/>
+      <a href="phasor-analysis.html#portfolio">
+      <rect x="410" y="40" width="170" height="56" rx="6" fill="#2a2036" stroke="#b07cd8"/>
+      <text x="495" y="58" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">Portfolio</text>
+      <text x="495" y="72" text-anchor="middle" font-size="9" fill="#d4b4ee">只存记录 + 收盘价 + 初始资金</text>
+      <text x="495" y="86" text-anchor="middle" font-size="9" fill="#d4b4ee">其余按需派生并缓存</text>
+      </a>
+      <path d="M376 34 C 392 34, 392 60, 410 60" fill="none" stroke="#8a8a8a" marker-end="url(#a-rc)"/>
+      <path d="M376 82 H410 V76" fill="none" stroke="#8a8a8a" marker-end="url(#a-rc)"/>
+      <rect x="610" y="14" width="150" height="40" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="685" y="31" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">assets</text>
+      <text x="685" y="45" text-anchor="middle" font-size="9" fill="#909090">asset_flow 累加</text>
+      <rect x="610" y="62" width="150" height="40" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="685" y="79" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">cash</text>
+      <text x="685" y="93" text-anchor="middle" font-size="9" fill="#909090">cash_flow + init_cash</text>
+      <rect x="610" y="110" width="150" height="40" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="685" y="127" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">asset_value</text>
+      <text x="685" y="141" text-anchor="middle" font-size="9" fill="#909090">assets × close</text>
+      <rect x="790" y="38" width="150" height="40" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="865" y="55" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">value</text>
+      <text x="865" y="69" text-anchor="middle" font-size="9" fill="#909090">cash + asset_value</text>
+      <rect x="790" y="86" width="150" height="40" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="865" y="103" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">returns</text>
+      <text x="865" y="117" text-anchor="middle" font-size="9" fill="#909090">逐根收益</text>
+      <path d="M580 60 C 595 60, 595 34, 610 34" fill="none" stroke="#8a8a8a" marker-end="url(#a-rc)"/>
+      <path d="M580 68 H610 V82" fill="none" stroke="#8a8a8a" marker-end="url(#a-rc)"/>
+      <path d="M580 80 C 595 80, 595 130, 610 130" fill="none" stroke="#8a8a8a" marker-end="url(#a-rc)"/>
+      <path d="M760 82 H790 V62" fill="none" stroke="#8a8a8a" marker-end="url(#a-rc)"/>
+      <path d="M760 130 C 775 130, 775 58, 790 58" fill="none" stroke="#8a8a8a" marker-end="url(#a-rc)"/>
+      <path d="M865 78 V86" fill="none" stroke="#8a8a8a" marker-end="url(#a-rc)"/>
+      <rect x="956" y="14" width="72" height="136" rx="6" fill="#1e1e1e" stroke="#3d3d3d"/>
+      <text x="992" y="51" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">派生</text>
+      <text x="992" y="65" text-anchor="middle" font-size="9" fill="#909090">指标</text>
+      <text x="992" y="79" text-anchor="middle" font-size="9" fill="#909090">stats</text>
+      <text x="992" y="93" text-anchor="middle" font-size="9" fill="#909090">交易</text>
+      <text x="992" y="107" text-anchor="middle" font-size="9" fill="#909090">回撤</text>
+      <text x="992" y="121" text-anchor="middle" font-size="9" fill="#909090">敞口</text>
+      <path d="M940 106 H956" fill="none" stroke="#8a8a8a" marker-end="url(#a-rc)"/>
+      <text x="16" y="176" text-anchor="start" font-size="11" fill="#b8b8b8">分析层不读模拟状态。改变现金或仓位的事（入金、分红、收益、四种持仓费、强平核销、初始持仓）都写成记录；漏写一条，重建出的净值就和循环里的不一样，测试会抓到。</text>
+      </g>
+      </svg>
+    </div>
+  </div>
+  <p>
+    <code>Portfolio</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-analysis/src/portfolio.rs#L147">portfolio.rs:147</a>）构造时只拿记录、收盘价、分组和初始资金。资产、现金、净值、收益、敞口、交易、回撤都是第一次被问到时才算，
+    算完存在缓存里；一次扫描里大多数列只会被问一个标量。重建链在 <code>series.rs</code>：<code>asset_flow</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-analysis/src/series.rs#L74">series.rs:74</a>）、
+    <code>cash_flow</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-analysis/src/series.rs#L150">:150</a>）、<code>value</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-analysis/src/series.rs#L460">:460</a>）、<code>returns</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-analysis/src/series.rs#L503">:503</a>）。
+    因为只读记录，<code>Portfolio::from_records</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-analysis/src/portfolio.rs#L173">:173</a>）可以分析任何来源的记录：文件里读回来的、分段拼起来的、Python 切片和拼接过的。
+  </p>
+  <div class="grid2">
+    <article class="card"><h3>为什么不存状态矩阵</h3><p>成交只发生在少数 K 线上，记录的大小与交易活动成正比，而不是与 行 × 列 成正比；千列扫描时差几个数量级。记录还说明了“为什么是这么多”，每一分钱都能追到一条事件。路径相关的事实（含滑点的成交价、按当时可用资金封顶的出金）事后无法从输入复原，所以必须在发生时记下来。</p></article>
+    <article class="card"><h3>顺序与 id</h3><p>记录按列主序输出：先是第 0 列的全部成交，再是第 1 列的。<code>id</code> 不在写入时分配，而是合并后的位置。每列（每组）写自己的缓冲区、没有共享计数器，缓冲区按列的顺序拼接后再编号，所以并行运行的记录和串行逐位相同（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-records/src/lib.rs#L14">lib.rs:14</a>）。</p></article>
+    <article class="card"><h3>派生记录</h3><p>三种交易视图（按进场归属 <code>entry_trades</code>、按出场归属 <code>exit_trades</code>、按仓位聚合 <code>positions</code>）总 PnL 相同、笔数和胜率不同；回撤段 <code>find_drawdowns</code>；MAE / MFE；<code>MappedArray</code> 按列分段归约。它们都是记录的纯函数，见 <a href="phasor-records.html">phasor-records</a>。</p></article>
+    <article class="card"><h3>指标与汇总</h3><p>收益指标有标量和滚动两种形式；<code>stats</code> 是一张有顺序、有标签的表，没被选中的指标不计算；<code>group_by</code> / <code>best_column</code> 按列标签把千列结果化成“每个参数一行”；PSR / DSR / PBO 估计最好的那个夏普里有多少是运气。见 <a href="phasor-analysis.html">phasor-analysis</a>。</p></article>
+  </div>
+  <div class="note"><b>规则：</b>任何改变现金或仓位的东西都必须是一条记录。保证金结算只在持仓和现金之间挪钱、不改变权益，是唯一不留记录的余额变动。phasor-analysis 的 <code>cash_flows.rs</code>、<code>holding.rs</code>、<code>liquidation.rs</code> 测试逐根检查：从记录重建出的现金、可用现金和权益，等于模拟循环里的值。</div>
+
+  <!-- ============================================================ -->
+  <h2 id="resume">状态快照与续跑</h2>
+  <p>
+    一次运行结束时交出它的状态：<code>SimState</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/snapshot.rs#L68">snapshot.rs:68</a>）记着是哪条循环写的、下一根从哪行开始、是否带余额列，以及每个账户组的现金、可用现金和每列的
+    <code>ColumnState</code>（仓位、负债、估值价、止损、挂着的限价单）。<code>simulate_from_orders_run</code> / <code>simulate_from_signals_run</code> 返回
+    <code>Run { records, states, last_state }</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/snapshot.rs#L227">:227</a>）。
+  </p>
+  <div class="panel">
+    <div class="cap">任意切点分段续跑，等于一次跑完</div>
+    <div class="body">
+      <svg width="1040" height="246" viewBox="0 0 1040 246" role="img" aria-label="状态快照与续跑">
+      <defs><marker id="a-rs" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a8a8a" /></marker></defs>
+      <g font-size="11">
+      <text x="16" y="18" text-anchor="start" font-size="11" fill="#909090">同一段历史，切成两段跑，或者一次跑完：记录逐条相同，最终状态的字节也相同</text>
+      <rect x="16" y="30" width="300" height="50" rx="6" fill="#33200f" stroke="#e07a3d"/>
+      <text x="166" y="52" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">第一段：行 [0, k)</text>
+      <text x="166" y="66" text-anchor="middle" font-size="10" fill="#f0b088">返回 Run { records, states, last_state }</text>
+      <rect x="356" y="30" width="200" height="50" rx="6" fill="#2e2710" stroke="#c9a227"/>
+      <text x="456" y="45" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">SimState</text>
+      <text x="456" y="59" text-anchor="middle" font-size="10" fill="#e6c35c">source · next_row = k</text>
+      <text x="456" y="73" text-anchor="middle" font-size="10" fill="#e6c35c">levered · 每组 GroupState</text>
+      <rect x="596" y="30" width="300" height="50" rx="6" fill="#33200f" stroke="#e07a3d"/>
+      <text x="746" y="52" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">第二段：行 [k, n)</text>
+      <text x="746" y="66" text-anchor="middle" font-size="10" fill="#f0b088">resume = 状态，row_offset = 数组起点</text>
+      <path d="M316 55 H356" fill="none" stroke="#8a8a8a" marker-end="url(#a-rs)"/>
+      <path d="M556 55 H596" fill="none" stroke="#8a8a8a" marker-end="url(#a-rs)"/>
+      <rect x="356" y="104" width="200" height="40" rx="6" fill="#1e1e1e" stroke="#3d3d3d"/>
+      <text x="456" y="121" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">to_bytes / from_bytes</text>
+      <text x="456" y="135" text-anchor="middle" font-size="9" fill="#909090">魔数 PHSS，可以存盘再续</text>
+      <path d="M456 80 V104" fill="none" stroke="#8a8a8a" stroke-dasharray="4 3" marker-end="url(#a-rs)"/>
+      <rect x="16" y="168" width="880" height="40" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="456" y="185" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">Journal::chain / OrderRecords::chain</text>
+      <text x="456" y="199" text-anchor="middle" font-size="9" fill="#909090">按组稳定排序拼接：先组，组内按段、按 K 线；行号已由 shift_rows 加回 row_offset</text>
+      <path d="M166 80 V168" fill="none" stroke="#8a8a8a" marker-end="url(#a-rs)"/>
+      <path d="M746 80 V168" fill="none" stroke="#8a8a8a" marker-end="url(#a-rs)"/>
+      <text x="16" y="232" text-anchor="start" font-size="11" fill="#b8b8b8">Python 的 resume=pf、phasor.chunked（按行分块并写检查点）和 Stepper（逐根推进）都建立在这一条保证上。</text>
+      </g>
+      </svg>
+    </div>
+  </div>
+  <p>
+    续跑时传 <code>resume</code>（上一段的状态）和 <code>row_offset</code>（这一段数组的第 0 行在整段历史里是第几行）。数组可以比切点早几行开始，给需要往回看的参数（上一根收盘、<code>from_ago</code>）留出窗口。
+    行号有两处要换算：状态里记的行（时间止损、限价单的到期行）是整段历史的绝对行，段结束时由 <code>rebase</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/snapshot.rs#L259">snapshot.rs:259</a>）换回；
+    记录里的 <code>idx</code> 由 <code>shift_rows</code> 加回 <code>row_offset</code>。随机拒单的随机数用 <code>i + row_offset</code> 作行号，所以分段不改变抽到的数。
+    分段的记录用 <code>OrderRecords::chain</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-records/src/lib.rs#L414">lib.rs:414</a>）按组稳定排序拼接，顺序也和一次跑完的相同。
+  </p>
+  <p>
+    状态和组合都有字节格式（<code>SimState::to_bytes</code>，魔数 PHSS；记录的 PHOR / PHJN），所以可以存盘、换进程再续。上层的三种用法：Python 的 <code>resume=pf</code>、
+    <code>phasor.chunked</code>（按行分块、每块写检查点，中断后从检查点接着跑，历史变长时延长一次已跑完的运行）和 <code>Stepper</code>（逐根提出订单、记下实际成交）。
+    <code>tests/resume.rs</code> 在 5 个切点、两种续法、两条循环各 4 组功能上比较记录和最终状态的字节，见 <a href="phasor-sim.html#resume">phasor-sim · 续跑</a>。
+  </p>
+
+  <!-- ============================================================ -->
+  <h2 id="factors">因子引擎：phasor-expr</h2>
+  <p>
+    因子写成字符串（<code>"Mean($close, 5) / $close"</code>），所以可以存进配置、从 Python 传进来、和 Qlib 的公式逐字对应。<code>FactorSet::compile</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-expr/src/lib.rs#L58">lib.rs:58</a>）编译一次，<code>evaluate</code> 求值多次。
+  </p>
+  <div class="panel">
+    <div class="cap">解析 → 去重的图 → 槽位调度 → 分阶段 → 三条执行路径 → 分批输出</div>
+    <div class="body">
+      <svg width="1040" height="220" viewBox="0 0 1040 220" role="img" aria-label="因子引擎">
+      <defs><marker id="a-fe" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a8a8a" /></marker></defs>
+      <g font-size="11">
+      <rect x="16" y="30" width="136" height="56" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="84" y="48" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">字符串</text>
+      <text x="84" y="62" text-anchor="middle" font-size="9" fill="#909090">"Mean($close, 5)</text>
+      <text x="84" y="76" text-anchor="middle" font-size="9" fill="#909090"> / $close"</text>
+      <rect x="166" y="30" width="136" height="56" rx="6" fill="#143430" stroke="#2fbfa8"/>
+      <text x="234" y="48" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">parse</text>
+      <text x="234" y="62" text-anchor="middle" font-size="9" fill="#8fe0d2">Pratt 解析</text>
+      <text x="234" y="76" text-anchor="middle" font-size="9" fill="#8fe0d2">→ Expression 树</text>
+      <rect x="316" y="30" width="136" height="56" rx="6" fill="#143430" stroke="#2fbfa8"/>
+      <text x="384" y="48" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">Graph::compile</text>
+      <text x="384" y="62" text-anchor="middle" font-size="9" fill="#8fe0d2">哈希合并 · 常量折叠</text>
+      <text x="384" y="76" text-anchor="middle" font-size="9" fill="#8fe0d2">参数校验 · 视图</text>
+      <rect x="466" y="30" width="136" height="56" rx="6" fill="#143430" stroke="#2fbfa8"/>
+      <text x="534" y="48" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">调度槽位</text>
+      <text x="534" y="62" text-anchor="middle" font-size="9" fill="#8fe0d2">依赖顺序存节点</text>
+      <text x="534" y="76" text-anchor="middle" font-size="9" fill="#8fe0d2">最后一个读者后复用</text>
+      <rect x="616" y="30" width="136" height="56" rx="6" fill="#2e2710" stroke="#c9a227"/>
+      <text x="684" y="48" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">Staged::plan</text>
+      <text x="684" y="62" text-anchor="middle" font-size="9" fill="#e6c35c">有截面算子才切阶段</text>
+      <text x="684" y="76" text-anchor="middle" font-size="9" fill="#e6c35c">否则 None，零代价</text>
+      <path d="M152 58 H166" fill="none" stroke="#8a8a8a" marker-end="url(#a-fe)"/>
+      <path d="M302 58 H316" fill="none" stroke="#8a8a8a" marker-end="url(#a-fe)"/>
+      <path d="M452 58 H466" fill="none" stroke="#8a8a8a" marker-end="url(#a-fe)"/>
+      <path d="M602 58 H616" fill="none" stroke="#8a8a8a" marker-end="url(#a-fe)"/>
+      <text x="16" y="18" text-anchor="start" font-size="11" fill="#909090">compile 一次</text>
+      <text x="16" y="118" text-anchor="start" font-size="11" fill="#909090">evaluate 多次：三条路径之一</text>
+      <rect x="16" y="130" width="258" height="50" rx="6" fill="#182238" stroke="#5ea0ff"/>
+      <text x="145" y="145" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">run_graph</text>
+      <text x="145" y="159" text-anchor="middle" font-size="9" fill="#9ec1ff">每个标的一个任务</text>
+      <text x="145" y="173" text-anchor="middle" font-size="9" fill="#9ec1ff">标的之间并行（rayon）</text>
+      <rect x="290" y="130" width="258" height="50" rx="6" fill="#182238" stroke="#5ea0ff"/>
+      <text x="419" y="145" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">run_parts</text>
+      <text x="419" y="159" text-anchor="middle" font-size="9" fill="#9ec1ff">标的少于线程数：</text>
+      <text x="419" y="173" text-anchor="middle" font-size="9" fill="#9ec1ff">按因子切成 ≤16 段图</text>
+      <rect x="564" y="130" width="258" height="50" rx="6" fill="#2e2710" stroke="#c9a227"/>
+      <text x="693" y="145" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">run_staged</text>
+      <text x="693" y="159" text-anchor="middle" font-size="9" fill="#e6c35c">阶段内按标的并行，</text>
+      <text x="693" y="173" text-anchor="middle" font-size="9" fill="#e6c35c">阶段之间逐行跑截面算子</text>
+      <path d="M684 86 C 684 108, 693 108, 693 130" fill="none" stroke="#8a8a8a" marker-end="url(#a-fe)"/>
+      <path d="M534 86 C 534 108, 145 108, 145 130" fill="none" stroke="#8a8a8a" marker-end="url(#a-fe)"/>
+      <path d="M534 86 C 534 108, 419 108, 419 130" fill="none" stroke="#8a8a8a" marker-end="url(#a-fe)"/>
+      <rect x="838" y="130" width="186" height="50" rx="6" fill="#2a2036" stroke="#b07cd8"/>
+      <text x="931" y="145" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">FactorValues</text>
+      <text x="931" y="159" text-anchor="middle" font-size="9" fill="#d4b4ee">每个因子一个 Matrix</text>
+      <text x="931" y="173" text-anchor="middle" font-size="9" fill="#d4b4ee">或分批交给 sink</text>
+      <path d="M822 155 H838" fill="none" stroke="#8a8a8a" marker-end="url(#a-fe)"/>
+      <text x="16" y="206" text-anchor="start" font-size="11" fill="#b8b8b8">三条路径的结果逐位相同：一个节点在哪张图里算，输入和运算都一样；截面算子的行内按标的顺序累加，排名用稳定排序。</text>
+      </g>
+      </svg>
+    </div>
+  </div>
+  <ol class="steps">
+    <li><b>解析。</b>词法 + Pratt 解析（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-expr/src/parse.rs#L67">parse.rs:67</a>）得到 <code>Expression</code> 树，同时检查算子的元数。</li>
+    <li><b>哈希合并。</b>所有因子的树编进<b>一张</b>图（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-expr/src/graph.rs#L191">graph.rs:191</a>）。节点由算子和输入节点确定（<code>intern</code>，<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-expr/src/graph.rs#L301">:301</a>），所以四十个 Alpha158 因子里的 <code>Ref($close, 1)</code> 只算一次。字面量运算在编译时折叠；窗口长度等参数在编译时校验，坏因子不会等到其它因子算完才报错。</li>
+    <li><b>视图。</b><code>Ref(x, k)</code>（k ≥ 0）不计算，是 <code>x</code> 平移 k 行的视图，逐元素算子按偏移读它。Alpha360 有 354 个这样的节点，这是每个因子一遍和三遍的差别。</li>
+    <li><b>槽位调度。</b>节点按依赖顺序存放，每个被后面读到的计算节点分一个临时槽位，最后一个读者跑完就回收（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-expr/src/graph.rs#L209">graph.rs:209</a>）。一个标的的整个因子集只需要 <code>Graph::slots</code> 列临时内存；没人读的节点直接写进因子输出。</li>
+    <li><b>分阶段。</b>截面算子（<code>CSRank</code>、<code>CSZScore</code>、行业中性化、截面回归残差……）一行要读所有标的。<code>Staged::plan</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-expr/src/stage.rs#L66">stage.rs:66</a>）给每个节点一个层级（输入的最高层级，截面节点再加一），同一层的逐标的节点是一张普通的图，层与层之间逐行跑截面算子；跨层的序列存成整块面板，最后一个读者之后释放。没有截面算子时 <code>plan</code> 返回 <code>None</code>，一点代价都没有。</li>
+    <li><b>执行。</b><code>evaluate</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-expr/src/eval.rs#L199">eval.rs:199</a>）在三条路径里选：图被切成阶段时走 <code>run_staged</code>；标的数少于线程数且不止一个因子时走 <code>run_parts</code>，把因子按原顺序切成至多 16 段、每段单独编译，按（段，标的）并行（窄面板也能用满线程）；其余走 <code>run_graph</code>，每个标的一个任务。</li>
+    <li><b>分批输出。</b><code>evaluate_batches</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-expr/src/lib.rs#L154">lib.rs:154</a>）每次取一批标的求值后交给调用方的 sink，峰值内存由批大小决定而不是面板大小；有截面算子时先整块算完再分批交出。</li>
+  </ol>
+  <p>
+    窗口统计（均值、标准差、相关、回归、偏度峰度……）用增量累加器，每个核心都和逐窗重算在 1e-9 内对过；Quantile / Med / Rank 用只存整数位置的有序结构，和排序结果逐位相同。
+    内置因子集：<code>alpha158()</code>、<code>alpha360()</code>（Qlib 的表达式）和 WorldQuant 101（<code>wq101()</code> 是只读量价的 82 个，<code>wq101_all()</code> 是全部 101 个）。
+    <code>ComputeBackend</code> 有两个实现：默认的 <code>NativeBackend</code>，和 <code>polars</code> feature 下的 <code>PolarsBackend</code>（只翻译 Qlib 的算子，用于独立交叉验证）。见 <a href="phasor-expr.html">phasor-expr</a>。
+  </p>
+
+  <!-- ============================================================ -->
+  <h2 id="indicators">指标、信号与流式</h2>
+  <div class="grid2">
+    <article class="card"><h3>参数扫描的列布局</h3><p>phasor-indicators 的八个指标都接受参数列表。<code>combinations</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-indicators/src/sweep.rs#L42">sweep.rs:42</a>）给出笛卡儿积，<code>sweep_columns</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-indicators/src/sweep.rs#L101">:101</a>）按“参数 repeat、标的 tile”造出列标签，一次调用算出全部组合；昂贵的中间结果（均值、标准差、RSI、平滑后的真实波幅……）按真正决定它的参数缓存，重复的组合直接复用。</p></article>
+    <article class="card"><h3>流式指标</h3><p><code>stream.rs</code> 的 <code>Stream</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-indicators/src/stream.rs#L486">stream.rs:486</a>）每列一份状态，每来一根 K 线更新一次，结果和批量计算逐位相同：均值和标准差用与批量相同的前缀和形式，而不是“更准”的直接求和。适合逐根推进的场景。</p></article>
+    <article class="card"><h3>信号层</h3><p>phasor-signals 产出模拟要消费的布尔数组：<code>clean_enex</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-signals/src/clean.rs#L69">clean.rs:69</a>）把进出场清洗成严格交替，<code>generate_exits</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-signals/src/generate.rs#L70">generate.rs:70</a>）按一个选择函数生成出场（回调是泛型参数，单态化后零开销），还有排名、区间、随机信号和训练用的标签。</p></article>
+    <article class="card"><h3>SignalSweep</h3><p>门面 crate 的 <code>SignalSweep</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor/src/sweep.rs#L20">sweep.rs:20</a>）把一个因子按一组阈值展开成“参数 × 标的”的进出场列，并带上列标签；<code>expand</code> 把价格复制到同样的列布局。Python 端用 <code>column_map</code> 让信号列共享价格列，不复制价格。</p></article>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="python">Python 层：phasor-py</h2>
+  <p>
+    Python 包是一层薄壳。计算全在 Rust 里；壳只做两件 Rust 扩展替调用方做不了的事：把数组整理成引擎读的布局，和给回一个 notebook 能打印的对象。
+  </p>
+  <div class="panel">
+    <div class="cap">从 Python 调用到引擎</div>
+    <div class="body">
+      <svg width="1040" height="276" viewBox="0 0 1040 276" role="img" aria-label="Python 层的分层">
+      <defs><marker id="a-py" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a8a8a" /></marker></defs>
+      <g font-size="11">
+      <rect x="16" y="14" width="1008" height="46" rx="6" fill="#143430" stroke="#2fbfa8"/>
+      <text x="520" y="34" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">研究与工具（纯 Python）</text>
+      <text x="520" y="48" text-anchor="middle" font-size="9.5" fill="#8fe0d2">params · validation · allocation · signals · returns · portfolios · labels · patterns · chunked · distributed · cache · config · cli · schedule · docs · mcp · stepper</text>
+      <rect x="16" y="76" width="1008" height="46" rx="6" fill="#182238" stroke="#5ea0ff"/>
+      <text x="520" y="96" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">phasor/__init__.py：薄壳</text>
+      <text x="520" y="110" text-anchor="middle" font-size="9.5" fill="#9ec1ff">from_signals / from_orders 的参数整理（F 序、默认值、字符串枚举）· FactorSet · save / load · Portfolio 的 Python 方法</text>
+      <rect x="16" y="138" width="1008" height="46" rx="6" fill="#33200f" stroke="#e07a3d"/>
+      <text x="520" y="158" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">_phasor（PyO3 扩展，crates/phasor-py/src）</text>
+      <text x="520" y="172" text-anchor="middle" font-size="9.5" fill="#f0b088">array.rs 借用 NumPy 缓冲区并拒绝 C 序 · lib.rs PyPortfolio · callbacks.rs · resume.rs · expr / indicators / research …</text>
+      <rect x="16" y="200" width="1008" height="40" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="520" y="217" text-anchor="middle" font-weight="600" font-size="11" fill="#f0f0f0">引擎 crate</text>
+      <text x="520" y="231" text-anchor="middle" font-size="9.5" fill="#909090">phasor-sim · phasor-analysis · phasor-expr · phasor-indicators · phasor-signals · phasor-generic · phasor-data …</text>
+      <path d="M520 60 V76" fill="none" stroke="#8a8a8a" marker-end="url(#a-py)"/>
+      <path d="M520 122 V138" fill="none" stroke="#8a8a8a" marker-end="url(#a-py)"/>
+      <path d="M520 184 V200" fill="none" stroke="#8a8a8a" marker-end="url(#a-py)"/>
+      <text x="16" y="262" text-anchor="start" font-size="11" fill="#b8b8b8">长计算在 py.detach 里跑，不持 GIL；Python 回调（from_order_func、signal_func）每次调用时再拿回 GIL。</text>
+      </g>
+      </svg>
+    </div>
+  </div>
+  <div class="grid2">
+    <article class="card"><h3>绑定：借用，不复制，不猜</h3><p><code>array.rs</code> 把 NumPy 缓冲区借成 <code>FlexArray</code>。连续、F 序、float64 的数组零拷贝；C 序的二维数组直接拒绝（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-py/src/array.rs#L82">array.rs:82</a>）——在方阵上，按列主序读一个 C 序数组会得到转置的价格序列，形状不变，回测照样跑完。拒绝放在读字节的地方，因为 <code>_phasor</code> 可以绕过壳直接导入。壳会先调 <code>np.asfortranarray</code>。</p></article>
+    <article class="card"><h3>组合对象</h3><p><code>PyPortfolio</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-py/src/lib.rs#L98">lib.rs:98</a>）持有收盘价副本、记录、一个重建缓存和最后的状态；每个指标第一次被问时在 Rust 里重建、释放 GIL 计算，之后命中缓存。<code>from_signals</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-py/src/lib.rs#L1384">:1384</a>）和 <code>from_orders</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-py/src/lib.rs#L2105">:2105</a>）是两个入口；<code>resume=</code>、<code>save</code> / <code>load</code>、Python 回调、内置规则都从这里进。</p></article>
+    <article class="card"><h3>研究模块</h3><p><code>params</code>（网格、随机搜索、邻居稳定性）、<code>validation</code>（时间序列切分、walk-forward、置换 / 延迟 / 打乱检验）、<code>allocation</code>（权重函数与按权重调仓）、<code>signals</code>、<code>returns</code>、<code>portfolios</code>（选账户、拼接、切行、重采样）、<code>labels</code>、<code>patterns</code>、<code>synthetic</code>、期货与外汇的辅助模块。</p></article>
+    <article class="card"><h3>规模</h3><p><code>chunked</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-py/python/phasor/chunked.py#L77">chunked.py:77</a>）按行分块接力跑，靠续跑逐位相同；<code>distributed</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-py/python/phasor/distributed.py#L76">distributed.py:76</a>）按整组账户切列，交给线程、进程或 Ray，再拼回来，靠账户之间互不影响；<code>cache</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-py/python/phasor/cache.py#L82">cache.py:82</a>）按函数字节码和参数的摘要缓存结果，可以落盘。</p></article>
+    <article class="card"><h3>配置、命令行、定时</h3><p><code>config</code> 读一个 TOML（数据、信号表达式、回测参数、扫描网格、输出），<code>phasor run / sweep / schedule / help / mcp</code> 是对应的命令（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-py/python/phasor/cli.py#L77">cli.py:77</a>），<code>schedule</code> 包一层通知（文件、命令）。库本身不发网络请求。</p></article>
+    <article class="card"><h3>文档检索与 MCP</h3><p><code>phasor.docs</code> 在本地给包里的文档字符串建 BM25 索引；<code>phasor.mcp</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-py/python/phasor/mcp.py#L92">mcp.py:92</a>）把查文档、查 API、读源码、跑小回测做成四个 MCP 工具，走 stdio。它读不到 <code>research/</code>：连上来的模型可以学会用引擎，看不到研究结果。</p></article>
+  </div>
+  <p class="small">参数怎么路由（标量 / 每列 / 每行 / 整块）、默认值、回调的 GIL、续跑、各研究模块的细节见 <a href="phasor-py.html">phasor-py</a>。</p>
+
+  <!-- ============================================================ -->
+  <h2 id="determinism">并行与确定性</h2>
+  <p>
+    引擎的硬约束：每个引擎实例都是 <code>Send</code>，没有全局状态（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/lib.rs#L9">lib.rs:9</a>）。所以参数扫描是一个进程里的多个线程，而不是多个进程；串行和多线程的运行产出逐位相同的记录。
+  </p>
+  <div class="panel">
+    <div class="cap">账户组切成连续的块，每个线程一块；合并按块的顺序</div>
+    <div class="body">
+      <svg width="1040" height="240" viewBox="0 0 1040 240" role="img" aria-label="按账户组并行">
+      <defs><marker id="a-pl" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a8a8a" /></marker></defs>
+      <g font-size="11">
+      <text x="16" y="18" text-anchor="start" font-size="11" fill="#909090">group_lens = [1, 1, 3, 1, 2]，4 个线程：Groups::chunks 按总列数的等分点切连续的组</text>
+      <rect x="16" y="30" width="104" height="40" rx="6" fill="#182238" stroke="#5ea0ff"/>
+      <text x="68" y="47" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">组 0</text>
+      <text x="68" y="61" text-anchor="middle" font-size="9" fill="#9ec1ff">1 列</text>
+      <rect x="126" y="30" width="104" height="40" rx="6" fill="#182238" stroke="#5ea0ff"/>
+      <text x="178" y="47" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">组 1</text>
+      <text x="178" y="61" text-anchor="middle" font-size="9" fill="#9ec1ff">1 列</text>
+      <rect x="236" y="30" width="324" height="40" rx="6" fill="#143430" stroke="#2fbfa8"/>
+      <text x="398" y="47" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">组 2</text>
+      <text x="398" y="61" text-anchor="middle" font-size="9" fill="#8fe0d2">3 列</text>
+      <rect x="566" y="30" width="104" height="40" rx="6" fill="#33200f" stroke="#e07a3d"/>
+      <text x="618" y="47" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">组 3</text>
+      <text x="618" y="61" text-anchor="middle" font-size="9" fill="#f0b088">1 列</text>
+      <rect x="676" y="30" width="214" height="40" rx="6" fill="#2e2710" stroke="#c9a227"/>
+      <text x="783" y="47" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">组 4</text>
+      <text x="783" y="61" text-anchor="middle" font-size="9" fill="#e6c35c">2 列</text>
+      <rect x="16" y="96" width="214" height="40" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="123" y="113" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">线程 0</text>
+      <text x="123" y="127" text-anchor="middle" font-size="9" fill="#909090">自己的 SinkBuffer</text>
+      <path d="M126 70 V96" fill="none" stroke="#8a8a8a" marker-end="url(#a-pl)"/>
+      <rect x="236" y="96" width="324" height="40" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="398" y="113" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">线程 1</text>
+      <text x="398" y="127" text-anchor="middle" font-size="9" fill="#909090">自己的 SinkBuffer</text>
+      <path d="M401 70 V96" fill="none" stroke="#8a8a8a" marker-end="url(#a-pl)"/>
+      <rect x="566" y="96" width="104" height="40" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="618" y="113" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">线程 2</text>
+      <text x="618" y="127" text-anchor="middle" font-size="9" fill="#909090">自己的 SinkBuffer</text>
+      <path d="M621 70 V96" fill="none" stroke="#8a8a8a" marker-end="url(#a-pl)"/>
+      <rect x="676" y="96" width="214" height="40" rx="6" fill="#262626" stroke="#3d3d3d"/>
+      <text x="783" y="113" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">线程 3</text>
+      <text x="783" y="127" text-anchor="middle" font-size="9" fill="#909090">自己的 SinkBuffer</text>
+      <path d="M786 70 V96" fill="none" stroke="#8a8a8a" marker-end="url(#a-pl)"/>
+      <rect x="16" y="162" width="874" height="40" rx="6" fill="#2a2036" stroke="#b07cd8"/>
+      <text x="453" y="179" text-anchor="middle" font-weight="600" font-size="10.5" fill="#f0f0f0">merge：按块的顺序拼接，再按位置编号 id</text>
+      <text x="453" y="193" text-anchor="middle" font-size="9" fill="#d4b4ee">和线程怎么交错无关：串行与多线程的记录逐位相同</text>
+      <path d="M126 136 V162" fill="none" stroke="#8a8a8a" marker-end="url(#a-pl)"/>
+      <path d="M401 136 V162" fill="none" stroke="#8a8a8a" marker-end="url(#a-pl)"/>
+      <path d="M621 136 V162" fill="none" stroke="#8a8a8a" marker-end="url(#a-pl)"/>
+      <path d="M786 136 V162" fill="none" stroke="#8a8a8a" marker-end="url(#a-pl)"/>
+      <text x="16" y="226" text-anchor="start" font-size="11" fill="#b8b8b8">每个线程写自己的缓冲区，没有共享计数器。随机拒单、随机信号、合成价格的每个随机数都是 (seed, row, col) 的纯函数，不是一条随调用顺序推进的流。</text>
+      </g>
+      </svg>
+    </div>
+  </div>
+  <div class="wrap">
+    <table>
+      <thead><tr><th style="width:22%">保证</th><th>怎么做到的</th></tr></thead>
+      <tbody>
+        <tr><td>模拟与线程数无关</td><td><code>Groups::chunks</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/groups.rs#L156">groups.rs:156</a>）按总列数的等分点把连续的组切成块，每个线程用 <code>std::thread::scope</code> 跑一块（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/from_orders.rs#L2104">from_orders.rs:2104</a>），写自己的 <code>SinkBuffer</code>；合并按块的顺序拼接、拼完再编号。不用工作窃取的线程池，因为组的数目和大小在开始前就知道。</td></tr>
+        <tr><td>随机数与调用顺序无关</td><td><code>phasor_core::random</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-core/src/random.rs#L1">random.rs:1</a>）按键计算：每个随机数是 <code>(seed, row, col)</code>（加一个 salt）经 SplitMix64 链式混合的纯函数。第 c 列的值不取决于它是单独生成还是扫描里的第一千列，也不取决于线程怎么交错。随机拒单、随机信号、合成价格都用它。</td></tr>
+        <tr><td>因子与线程数无关</td><td>逐标的的图在任何线程上算出同样的值；截面算子的一行只由这一行决定，行内按标的顺序累加，排名和分组用 <code>total_cmp</code> 再按下标的稳定排序；按因子切分（<code>run_parts</code>）只是让共享节点多算几次。</td></tr>
+        <tr><td>分段与一次跑完相同</td><td>状态快照带着全部列状态；行号换算和随机数的行号都按整段历史算；拼接按组稳定排序（见<a href="#resume">续跑</a>）。</td></tr>
+        <tr><td>测试</td><td>每个带新状态的功能都有“串行与并行逐位相同”的测试：<code>parallel_matches_serial_exactly</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/from_orders.rs#L2235">from_orders.rs:2235</a>）、杠杆、保证金、强平、持仓费、限价单、扩展止损、初始持仓、现金流各一个，因子引擎有 <code>thread_count_does_not_change_staged_results</code>（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-expr/tests/cross_section.rs#L160">cross_section.rs:160</a>）。</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="performance">性能设计</h2>
+  <p>
+    速度不来自把一次运行向量化，而来自：编译后的内核、栈上的状态、列主序（一列是一段连续切片）、以及列之间的并行。单列不能用多于一个线程；稀疏负载（少数 K 线成交）受计算限制，随线程数近乎线性扩展，
+    稠密负载（每根都写记录）受内存带宽限制，扩展得少。
+  </p>
+  <div class="grid2">
+    <article class="card"><h3>关掉的功能几乎不花钱</h3><p>一个关着的功能最多让循环多花 3% 的指令。可选功能（现金流、杠杆与保证金、限价单、扩展止损、回调）用 <code>const</code> 泛型参数（<code>FLOWS</code>、<code>LEV</code>、<code>EXTENDED</code>、回调的 <code>ON</code>）实例化出不同的循环，没用到的那份代码根本不在热路径里。<code>benchmarks/instructions.py</code> 在 callgrind 下数指令，和基准提交比较，某条循环的几何平均增加超过 3% 就失败。</p></article>
+    <article class="card"><h3>冷路径与标量快路径</h3><p>少见的分支写成 <code>#[cold]</code> / <code>#[inline(never)]</code> 的独立函数（内核的借款上限、*100 写法、空头还款，循环的强平、挂单测试、回调下单），常见路径保持紧凑；<code>FlexArray::get</code> 的标量分支在调用处直接返回。</p></article>
+    <article class="card"><h3>每列一次，而不是每根一次</h3><p><code>ValidatedOrder</code> 每列构造一次、把与 K 线无关的参数检查提到循环外；记录缓冲区按成交上界预分配（可下单的格子数，或信号置位格数的两倍），而不是 <code>n_rows × n_cols</code>。</p></article>
+    <article class="card"><h3>基准与回归门</h3><p><code>cargo run --release --example bench -p phasor-sim</code> 读 <code>benchmarks/workloads.tsv</code> 和 <code>workloads_signals.tsv</code>，按公式生成输入，输出带校验和与成交数；<code>compare.py</code> 发现同一负载做的事不同就中止，并以单线程行、10% 阈值对 <code>baseline.tsv</code> 做回归检查。</p></article>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="testing">测试策略</h2>
+  <p>
+    <code>cargo test --workspace</code> 不需要 Python：它回放提交在 <code>tests/fixtures/</code> 里的<b>黄金输出</b>——引擎已文档化行为的预期结果。回放失败说明引擎的输出变了；
+    黄金文件不能为了让改动通过而重新生成。没有黄金文件的地方用手算场景、性质测试和变异检查。
+  </p>
+  <div class="wrap">
+    <table>
+      <thead><tr><th style="width:30%">黄金输出</th><th style="width:30%">回放的测试</th><th>覆盖什么</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">execute_order.tsv · order_sequence.tsv</td><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-exec/tests/golden.rs">phasor-exec/tests/golden.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-exec/tests/golden_sequence.rs">golden_sequence.rs</a></td><td>内核的单次调用（每一种可达的拒单原因、数量类型、方向、不变量错误、容差边界）和链式调用（状态逐步传递）</td></tr>
+        <tr><td class="mono">from_orders · from_signals · signals · cash_sharing</td><td class="mono">phasor-sim/tests/golden_*.rs</td><td>两条循环、信号管线的五个纯函数、共享现金的两种调用顺序；并检查并行与串行逐位相同</td></tr>
+        <tr><td class="mono">trades · drawdowns · mapped</td><td class="mono">phasor-records/tests/golden_*.rs</td><td>三种交易视图、回撤段（穷举短路径）、按列归约（穷举小分配）</td></tr>
+        <tr><td class="mono">analysis · metrics · stats · margin</td><td class="mono">phasor-analysis/tests/golden_*.rs</td><td>订单到净值到指标的端到端情形、18 个指标及滚动形式、stats 表、保证金账户的逐根权益与手续费</td></tr>
+        <tr><td class="mono">generic · indicators · signals_gen</td><td class="mono">各 crate 的 golden_*.rs</td><td>窗口函数的边界序列、八个指标、长度 ≤ 6 的全部布尔数组</td></tr>
+        <tr><td class="mono">qlib_alpha158 · qlib_alpha360</td><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-expr/tests/parity_qlib.rs">phasor-expr/tests/parity_qlib.rs</a></td><td>Qlib 的 Alpha158 / Alpha360 在确定性面板上的输出，原生和 Polars 两个后端各跑一遍</td></tr>
+        <tr><td class="mono">wq101.tsv</td><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-expr/tests/wq101.rs">phasor-expr/tests/wq101.rs</a></td><td>WorldQuant 101（论文 arXiv:1601.00991 附录 A），预期值来自生成脚本里独立的 NumPy 解释器；依赖并列的格子标 <code>~</code>、不比较</td></tr>
+        <tr><td class="mono">shared_accounts.json</td><td class="mono">crates/phasor-py/tests/test_shared_accounts.py</td><td>共享账户经 Python API 的运行</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="grid3" style="margin-top:12px">
+    <article class="card"><h3>黄金输出怎么写</h3><p>逐字段比较记录，不比较汇总（四位小数一致的净值曲线能藏住符号错误和差一的下标）；浮点用紧容差，整数、枚举、NaN 与无穷的位置精确比较。情形故意别扭：缺口、常数序列、短窗口、跨数量级。每套还有覆盖测试，黄金文件不再走到某个分支时就失败。只有来自外部库或独立解释器的三份有生成脚本（<a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/tests/generators/README.md">tests/generators/</a>）。</p></article>
+    <article class="card"><h3>性质测试</h3><p>没有黄金文件的功能各有手算场景和性质：默认参数逐位不变；现金和净值能从记录重建；乘数为 k 等于数量放大 k 倍；任意切点续跑等于一次跑完；1、3、N 个线程结果相同；随机信号的数量、交替、频率、种子、列独立。</p></article>
+    <article class="card"><h3>变异检查</h3><p>相信一套测试之前，先故意改坏代码：翻一个符号、去掉一次归零、把容差比较换成 <code>&lt;=</code>，确认有测试失败。能被区分的存活变异要补一个情形；差别小于比较容差的，用单元测试直接比较位模式。存活且无法区分的变异在模块注释里论证为等价。</p></article>
+  </div>
+  <p class="small" style="margin-top:8px">仓库的 <code>skills/phasor-testing</code> 写了排查黄金测试失败的步骤；<code>cargo clippy --workspace --all-targets -- -D warnings</code> 和 <code>cargo fmt --check</code> 也是必过的检查，Python 包另有 pytest 测试（<a href="https://github.com/nivalume/phasor/tree/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-py/tests">crates/phasor-py/tests</a>）。</p>
+
+  <!-- ============================================================ -->
+  <h2 id="reading">读码顺序</h2>
+  <ol class="steps">
+    <li><b>地基：</b><a href="phasor-core.html">phasor-core</a>（列轴、FlexArray、容差）→ <a href="phasor-model.html">phasor-model</a>（枚举与拒单原因）。</li>
+    <li><b>一笔订单：</b><a href="phasor-exec.html">phasor-exec</a>，从 <code>execute_order</code> 读到换算链。</li>
+    <li><b>一根 K 线：</b><a href="phasor-sim.html">phasor-sim</a>，先 from_orders 的 <code>run_rows</code>，再 from_signals 的 <code>prepare_order</code>。</li>
+    <li><b>一次运行的产物：</b><a href="phasor-records.html">phasor-records</a> → <a href="phasor-analysis.html">phasor-analysis</a>。</li>
+    <li><b>输入从哪来：</b><a href="phasor-generic.html">phasor-generic</a>、<a href="phasor-indicators.html">phasor-indicators</a>、<a href="phasor-expr.html">phasor-expr</a>、<a href="phasor-signals.html">phasor-signals</a>，本页的<a href="#data">数据</a>一节。</li>
+    <li><b>怎么用：</b><a href="phasor.html">门面</a>和 <a href="phasor-py.html">phasor-py</a>。</li>
+  </ol>
+
+  <h2>源文件</h2>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>文件</th><th>本页用到的内容</th></tr></thead>
+      <tbody>
+        <tr><td colspan="2" class="small">行号对应 <a href="https://github.com/nivalume/phasor/tree/1d573df0430fa5cd3a2416300603c7147f3c6a13">1d573df</a>。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/Cargo.toml">Cargo.toml</a></td><td>工作区成员、共享依赖、工作区 lint（<code>unsafe_code = "deny"</code>、<code>clippy::float_cmp</code>）。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor/src/lib.rs">crates/phasor/src/lib.rs</a></td><td>门面的模块文档、再导出、prelude。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-core/src/columns.rs">phasor-core/src/columns.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-core/src/flex.rs">flex.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-core/src/matrix.rs">matrix.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-core/src/math.rs">math.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-core/src/random.rs">random.rs</a></td><td>列标签、广播、列主序矩阵、容差、按键计算的随机数。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-data/src/lib.rs">phasor-data/src/lib.rs</a></td><td>catalog、DataSchema、load、Dataset::prepare / align。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-exec/src/kernel.rs">phasor-exec/src/kernel.rs</a></td><td>execute_order、ValidatedOrder、execute_validated、买卖与保证金路径。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/lib.rs">phasor-sim/src/lib.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/from_orders.rs">from_orders.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/from_signals.rs">from_signals.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/groups.rs">groups.rs</a></td><td>为什么不用 SIMD、两条循环、按组并行与调用顺序。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/signals.rs">phasor-sim/src/signals.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/stops.rs">stops.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/limit.rs">limit.rs</a></td><td>信号管线、止损、限价单。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/margin.rs">phasor-sim/src/margin.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/liquidation.rs">liquidation.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/holding.rs">holding.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/initial.rs">initial.rs</a></td><td>保证金结算、强平、持仓费、初始持仓。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/callbacks.rs">phasor-sim/src/callbacks.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/builtin.rs">builtin.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-sim/src/snapshot.rs">snapshot.rs</a></td><td>回调、内置规则、状态快照与 Run。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-records/src/lib.rs">phasor-records/src/lib.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-records/src/cash.rs">cash.rs</a></td><td>记录格式、RecordSink、顺序与 id、chain。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-analysis/src/portfolio.rs">phasor-analysis/src/portfolio.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-analysis/src/series.rs">series.rs</a></td><td>Portfolio 与重建链。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-expr/src/lib.rs">phasor-expr/src/lib.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-expr/src/parse.rs">parse.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-expr/src/graph.rs">graph.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-expr/src/stage.rs">stage.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-expr/src/eval.rs">eval.rs</a></td><td>因子引擎的编译与执行。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-indicators/src/sweep.rs">phasor-indicators/src/sweep.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-indicators/src/stream.rs">stream.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-signals/src/clean.rs">phasor-signals/src/clean.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-signals/src/generate.rs">generate.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor/src/sweep.rs">phasor/src/sweep.rs</a></td><td>扫描布局、流式指标、信号、SignalSweep。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-py/src/array.rs">phasor-py/src/array.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-py/src/lib.rs">lib.rs</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-py/python/phasor/chunked.py">chunked.py</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-py/python/phasor/distributed.py">distributed.py</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-py/python/phasor/cache.py">cache.py</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-py/python/phasor/cli.py">cli.py</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/crates/phasor-py/python/phasor/mcp.py">mcp.py</a></td><td>Python 绑定与 Python 包。</td></tr>
+        <tr><td class="mono"><a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/benchmarks/README.md">benchmarks/README.md</a> · <a href="https://github.com/nivalume/phasor/blob/1d573df0430fa5cd3a2416300603c7147f3c6a13/tests/generators/README.md">tests/generators/README.md</a></td><td>基准与回归门；黄金输出与生成脚本。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<script id="toc-script">
+(() => {
+  const head = document.querySelector("header.top"), toc = document.getElementById("toc"), btn = document.getElementById("toc-btn");
+  const setH = () => document.documentElement.style.setProperty("--hh", head.offsetHeight + "px");
+  setH(); addEventListener("resize", setH);
+  const wide = () => matchMedia("(min-width: 1240px)").matches;
+  btn.addEventListener("click", () => { if (wide()) document.body.classList.toggle("toc-closed"); else document.body.classList.toggle("toc-open"); });
+  toc.addEventListener("click", (e) => { if (e.target.closest("a") && !wide()) document.body.classList.remove("toc-open"); });
+  const links = [...toc.querySelectorAll("ol.sec a")];
+  const targets = links.map((a) => document.getElementById(a.getAttribute("href").slice(1))).filter(Boolean);
+  const spy = () => {
+    const y = head.offsetHeight + 24; let cur = targets[0];
+    for (const t of targets) if (t.getBoundingClientRect().top <= y) cur = t;
+    for (const a of links) a.classList.toggle("on", cur && a.getAttribute("href") === "#" + cur.id);
+  };
+  addEventListener("scroll", spy, { passive: true }); spy();
+})();
+</script>
+</body>
+</html>
