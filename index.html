@@ -152,7 +152,7 @@
   </p>
   <div class="stats">
     <div class="stat"><b>13 个 crate</b><span>7 层：地基 → 领域与数组 → 内核与数据 → 记录 → 模拟 → 分析 → 门面</span></div>
-    <div class="stat"><b>约 4.8 万行 Rust</b><span>各 crate <code>src/</code> 合计（aeb8f77）；最大的是 phasor-sim（12,702 行）</span></div>
+    <div class="stat"><b>约 4.8 万行 Rust</b><span>各 crate <code>src/</code> 合计（f8c7ac3）；最大的是 phasor-sim（12,702 行）</span></div>
     <div class="stat"><b>向量化执行</b><span>逐列逐根 K 线的模拟循环，账户组之间并行；README 里的事件驱动层只是设想，不在 docs/plan.md 里</span></div>
     <div class="stat"><b>12 / 13 有页面</b><span>只有 phasor-data 还没有独立的 crate 页</span></div>
   </div>
@@ -331,7 +331,7 @@
     <div class="body">
       <svg id="crate-graph" width="1080" height="560" viewBox="0 0 1080 560" role="img" aria-label="crate 依赖图"></svg>
     </div>
-    <div class="foot"><p class="small" style="margin:0">来源：各 crate 的 Cargo.toml。门面 phasor 对 phasor-data 的依赖在 <code>data</code> feature 之后（虚线）。行数是 <code>src/</code> 下 .rs 文件的合计（<code>wc -l</code>，aeb8f77）。</p></div>
+    <div class="foot"><p class="small" style="margin:0">来源：各 crate 的 Cargo.toml。门面 phasor 对 phasor-data 的依赖在 <code>data</code> feature 之后（虚线）。行数是 <code>src/</code> 下 .rs 文件的合计（<code>wc -l</code>，f8c7ac3）。</p></div>
   </div>
   <div class="detail" id="g-detail"></div>
 
@@ -342,7 +342,7 @@
     外部知识库 nivalume/phasor-docs 逐行带读代码，并把每一处引用钉在同一个 commit 上。
   </p>
   <p class="small">
-    本站各页“源文件”表和正文里的代码链接都指向 phasor 的 <a href="https://github.com/nivalume/phasor/tree/aeb8f778496189abef81d4f59e70ae30a402a08e">aeb8f77</a>，页面里写的行号（链接里的和纯文字的）都按这个提交核对过；
+    本站各页“源文件”表和正文里的代码链接都指向 phasor 的 <a href="https://github.com/nivalume/phasor/tree/f8c7ac3c016b993eb565b9b39a21e4da63d32147">f8c7ac3</a>，页面里写的行号（链接里的和纯文字的）都按这个提交核对过；
     本页的行数统计也取自这个提交。代码改了以后，按新提交重新核对全部行号，再把所有链接里的提交号一起换掉。
   </p>
   <div class="panel">
@@ -545,7 +545,7 @@
 /* ---------------- crate data (Cargo.toml) ---------------- */
 const CRATES = {
   "phasor-core": { layer: 0, x: 610, loc: 1436, deps: [], desc: "Matrix、FlexArray、列标签、浮点容差、Error；无外部依赖", arch: "—", page: "phasor-core.html" },
-  "phasor-model": { layer: 1, x: 400, loc: 1012, deps: ["phasor-core"], desc: "撮合枚举、id、BarType、OhlcvPanel、定点 Price / Quantity", arch: "—", page: "phasor-model.html" },
+  "phasor-model": { layer: 1, x: 400, loc: 1008, deps: ["phasor-core"], desc: "撮合枚举、id、BarType、OhlcvPanel、定点 Price / Quantity", arch: "—", page: "phasor-model.html" },
   "phasor-generic": { layer: 1, x: 690, loc: 1716, deps: ["phasor-core"], desc: "滚动 / 扩展 / EWM 窗口、平移、填充、交叉；带种子的合成价格", arch: "2.9", page: "phasor-generic.html" },
   "phasor-signals": { layer: 1, x: 950, loc: 2045, deps: ["phasor-core"], desc: "信号清洗、生成出场、排名、区间、随机信号、标签", arch: "2.11", page: "phasor-signals.html" },
   "phasor-data": { layer: 2, x: 180, loc: 560, deps: ["phasor-model"], desc: "CSV / Parquet / catalog → Arrow → 面板，按时点对齐", arch: "2.9", page: null },
@@ -556,7 +556,7 @@ const CRATES = {
   "phasor-sim": { layer: 4, x: 470, loc: 12702, deps: ["phasor-core", "phasor-exec", "phasor-model", "phasor-records"], desc: "from_orders / from_signals 循环、回调与内置回调、止损止盈、分组、并行执行、状态快照与续跑", arch: "2.1–2.8", page: "phasor-sim.html" },
   "phasor-analysis": { layer: 5, x: 610, loc: 5963, deps: ["phasor-core", "phasor-generic", "phasor-model", "phasor-records", "phasor-sim"], desc: "Portfolio、净值 / 收益链、指标、统计、汇总", arch: "2.12", page: "phasor-analysis.html" },
   "phasor": { layer: 6, x: 470, loc: 363, deps: ["phasor-data", "phasor-analysis", "phasor-core", "phasor-exec", "phasor-generic", "phasor-indicators", "phasor-expr", "phasor-model", "phasor-records", "phasor-signals", "phasor-sim"], optional: ["phasor-data"], desc: "门面、prelude、SignalSweep；data feature 引入 phasor-data", arch: "—", page: "phasor.html" },
-  "phasor-py": { layer: 6, x: 770, loc: 7135, deps: ["phasor-data", "phasor-analysis", "phasor-core", "phasor-exec", "phasor-expr", "phasor-generic", "phasor-indicators", "phasor-model", "phasor-records", "phasor-signals", "phasor-sim"], desc: "PyO3 扩展 phasor._phasor + Python 包 phasor（含参数搜索、分块与分布式、CLI、MCP 服务）", arch: "全部", page: "phasor-py.html" },
+  "phasor-py": { layer: 6, x: 770, loc: 7142, deps: ["phasor-data", "phasor-analysis", "phasor-core", "phasor-exec", "phasor-expr", "phasor-generic", "phasor-indicators", "phasor-model", "phasor-records", "phasor-signals", "phasor-sim"], desc: "PyO3 扩展 phasor._phasor + Python 包 phasor（含参数搜索、分块与分布式、CLI、MCP 服务）", arch: "全部", page: "phasor-py.html" },
 };
 const LAYER_NAMES = ["地基", "领域与数组", "内核与数据", "记录", "模拟", "分析", "门面"];
 const LAYER_COLORS = ["#5ea0ff", "#2fbfa8", "#e07a3d", "#c9a227", "#d35d5d", "#b07cd8", "#8a8a8a"];
